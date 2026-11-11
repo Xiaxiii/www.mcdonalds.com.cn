@@ -33,6 +33,39 @@ function balSave(live, list) {
     localStorage.setItem(balStoreKey(balIdent(live)), JSON.stringify(keep));
   } catch {}
 }
+// 2.11.3 余额记录随站点导出、导入。site：{ source, url }；secretId：这把密钥在酒馆密钥库里的编号
+function balRecordsOf(site, secretId) {
+  return balRecords({ source: site.source, url: site.url, secretId: secretId || null });
+}
+// 并入另一份记录：同一时刻的只留一条。返回新增条数
+function balMerge(site, secretId, add) {
+  const ok = Array.isArray(add) ? add.filter((r) => r && typeof r === "object" && Number.isFinite(r.t)) : [];
+  if (!ok.length) return 0;
+  const live = { source: site.source, url: site.url, secretId: secretId || null };
+  const have = balRecords(live), seen = new Set(have.map((r) => r.t));
+  const fresh = ok.filter((r) => !seen.has(r.t));
+  if (fresh.length) balSave(live, [...have, ...fresh].sort((a, b) => a.t - b.t));
+  return fresh.length;
+}
+// 同一浏览器里焦香鸡翅记下的余额记录：类型、网址相同，且密钥全文相同（按密钥编号向酒馆读回比对）
+async function balFromJichi(source, url, keyText) {
+  if (!keyText) return [];
+  const prefix = `presetAtelier:balance:${userHandle()}:`;
+  const want = `${source}\u0001${String(url || "").replace(/\/+$/, "")}\u0001`;
+  let names = [];
+  try { names = Object.keys(localStorage).filter((k) => k.startsWith(prefix + want)); } catch { return []; }
+  for (const name of names) {
+    const sid = name.slice((prefix + want).length);
+    if (!sid) continue;
+    const got = await revealSecret(source, sid).catch(() => ({}));
+    if (got.value !== keyText) continue;
+    try {
+      const v = JSON.parse(localStorage.getItem(name) || "[]");
+      return Array.isArray(v) ? v : [];
+    } catch { return []; }
+  }
+  return [];
+}
 function onBalance(fn) {
   BAL.listeners.add(fn);
   return () => BAL.listeners.delete(fn);

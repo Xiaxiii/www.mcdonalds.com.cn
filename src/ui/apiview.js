@@ -545,7 +545,7 @@ function siteKeysIn(o) {
       if (typeof k === "string") return textKeys(k).map((key) => ({ name: "", key }));
       if (!k || typeof k !== "object") return [];
       const key = String(sitePick(k, SITE_KEY_FIELDS) || "").trim();
-      return [{ name: String(sitePick(k, ["name", "label", "group", "title"]) || "").trim(), key, model: String(sitePick(k, SITE_MODEL_FIELDS) || "").trim(), models: siteModelsOf(sitePick(k, SITE_MODELS_FIELDS)) }];
+      return [{ name: String(sitePick(k, ["name", "label", "group", "title"]) || "").trim(), key, model: String(sitePick(k, SITE_MODEL_FIELDS) || "").trim(), models: siteModelsOf(sitePick(k, SITE_MODELS_FIELDS)), ...(Array.isArray(k.balance) ? { balance: k.balance } : {}) }];
     });
   }
   const one = sitePick(o, SITE_KEY_FIELDS);
@@ -1170,6 +1170,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const keys = [];
       for (const k of keysOfSite(s)) {
         const item = { name: k.name || "", model: k.model || "", models: k.models || [] };
+        const bal = balRecordsOf(s, k.secretId);
+        if (bal.length) item.balance = bal;
         if (how === "keys" && savedKey(k)) {
           // 2.11.2 读不到时分清原因：酒馆不允许读回密钥（allowKeysExposure 为 false），还是这把密钥已不存在
           const got = k.secretId ? await revealSecret(s.source, k.secretId) : { value: await keyTextOf(s, k) };
@@ -1290,6 +1292,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         if (k.localId && k.localId !== s.id) s.localId = k.localId;
       }
       if (k.legacyKey) s.legacyKey = k.legacyKey;
+    }
+    // 2.11.3 余额记录：文件里带了就用文件的；没带的，从同一浏览器里的焦香鸡翅接过来
+    for (const [i, ik] of f.keys.entries()) {
+      const k = keys[i];
+      if (!k) continue;
+      const recs = ik.balance?.length ? ik.balance : await balFromJichi(f.source, s.url, ik.key);
+      balMerge(s, k.secretId, recs);
     }
     if (!old) sites().push(s);
   }
