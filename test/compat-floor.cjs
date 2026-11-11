@@ -1,4 +1,4 @@
-// 兼容下限：酒馆本体能在 iOS 15.4 / Chrome 98 上运行（它特意避开后行断言），焦香鸡翅不能比它高。
+// 兼容下限：酒馆本体能在 iOS 15.4 / Chrome 98 上运行（它特意避开后行断言），麦当劳不能比它高。
 // 扫生成的 index.js，去掉注释后不允许出现这些写法：一个不认的正则字面量会让整个扩展加载失败，新 API 会在用到时报错
 const fs = require("fs"), path = require("path");
 const assert = require("assert");

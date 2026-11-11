@@ -14,12 +14,12 @@ try {
   await page.route('https://example.com/v1/dashboard/billing/usage**', (r) => r.fulfill({ json: { total_usage: usage[Math.min(calls++, usage.length - 1)] }, headers: { 'access-control-allow-origin': '*' } }));
   await page.route('**/api/secrets/find', (r) => r.fulfill({ json: { value: 'sk-manual-test' } }));
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(async () => {
     const sec = await import('/test/site/scripts/secrets.js');
     sec.secret_state.api_key_custom.push({ id: 'k1', value: 'est', active: true });
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: 's1', name: '中转', source: 'custom', url: 'https://example.com/v1', model: 'claude-x', models: [], secretId: 'k1', keyMask: 'sk-…1' }], activeSiteId: 's1' };
-    window.__presetAtelier.open('conn');
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [{ id: 's1', name: '中转', source: 'custom', url: 'https://example.com/v1', model: 'claude-x', models: [], secretId: 'k1', keyMask: 'sk-…1' }], activeSiteId: 's1' };
+    window.__mcdonalds.open('conn');
   });
   const bal = page.locator('.pa-live .pa-bal');
   await bal.waitFor();
@@ -43,7 +43,7 @@ try {
   assert.equal(await page.locator('.pa-sheet [data-f=bal]').count(), 1, '格式不对不保存');
   await page.fill('.pa-sheet [data-f=bal]', '¥300');
   await page.click('.pa-sheet-actions .pa-btn-primary'); await page.waitForTimeout(400);
-  const mb = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].manualBalance);
+  const mb = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].manualBalance);
   assert.deepEqual([mb.amount, mb.cur], [300, '¥']);
   ok('编辑窗口显示当前余额；充值后改成新余额重新计算');
   assert.deepEqual(errors, []);

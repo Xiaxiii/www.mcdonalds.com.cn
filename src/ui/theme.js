@@ -126,23 +126,23 @@ function hostForcesText(root) {
   return forced;
 }
 function guardRules() {
-  if (document.getElementById("pa-guard-style")) return;
-  const sheet = document.getElementById("pa-style")?.sheet;
+  if (document.getElementById("mcd-guard-style")) return;
+  const sheet = document.getElementById("mcd-style")?.sheet;
   if (!sheet) return;
-  const out = ["#pa-root.pa-guard :where(b, strong, p, span, label, small, em, i, details, summary, li, dt, dd, div, h1, h2, h3, h4, h5, a, code, pre, td, th, article, header, section) { color: inherit !important; -webkit-text-fill-color: currentColor !important; }"];
+  const out = ["#mcd-root.pa-guard :where(b, strong, p, span, label, small, em, i, details, summary, li, dt, dd, div, h1, h2, h3, h4, h5, a, code, pre, td, th, article, header, section) { color: inherit !important; -webkit-text-fill-color: currentColor !important; }"];
   const walk = (rules, wrap) => {
     for (const rule of rules) {
       const at = rule instanceof CSSMediaRule ? "@media" : typeof CSSSupportsRule !== "undefined" && rule instanceof CSSSupportsRule ? "@supports" : "";
       if (at) { walk(rule.cssRules, (t) => wrap(`${at} ${rule.conditionText} { ${t} }`)); continue; }
       const sel = rule.selectorText, color = rule.style?.getPropertyValue("color");
-      if (!sel || !color || !sel.includes("#pa-root")) continue;
+      if (!sel || !color || !sel.includes("#mcd-root")) continue;
       const fill = rule.style.getPropertyValue("-webkit-text-fill-color") || "currentColor";
-      out.push(wrap(`${sel.replaceAll("#pa-root", "#pa-root.pa-guard")} { color: ${color} !important; -webkit-text-fill-color: ${fill} !important; }`));
+      out.push(wrap(`${sel.replaceAll("#mcd-root", "#mcd-root.pa-guard")} { color: ${color} !important; -webkit-text-fill-color: ${fill} !important; }`));
     }
   };
   walk(sheet.cssRules, (t) => t);
   const style = document.createElement("style");
-  style.id = "pa-guard-style";
+  style.id = "mcd-guard-style";
   style.textContent = out.join("\n");
   document.head.append(style);
   if (typeof cleanups !== "undefined") cleanups.push(() => style.remove());
@@ -271,7 +271,7 @@ async function applyBackground(root) {
     root.style.setProperty("--pa-bg-veil", `rgba(${tint.r}, ${tint.g}, ${tint.b}, ${veil})`);
     root.classList.add("pa-has-bg");
   } catch (e) {
-    console.warn("[焦香鸡翅] 背景图读取失败", e);
+    console.warn("[麦当劳] 背景图读取失败", e);
     root.classList.remove("pa-has-bg");
   }
 }
@@ -347,7 +347,7 @@ function bindThemeCards(box, after) {
     themePrefs();
     settings().theme = b.dataset.themeId;
     saveSettings();
-    applyTheme(document.getElementById("pa-root"));
+    applyTheme(document.getElementById("mcd-root"));
     box.querySelectorAll("[data-theme-id]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     after?.();
   });
@@ -357,7 +357,7 @@ function bindThemeCards(box, after) {
     themePrefs();
     settings().followSystem = t.checked;
     saveSettings();
-    applyTheme(document.getElementById("pa-root"));
+    applyTheme(document.getElementById("mcd-root"));
     box.innerHTML = themeCards();
     box.querySelector("[data-follow-system]")?.focus({ preventScroll: true });
     after?.();
@@ -374,7 +374,7 @@ function bgPanel() {
     </div>`;
 }
 function bindBgPanel(box, rerender) {
-  const root = () => document.getElementById("pa-root");
+  const root = () => document.getElementById("mcd-root");
   box.addEventListener("change", async (e) => {
     const t = e.target.closest("[data-bg]");
     if (!t) return;
@@ -419,7 +419,7 @@ function bindBgPanel(box, rerender) {
   });
 }
 // 1.5.0 文字大小：小 / 标准 / 大。每台设备单独记（手机和平板常常想要不同的大小），存在本浏览器
-var FS_KEY = "presetAtelier:fontSize";
+var FS_KEY = "mcdonalds:fontSize";
 function fontSizePref() {
   try {
     return localStorage.getItem(FS_KEY) || "m";
@@ -440,7 +440,7 @@ function bindFontSize(box) {
       localStorage.setItem(FS_KEY, b.dataset.fs);
     } catch {
     }
-    const root = document.getElementById("pa-root");
+    const root = document.getElementById("mcd-root");
     if (root) root.dataset.fs = b.dataset.fs;
     box.querySelectorAll("[data-fs]").forEach((x) => x.classList.toggle("on", x === b));
   });

@@ -8,13 +8,13 @@ async function openPage(saved) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on("pageerror", (e) => errs.push(e.message));
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   await page.evaluate((saved) => {
     // 预设里「写作指导」存的是展开
     const m = window.__mock;
     for (const p of [...m.presets, m.live].filter(Boolean)) for (const g of p.extensions?.baibaiToolkit?.presetPromptGroups?.groups || []) g.collapsed = g.name !== "写作指导";
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = saved ? structuredClone(saved) : {};
-    window.__presetAtelier.open("organize");
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = saved ? structuredClone(saved) : {};
+    window.__mcdonalds.open("organize");
   }, saved);
   await page.waitForTimeout(500);
   return page;
@@ -43,7 +43,7 @@ await page.evaluate(() => {
 });
 await page.waitForTimeout(500);
 assert.equal(await fold(page), f1, "分组编号变化后保持");
-const saved = await page.evaluate(() => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier));
+const saved = await page.evaluate(() => structuredClone(window.SillyTavern.getContext().extensionSettings.mcdonalds));
 await page.close();
 
 // 重新打开（相当于重新加载酒馆）：预设里「写作指导」仍存为展开，但以最后一次操作为准

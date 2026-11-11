@@ -10,13 +10,13 @@ async function start(mobile, preset = fixture()) {
   const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1100, height: 900 }, hasTouch: mobile, isMobile: mobile });
   page.on('pageerror', e => errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(({ title, preset }) => {
     const m = window.__mock; m.names.push(title); m.presets.push(preset);
     m.live.preset_settings_openai = title; Object.assign(m.live, structuredClone(preset));
     window.__groupingToasts = [];
     window.toastr = Object.fromEntries(['info', 'warning', 'success', 'error'].map(type => [type, message => window.__groupingToasts.push(message)]));
-    window.__presetAtelier.open('organize');
+    window.__mcdonalds.open('organize');
   }, { title, preset });
   await choose(page, '.pa-picker-slot .pa-namebtn', title);
   return page;

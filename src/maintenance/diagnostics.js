@@ -5,7 +5,7 @@
 // - 多笔请求时间重叠，同类请求的耗时按时间段的并集算，不把各笔耗时相加。
 // - 拿不到的数据（跨域限制、缓存命中、记录满了）单独标出，不拿别的数字顶替。
 // - 只用浏览器已有的请求记录（Performance API），不为体检重新下载任何东西，不读请求正文。
-var PA_T = globalThis.__paTiming || (globalThis.__paTiming = { evalAt: performance.now(), readyAt: null });
+var PA_T = globalThis.__mcdTiming || (globalThis.__mcdTiming = { evalAt: performance.now(), readyAt: null });
 // 浏览器默认只记 250 条请求，记满后的会丢掉。先看扩展加载前是不是已经记满，再把上限调大
 try {
   if (PA_T.bufFullBefore === void 0) PA_T.bufFullBefore = performance.getEntriesByType("resource").length >= 250;
@@ -314,7 +314,7 @@ function buildDiagReport({ version, kind, measure, presets, extData, charCount, 
   const os = /iPhone|iPad|iPod/.test(ua) || (/Macintosh/.test(ua) && globalThis.navigator?.maxTouchPoints > 1) ? "iOS/iPadOS" : /Android/.test(ua) ? "Android" : /Windows/.test(ua) ? "Windows" : /Mac OS X/.test(ua) ? "macOS" : /Linux/.test(ua) ? "Linux" : "其他";
   const round = (x) => x == null ? null : Math.round(x);
   return {
-    format: "burnt-chicken-wings-diagnostics/1",
+    format: "mcdonalds-diagnostics/1",
     createdAt: new Date().toISOString(),
     extension: { version, kind },
     environment: { browser, os, secureContext: !!globalThis.isSecureContext, serviceWorkerControlled: !!globalThis.navigator?.serviceWorker?.controller, navigationType: measure.navType },

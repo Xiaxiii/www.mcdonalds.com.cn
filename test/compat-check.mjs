@@ -17,17 +17,17 @@ async function boot({ globals = {}, routes = true } = {}) {
   if (routes) {
     await page.route("**/api/extensions/discover", (r) => r.fulfill({ json: [
       { type: "local", name: "third-party/ST-BaiBai-Tools" }, { type: "local", name: "third-party/cocktail" },
-      { type: "local", name: "third-party/cocktail-plus" }, { type: "local", name: "third-party/Burnt-chicken-wings" }
+      { type: "local", name: "third-party/cocktail-plus" }, { type: "local", name: "third-party/www.mcdonalds.com.cn" }
     ] }));
     await page.route("**/scripts/extensions/third-party/ST-BaiBai-Tools/manifest.json", (r) => r.fulfill({ json: { display_name: "柏宝箱", version: "1.0.0", js: "dist/index.js" } }));
     await page.route("**/scripts/extensions/third-party/cocktail/manifest.json", (r) => r.fulfill({ json: { display_name: "鸡尾酒", version: "0.1.17", js: "index.js" } }));
     await page.route("**/scripts/extensions/third-party/cocktail-plus/manifest.json", (r) => r.fulfill({ json: { display_name: "鸡尾酒+", version: "0.1.30", js: "dist/index.js" } }));
-    await page.route("**/scripts/extensions/third-party/Burnt-chicken-wings/manifest.json", (r) => r.fulfill({ json: { display_name: "焦香鸡翅", version: "1.9.0", js: "index.js" } }));
+    await page.route("**/scripts/extensions/third-party/www.mcdonalds.com.cn/manifest.json", (r) => r.fulfill({ json: { display_name: "麦当劳", version: "1.9.0", js: "index.js" } }));
     await page.route("**/api/plugins/baibaoku/v1/status", (r) => r.fulfill({ json: { ok: true, data: { installed: true, version: "0.6.4" } } }));
     await page.route("**/api/plugins/cocktail-plus/probe", (r) => r.fulfill({ status: 404, body: "" }));
   }
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForSelector("#pa-settings .pa-set-maint");
+  await page.waitForSelector("#mcd-settings .pa-set-maint");
   await page.evaluate(() => {
     const c = window.SillyTavern.getContext();
     c.getRequestHeaders = () => ({ "Content-Type": "application/json" });
@@ -36,7 +36,7 @@ async function boot({ globals = {}, routes = true } = {}) {
   });
   return { ctx, page, errs, hits };
 }
-const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.textContent);
+const quick = (page) => page.$eval("#mcd-settings .pa-set-quick", (x) => x.textContent);
 
 // ---- 1) 没有其他加速扩展：显示未发现；本扩展不提供加速，「应用推荐配置」「停用加速」不可用；启动时不发请求
 {
@@ -46,8 +46,8 @@ const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.textCo
   const t = await quick(page);
   assert.match(t, /已在运行的相关扩展\s*未发现/);
   assert.match(t, /本扩展的读取加速\s*未提供/);
-  assert.equal(await page.$$eval('#pa-settings .menu_button.disabled', (x) => x.length), 0, "不再放用不了的按钮");
-  assert.match(await page.$eval("#pa-settings .pa-set-maint .pa-set-sum", (x) => x.textContent), /没发现相关扩展/);
+  assert.equal(await page.$$eval('#mcd-settings .menu_button.disabled', (x) => x.length), 0, "不再放用不了的按钮");
+  assert.match(await page.$eval("#mcd-settings .pa-set-maint .pa-set-sum", (x) => x.textContent), /没发现相关扩展/);
   assert.deepEqual(errs, []);
   ok("没有加速扩展时：不发请求，显示未发现，本扩展不提供加速");
   await ctx.close();
@@ -67,17 +67,17 @@ const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.textCo
   const before = await page.evaluate(() => JSON.stringify(window.SillyTavern.getContext().extensionSettings));
   assert.match(await quick(page), /柏宝箱、鸡尾酒/);
   assert.match(await quick(page), /启动桥接\s*柏宝库（已加载）/);
-  await page.$eval("#pa-settings", (b) => b.scrollIntoView());
-  await page.click("#pa-settings .pa-set-maint summary");
-  await page.click('#pa-settings [data-c="check"]');
-  await page.waitForSelector("#pa-settings .pa-set-table");
-  const tbl = await page.$$eval("#pa-settings .pa-set-table tbody tr", (rs) => rs.map((r) => r.innerText.replace(/\s+/g, " ").trim()));
+  await page.$eval("#mcd-settings", (b) => b.scrollIntoView());
+  await page.click("#mcd-settings .pa-set-maint summary");
+  await page.click('#mcd-settings [data-c="check"]');
+  await page.waitForSelector("#mcd-settings .pa-set-table");
+  const tbl = await page.$$eval("#mcd-settings .pa-set-table tbody tr", (rs) => rs.map((r) => r.innerText.replace(/\s+/g, " ").trim()));
   const row = (n) => tbl.find((x) => x.startsWith(n + " "));
   assert.match(row("柏宝箱"), /已安装 是 — 是 1\.0\.0 已识别但未验证/);
   assert.match(row("柏宝库（后端）"), /已安装 — 可用 — 0\.6\.4 已识别但未验证/);
   assert.match(row("鸡尾酒+"), /已安装 否 不可用 否 0\.1\.30 未知/, "停用、后端不可用、没核对过的版本标未知");
   assert.match(row("酒馆助手"), /未安装 — — 否/);
-  const areas = await page.$eval("#pa-settings .pa-set-areas", (x) => x.innerText);
+  const areas = await page.$eval("#mcd-settings .pa-set-areas", (x) => x.innerText);
   assert.match(areas, /设置／预设读取：柏宝库（开启）/);
   assert.match(areas, /角色列表：柏宝库（开启）、鸡尾酒（开启）[\s\S]*重叠/);
   assert.match(areas, /扩展清单与预加载：柏宝库（关闭）/);
@@ -87,7 +87,7 @@ const quick = (page) => page.$eval("#pa-settings .pa-set-quick", (x) => x.textCo
   assert.ok(!hits.some((h) => /^POST .*\/api\/settings\//.test(h)));
   await page.screenshot({ path: S + "k-1-compat.png", fullPage: true });
   // 体检导出的报告里带上这次检查结果
-  await page.evaluate(() => window.__presetAtelier.open("more", "health"));
+  await page.evaluate(() => window.__mcdonalds.open("more", "health"));
   await page.waitForSelector(".pa-health-body .pa-kv", { state: "attached" });
   const rd = page.waitForEvent("download");
   await page.click('[data-h="export"]');

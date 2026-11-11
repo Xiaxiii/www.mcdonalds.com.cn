@@ -37,7 +37,7 @@ function familyGroups(models) {
   }
   return [...map].sort((a, b) => FAMILY_ORDER.indexOf(a[0]) - FAMILY_ORDER.indexOf(b[0])).map(([name, list]) => ({ name, list }));
 }
-// 2.5.7 密钥框仍用密码框（键盘不记、读屏不念）。有的扩展或主题按「密码框」改样式（方角、白底），盖过焦香鸡翅的：
+// 2.5.7 密钥框仍用密码框（键盘不记、读屏不念）。有的扩展或主题按「密码框」改样式（方角、白底），盖过麦当劳的：
 // 外观写在元素自己的 style 上并加 !important，任何样式表都盖不过；颜色取配色变量，毛玻璃配色另给边框和内阴影
 const KEY_INPUT_STYLE = FIELD_STYLE;
 // 分段标题（按分类、按分组共用）
@@ -516,7 +516,7 @@ function explainApiError(status, text) {
   return [status || "", why].filter(Boolean).join(" ");
 }
 // 2.5.10 站点文件：导出成 JSON，导入时也认别处常见的写法（url / baseUrl / api_key …）
-var SITE_FILE_FORMAT = "焦香鸡翅-站点";
+var SITE_FILE_FORMAT = "麦当劳-站点";
 var SITE_URL_FIELDS = ["url", "baseUrl", "baseURL", "base_url", "customUrl", "customURL", "custom_url", "apiUrl", "apiURL", "api_url", "api-url", "apiBase", "api_base", "apiHost", "api_host", "endpoint", "proxyUrl", "reverseProxy", "reverse_proxy", "host", "server"];
 var SITE_KEY_FIELDS = ["key", "apiKey", "api_key", "apikey", "APIKey", "API_KEY", "token", "secret", "proxy_password", "sk"];
 var SITE_NAME_FIELDS = ["name", "groupName", "siteName", "configName", "title", "label", "alias"];
@@ -792,7 +792,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         ok++;
       } catch (e) {
         bad.push(keyName(site, k));
-        console.warn("[焦香鸡翅] 拉取模型失败", keyName(site, k), e);
+        console.warn("[麦当劳] 拉取模型失败", keyName(site, k), e);
       }
     }
     return { ok, bad };
@@ -891,7 +891,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const text = typed.get(k.id);
       if (!text) return;
       if (multiKeySupported()) {
-        const label = ks.length > 1 ? `焦香鸡翅\xB7${v.name || "站点"}\xB7${keyName(viewSite(), k)}` : `焦香鸡翅\xB7${v.name || "站点"}`;
+        const label = ks.length > 1 ? `麦当劳\xB7${v.name || "站点"}\xB7${keyName(viewSite(), k)}` : `麦当劳\xB7${v.name || "站点"}`;
         const id = await storeKey(v.source, text, label);
         madeKeys.push({ source: v.source, id });
         k.secretId = id;
@@ -1242,7 +1242,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         if (ik.key && prev && savedKey(prev) && await keyTextOf(s, prev) === ik.key) keepPrev();
         else if (ik.key) {
           if (multiKeySupported()) {
-            k.secretId = await storeKey(f.source, ik.key, many ? `焦香鸡翅·${f.name}·${ik.name || `密钥 ${i + 1}`}` : `焦香鸡翅·${f.name}`);
+            k.secretId = await storeKey(f.source, ik.key, many ? `麦当劳·${f.name}·${ik.name || `密钥 ${i + 1}`}` : `麦当劳·${f.name}`);
             made.push(k.secretId);
           } else {
             const lid = many ? `${s.id}.${k.id}` : s.id;

@@ -7,14 +7,14 @@ const page = await browser.newPage({ viewport: { width: 834, height: 1000 }, has
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const ok = (m) => console.log("✓", m);
 const st = () => page.evaluate(() => {
-  const s = window.SillyTavern.getContext().extensionSettings.presetAtelier;
-  return { theme: s.theme, follow: s.followSystem, light: s.themeLight, applied: document.getElementById("pa-root").dataset.theme, checked: document.querySelector("[data-follow-system]")?.checked, pressed: document.querySelector('.pa-theme[aria-pressed="true"]')?.dataset.themeId, note: !!document.querySelector(".pa-look-note") };
+  const s = window.SillyTavern.getContext().extensionSettings.mcdonalds;
+  return { theme: s.theme, follow: s.followSystem, light: s.themeLight, applied: document.getElementById("mcd-root").dataset.theme, checked: document.querySelector("[data-follow-system]")?.checked, pressed: document.querySelector('.pa-theme[aria-pressed="true"]')?.dataset.themeId, note: !!document.querySelector(".pa-look-note") };
 });
 
-await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: "system", themeLight: "taro", moreTab: "look" }; window.__presetAtelier.open("more"); });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { theme: "system", themeLight: "taro", moreTab: "look" }; window.__mcdonalds.open("more"); });
 await page.waitForTimeout(400);
 let s = await st();
 assert.deepEqual([s.theme, s.follow, s.light, s.applied, s.checked, s.pressed, s.note], ["taro", true, undefined, "taro", true, "taro", true]);

@@ -8,12 +8,12 @@ const errors = [];
 page.on("pageerror", (e) => errors.push("pageerror: " + e.message));
 page.on("console", (m) => { if (m.type() === "error" || m.type() === "warning") errors.push(m.type() + ": " + m.text()); });
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate((t) => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: t }; window.__presetAtelier.open(); }, theme);
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate((t) => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { theme: t }; window.__mcdonalds.open(); }, theme);
 await page.waitForTimeout(400);
 await page.screenshot({ path: out("1-organize") });
 // 缝合页
-await page.evaluate(() => window.__presetAtelier.open("suture"));
+await page.evaluate(() => window.__mcdonalds.open("suture"));
 await page.waitForTimeout(300);
 await choose(page, ".pa-src-name", "Ako1.92-修复版");
 await page.waitForTimeout(300);
@@ -54,7 +54,7 @@ await page.waitForTimeout(200);
 await page.click('[data-tab="cot"]');
 await page.waitForTimeout(400);
 await page.screenshot({ path: out("9-cot") });
-await page.evaluate(() => window.__presetAtelier.open("look"));
+await page.evaluate(() => window.__mcdonalds.open("look"));
 await page.waitForTimeout(300);
 await page.screenshot({ path: out("10-more") });
 

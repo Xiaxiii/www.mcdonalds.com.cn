@@ -10,15 +10,15 @@ try {
   const page = await browser.newPage({ viewport: { width: 393, height: 852 }, isMobile: true, hasTouch: true, acceptDownloads: true });
   page.on("pageerror", (e) => errs.push(e.message));
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForFunction(() => window.__presetAtelier?.open);
-  const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
+  const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds);
   const vault = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.length);
   const toasts = () => page.evaluate(() => window.__toasts.splice(0));
   await page.evaluate(() => {
     window.__toasts = [];
     window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [], activeSiteId: null };
-    window.__presetAtelier.open("conn");
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [], activeSiteId: null };
+    window.__mcdonalds.open("conn");
   });
   await page.waitForTimeout(400);
   const importFile = async (name, text) => {
@@ -53,7 +53,7 @@ try {
   assert.match(dl.suggestedFilename(), /^api-sites-\d{8}-\d{4}\.json$/);
   const text = fs.readFileSync(await dl.path(), "utf8");
   const file = JSON.parse(text);
-  assert.equal(file.format, "焦香鸡翅-站点");
+  assert.equal(file.format, "麦当劳-站点");
   assert.deepEqual(file.sites.map((x) => [x.name, x.url, x.keys.map((k) => k.key).join(",")]), [["A站", "https://a.example.com/v1", "sk-aaaa1111"], ["B站", "https://b.example.com/v1/", "sk-bbbb0001,sk-bbbb0002"]]);
   ok("导出含密钥：文件里是全文密钥、网址、模型");
 
@@ -68,7 +68,7 @@ try {
   ok("再导入：更新已有站点，不重复存密钥");
 
   // 4) 站点丢了密钥（如更新后要重填）：导入补回来
-  await page.evaluate(() => { const x = window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0]; x.secretId = null; x.keyMask = ""; });
+  await page.evaluate(() => { const x = window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0]; x.secretId = null; x.keyMask = ""; });
   await importFile("back.json", text);
   await page.click(".pa-sheet-actions >> text=导入"); await page.waitForTimeout(400);
   s = await S();

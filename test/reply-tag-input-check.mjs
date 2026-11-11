@@ -10,8 +10,8 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
-  await page.evaluate(() => window.__presetAtelier.open('reply-rules'));
+  await page.waitForFunction(() => window.__mcdonalds?.open);
+  await page.evaluate(() => window.__mcdonalds.open('reply-rules'));
   const required = page.locator('[data-page=reply] [data-r="required"]');
   const err = page.locator('[data-page=reply] [data-err="required"]');
   await required.waitFor();
@@ -34,14 +34,14 @@ try {
   await required.blur();
   await err.waitFor();
   assert.equal(await page.locator('[data-page=reply] [data-r="result"]').textContent(), '', '结果区不放这条报错');
-  assert.equal(Object.keys(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard || {})).length, 0, '有错的标签不保存');
+  assert.equal(Object.keys(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.replyGuard || {})).length, 0, '有错的标签不保存');
   ok('有错时离开输入框：报错在框下面，不保存');
 
   // 零宽字符、全角、尖括号、输入法的「——」：清理后保存
   await required.fill('card​_status、<状态栏>，ｍｅｍｏ；mood——bar');
   await required.blur();
   await page.waitForTimeout(200);
-  const saved = await page.evaluate(() => Object.values(window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard || {})[0]?.requiredTags);
+  const saved = await page.evaluate(() => Object.values(window.SillyTavern.getContext().extensionSettings.mcdonalds.replyGuard || {})[0]?.requiredTags);
   assert.deepEqual(saved, ['card_status', '状态栏', 'memo', 'mood_bar']);
   ok('看不见的字符、全角、尖括号和「——」清理后照常保存');
 

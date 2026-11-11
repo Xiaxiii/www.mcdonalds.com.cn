@@ -26,7 +26,7 @@ await page.route("**/user/files/**", (r) => {
 await page.route("**/api/presets/delete", (r) => { calls.del.push(r.request().postDataJSON()); r.fulfill({ status: 200, body: "" }); });
 await page.route("**/api/presets/save", (r) => { const b = r.request().postDataJSON(); calls.save.push(b); r.fulfill({ json: { name: b.name } }); });
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 
 // 加几个「可清理」的预设：旧版本、完全相同的两份；再加一个方案用着旧版本
 await page.evaluate(() => {
@@ -43,8 +43,8 @@ await page.evaluate(() => {
   const map = Object.fromEntries(m.names.map((n, i) => [n, i]));
   c.getPresetManager = () => ({ ...base, getPresetList: () => ({ presets: m.presets, preset_names: map }) });
   c.getRequestHeaders = () => ({ "Content-Type": "application/json" });
-  c.extensionSettings.presetAtelier = { schemes: [{ id: "s1", name: "旧文风", preset: "【众生相】Claude-Lite-v1.7", scope: "all", states: {}, groupStates: {} }] };
-  window.__presetAtelier.open("more");
+  c.extensionSettings.mcdonalds = { schemes: [{ id: "s1", name: "旧文风", preset: "【众生相】Claude-Lite-v1.7", scope: "all", states: {}, groupStates: {} }] };
+  window.__mcdonalds.open("more");
 });
 await page.waitForTimeout(300);
 await page.click('[data-m="clean"]');
@@ -91,11 +91,11 @@ await page.click(".pa-sheet .pa-btn-primary");
 const d = await dl;
 assert.match(d.suggestedFilename(), /^preset-archive-\d+\.zip$/);
 await d.saveAs("/tmp/claude-0/archive-test.zip");
-await page.waitForFunction(() => (window.SillyTavern.getContext().extensionSettings.presetAtelier.archive || []).length === 2, null, { timeout: 10000 });
+await page.waitForFunction(() => (window.SillyTavern.getContext().extensionSettings.mcdonalds.archive || []).length === 2, null, { timeout: 10000 });
 await page.waitForTimeout(500);
 assert.equal(calls.del.length, 2, "删了两个预设文件");
 assert.equal(files.size, 2, "服务器上有两个归档文件");
-const st = await page.evaluate(() => ({ arch: window.SillyTavern.getContext().extensionSettings.presetAtelier.archive, names: Object.keys(window.SillyTavern.getContext().getPresetManager().getPresetList().preset_names) }));
+const st = await page.evaluate(() => ({ arch: window.SillyTavern.getContext().extensionSettings.mcdonalds.archive, names: Object.keys(window.SillyTavern.getContext().getPresetManager().getPresetList().preset_names) }));
 assert.equal(st.arch.length, 2);
 assert.ok(!st.names.includes("双人成行 V6.0(1)"));
 assert.ok(st.arch.every((a) => a.gz && a.path.startsWith("user/files/pa-preset-")));
@@ -140,7 +140,7 @@ await page.evaluate(() => {
   ];
   const orig = performance.getEntriesByType.bind(performance);
   performance.getEntriesByType = (t) => t === "resource" ? list : orig(t);
-  globalThis.__paTiming.readyAt = 85100;
+  globalThis.__mcdTiming.readyAt = 85100;
 });
 await page.click('[data-m="health"]');
 await page.waitForSelector(".pa-tl", { state: "attached" });
@@ -164,7 +164,7 @@ assert.doesNotMatch(await page.$eval(".pa-health-detail", (x) => x.innerText), /
 const rd = page.waitForEvent("download");
 await page.click('[data-h="export"]');
 const rep = JSON.parse(await (await import("node:fs")).promises.readFile(await (await rd).path(), "utf8"));
-assert.equal(rep.format, "burnt-chicken-wings-diagnostics/1");
+assert.equal(rep.format, "mcdonalds-diagnostics/1");
 assert.equal(rep.timing.chatInteractive, null);
 assert.ok(rep.categories.some((c) => c.cat === "settings" && c.providers["柏宝库"] === 1));
 assert.ok(!JSON.stringify(rep).includes("秘密角色"), "报告不含角色文件名");
@@ -185,7 +185,7 @@ await page.click('[data-m="clean"]');
 await page.click('[data-f="all"]');
 await page.waitForTimeout(200);
 await page.screenshot({ path: S + "c-8-taro-clean.png" });
-await page.evaluate(() => window.__presetAtelier.open("organize"));
+await page.evaluate(() => window.__mcdonalds.open("organize"));
 await page.waitForTimeout(300);
 await page.screenshot({ path: S + "c-9-taro-organize.png" });
 assert.deepEqual(errs, []);

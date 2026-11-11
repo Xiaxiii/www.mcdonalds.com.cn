@@ -853,7 +853,7 @@ function mountSuture(page, app) {
           if (!srcProfs.has(src.srcDraft)) srcProfs.set(src.srcDraft, profilePreset(src.srcDraft));
           desc = describeEntry(src.srcDraft, src.srcId, srcProfs.get(src.srcDraft));
         } catch (e) {
-          console.warn("[焦香鸡翅] 来源分析失败", e);
+          console.warn("[麦当劳] 来源分析失败", e);
         }
       }
       // 缝后开关默认与来源条目一致：来源开着就勾选，关着就不勾选（看条目自身开关，不看分组总开关）
@@ -969,7 +969,7 @@ function mountSuture(page, app) {
       try {
         it.hook = planHook(d, where, gid, { content: chosen.content, name: it.src.name, label: planFix.label }, { taken, varName: it.choice.hookVar || void 0, question: it.choice.hookQ ?? void 0, srcCot, allowSlot: mode === "slot" || planFix.slotAllowed, collector: collectors.length ? d.prompt(collectors[0])?.name : null, analysis });
       } catch (e) {
-        console.warn("[焦香鸡翅] 思维链检查失败", e);
+        console.warn("[麦当劳] 思维链检查失败", e);
         it.hook = { status: "skip", on: false, text: "思维链检查出错，已跳过" };
       }
       // 搬到新版：没有缝合记录的条目，原预设的思维链读取过它就默认接入

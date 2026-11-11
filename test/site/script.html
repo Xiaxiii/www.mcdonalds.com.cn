@@ -37,7 +37,7 @@ body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-se
   if (mode === "both") { const s = document.createElement("script"); s.type = "module"; s.src = "../../index.js?" + Date.now(); document.head.append(s); await new Promise(r => setTimeout(r, 1500)); }
   // 脚本版文件名跟着版本号走（node build.mjs 生成）
   const { version } = await (await fetch("../../package.json")).json();
-  const j = await (await fetch("../../dist/" + encodeURIComponent(`焦香鸡翅-脚本版-${version}.json`))).json();
+  const j = await (await fetch("../../dist/" + encodeURIComponent(`麦当劳-脚本版-${version}.json`))).json();
   new Function(j.content)();
 })();
 </script></head>

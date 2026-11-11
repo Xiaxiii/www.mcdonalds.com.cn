@@ -16,8 +16,8 @@ try {
     r.fulfill({ json: { data: list.map((id) => ({ id })) } });
   });
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForFunction(() => window.__presetAtelier?.open);
-  const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
+  const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds);
   const vault = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.map((s) => `${s.value}${s.active ? "*" : ""}`).join(","));
   // 模拟酒馆的连接控件：改控件就改 oai_settings（同 apirule-check）
   await page.evaluate(() => {
@@ -34,8 +34,8 @@ try {
     window.__toasts = [];
     window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
     (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true });
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [], activeSiteId: null };
-    window.__presetAtelier.open("conn");
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [], activeSiteId: null };
+    window.__mcdonalds.open("conn");
   });
   await page.waitForTimeout(400);
 
@@ -140,7 +140,7 @@ try {
   ok("测试消息失败时点名分组");
 
   // 5) 方案记下分组
-  await page.evaluate(() => window.__presetAtelier.open("schemes")); await page.waitForTimeout(300);
+  await page.evaluate(() => window.__mcdonalds.open("schemes")); await page.waitForTimeout(300);
   await page.click("[data-s=new]"); await page.waitForTimeout(300);
   await page.fill(".pa-sheet [data-f=name]", "按量方案");
   await page.selectOption(".pa-sheet [data-f=api]", "__live");
@@ -162,7 +162,7 @@ try {
   await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(300);
   await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
   // 看已保存的密钥：保存时本浏览器留了一份，直接用它；没有这份时问酒馆，不让看就在这一行下面说明
-  const copyOf = (id) => page.evaluate((sid) => Object.entries(localStorage).find(([k]) => k.startsWith("presetAtelier:keycopy:") && k.endsWith(":" + sid))?.[1] || null, id);
+  const copyOf = (id) => page.evaluate((sid) => Object.entries(localStorage).find(([k]) => k.startsWith("mcdonalds:keycopy:") && k.endsWith(":" + sid))?.[1] || null, id);
   const firstSid = (await S()).sites[0].keys[0].secretId;
   const kept = await copyOf(firstSid);
   assert.ok(kept, "保存密钥时本浏览器留了一份");
@@ -178,7 +178,7 @@ try {
   assert.equal(await page.evaluate(() => navigator.clipboard.readText()), kept, "点复制，剪贴板里是密钥全文");
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(100);
   // 没有留底（更新前存的）：关掉重开编辑窗口，酒馆拒绝时说明，允许时显示并留底
-  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("presetAtelier:keycopy:")) localStorage.removeItem(k); });
+  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("mcdonalds:keycopy:")) localStorage.removeItem(k); });
   await page.locator(".pa-sheet .pa-sheet-x").last().click(); await page.waitForTimeout(300);
   await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
@@ -200,10 +200,10 @@ try {
   assert.deepEqual((await S()).sites[0].keys.map((k) => k.name), ["按量", "按次"]);
   assert.equal(await vault(), vaultBefore, "显示着的密钥没改，保存时密钥库不变");
   // 换回原顺序，后面的检查照旧
-  await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].keys.reverse());
+  await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].keys.reverse());
   ok("拖动调顺序");
   // 酒馆密钥库里删掉的密钥，下次读取密钥库时本浏览器的留底跟着删；还在的不动
-  await page.evaluate(() => { const any = Object.keys(localStorage).find((k) => k.startsWith("presetAtelier:keycopy:")); localStorage.setItem(any.replace(/[^:]+$/, "gone-id"), "sk-gone"); });
+  await page.evaluate(() => { const any = Object.keys(localStorage).find((k) => k.startsWith("mcdonalds:keycopy:")); localStorage.setItem(any.replace(/[^:]+$/, "gone-id"), "sk-gone"); });
   await page.locator(".pa-plan-sites .pa-site-multi .pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
   await page.waitForTimeout(2500);
   assert.equal(await page.evaluate(() => Object.keys(localStorage).some((k) => k.endsWith(":gone-id"))), false, "密钥库里没有的密钥不留底");
@@ -212,7 +212,7 @@ try {
 
   // 6) 三个以上分组：按模型时只显示一个标签和「+N」，点开全部
   await page.evaluate(() => {
-    const s = window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0];
+    const s = window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0];
     s.keys.push({ id: "k3", name: "特价", secretId: null, keyMask: "", model: "", models: ["gemini-2.5-pro"] }, { id: "k4", name: "", secretId: null, keyMask: "", model: "", models: ["gemini-2.5-pro"] });
     s.modelView = "model";
   });
@@ -232,7 +232,7 @@ try {
   ok("标签超过 2 个收成「+N」，点开全部");
 
   // 7) 编辑删到只剩一个密钥：写回站点上，和单密钥站点一样
-  await page.evaluate(() => { const s = window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0]; s.keys.splice(2); });
+  await page.evaluate(() => { const s = window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0]; s.keys.splice(2); });
   await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
   await page.locator(".pa-sheet .pa-keyrow").first().locator("[data-f=keydel]").click();
   assert.equal(await page.locator(".pa-sheet [data-f=keyname]").count(), 0);

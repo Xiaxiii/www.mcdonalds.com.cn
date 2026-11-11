@@ -29,7 +29,7 @@ async function openPage() {
     });
   });
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   return page;
 }
 const NAME = '状态栏改名检查（公开合成）';
@@ -50,9 +50,9 @@ try {
     m.live.preset_settings_openai = NAME;
     Object.assign(m.live, structuredClone(preset));
     const c = window.SillyTavern.getContext();
-    c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['card_status'] } } };
+    c.extensionSettings.mcdonalds = { ...(c.extensionSettings.mcdonalds || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['card_status'] } } };
     c.chat = [{ is_user: false, mes: '开场白' }, { is_user: true, mes: '继续' }, { is_user: false, mes: wrong }, { is_user: true, mes: '再来' }, { is_user: false, mes: wrong, swipe_id: 0, swipes: [wrong], extra: { reasoning: '' } }];
-    window.__presetAtelier.open('reply-check');
+    window.__mcdonalds.open('reply-check');
   }, { preset, NAME, wrong });
   await page.click('[data-r=latest]');
   const result = page.locator('[data-r=result]');

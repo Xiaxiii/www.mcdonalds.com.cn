@@ -7,8 +7,8 @@ const page = await browser.newPage({ viewport: { width: 820, height: 1180 }, has
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate(() => window.__presetAtelier.open("suture"));
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => window.__mcdonalds.open("suture"));
 await page.waitForTimeout(500);
 assert.equal(await page.$(".pa-src .pa-findrow:not([hidden]), .pa-src-q"), null, "缝合页的条目搜索框默认收起");
 const n = await page.evaluate(() => window.SillyTavern.getContext().getPresetManager().getPresetList().preset_names.length ?? 0).catch(() => 0);

@@ -2,11 +2,11 @@
 // 只有「扩展数据」和「角色卡」会影响酒馆打开速度（设置文件、角色列表每次打开都下载）；世界书、本地备份只是整理。
 
 // 酒馆自身的设置项，不能删
-var CORE_EXT_KEYS = new Set(["disabledExtensions", "autoConnect", "notifyUpdates", "apiUrl", "apiKey", "presetAtelier"]);
+var CORE_EXT_KEYS = new Set(["disabledExtensions", "autoConnect", "notifyUpdates", "apiUrl", "apiKey", KEY]);
 // 酒馆内置功能存在 extension_settings 里的键
 var BUILTIN_EXT_KEYS = { note: "作者注释", caption: "图片描述", expressions: "表情", connectionManager: "连接配置", dice: "骰子", gallery: "图库", memory: "总结", quickReply: "快速回复（旧版）", quickReplyV2: "快速回复", regex: "正则", tts: "语音朗读", sd: "图片生成", chromadb: "ChromaDB", translate: "翻译", vectors: "向量存储", variables: "变量", attachments: "附件", character_attachments: "角色附件", disabledAttachments: "附件", cfg: "CFG", objective: "目标", rvc: "RVC", speech_recognition: "语音识别", hypebot: "HypeBot", idle: "空闲提醒", assets: "资源下载", tokenCounter: "Token 计数", gallery_folders: "图库", regex_presets: "正则预设", disabled_attachments: "附件", expressionOverrides: "表情", character_allowed_regex: "正则", preset_allowed_regex: "正则" };
 // 名字和扩展文件夹对不上、但已经核对过归属的键（扩展名见 maintenance/compat.js 的 PROVIDERS）
-var KNOWN_EXT_KEYS = { tavern_helper: "tavernHelper", baiBaiToolkit: "baibaiTools", presetAtelierMaintenance: "self" };
+var KNOWN_EXT_KEYS = { tavern_helper: "tavernHelper", baiBaiToolkit: "baibaiTools" };
 var normKey = (s) => String(s || "").toLowerCase().replace(/[^a-z0-9一-龥]/g, "");
 // 键排好序再转成文字：两本世界书字段顺序不同，内容一样时也能算出同一个指纹
 function stableJson(v) {
@@ -142,7 +142,7 @@ function mountCleanKind(kind, box) {
         const owner = guessOwner(k, exts);
         const users = scan?.used[k];
         let state, label;
-        if (CORE_EXT_KEYS.has(k)) [state, label] = ["core", k === "presetAtelier" ? "本扩展" : "酒馆设置"];
+        if (CORE_EXT_KEYS.has(k)) [state, label] = ["core", k === KEY ? "本扩展" : "酒馆设置"];
         else if (owner?.builtin) [state, label] = ["used", owner.builtin === "本扩展" ? "本扩展" : `酒馆内置：${owner.builtin}`];
         else if (owner?.known && (owner.running || owner.ext)) [state, label] = ["used", `${owner.known}${owner.running ? "在用" : owner.ext?.enabled === false ? "（已停用）" : "（已安装）"}`];
         else if (owner?.known && exts) [state, label] = ["maybe", `${owner.known}的数据，没有找到${owner.known}，可能已卸载`];
@@ -530,7 +530,7 @@ function mountCleanKind(kind, box) {
       try {
         for (let i = 0; i < localStorage.length; i++) {
           const k = localStorage.key(i);
-          if (k?.startsWith("presetAtelier:recovery:")) { draftN++; drafts += (localStorage.getItem(k) || "").length * 2; }
+          if (k?.startsWith("mcdonalds:recovery:")) { draftN++; drafts += (localStorage.getItem(k) || "").length * 2; }
         }
       } catch {
       }

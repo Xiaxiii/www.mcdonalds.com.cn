@@ -1,4 +1,4 @@
-var KEY = "presetAtelier";
+var KEY = "mcdonalds";
 var DEFAULTS = {
   sites: [],
   activeSiteId: null,
@@ -61,10 +61,10 @@ var saveBlocked = new Map();
 // 面板没打开时发现的问题，等打开后再问
 var pendingAsks = new Map();
 // 草稿键带上酒馆账号，同一浏览器换账号不会读到别人的草稿。v110 是旧版不分账号的键
-function recoveryKey(name) { return `presetAtelier:recovery:v180:${userHandle()}:${name}`; }
-function legacyRecoveryKey(name) { return "presetAtelier:recovery:v110:" + name; }
+function recoveryKey(name) { return `mcdonalds:recovery:v180:${userHandle()}:${name}`; }
+function legacyRecoveryKey(name) { return "mcdonalds:recovery:v110:" + name; }
 function recoveryName(key) {
-  const m = /^presetAtelier:recovery:v180:[^:]*:([\s\S]*)$/.exec(key) || /^presetAtelier:recovery:v110:([\s\S]*)$/.exec(key);
+  const m = /^mcdonalds:recovery:v180:[^:]*:([\s\S]*)$/.exec(key) || /^mcdonalds:recovery:v110:([\s\S]*)$/.exec(key);
   return m ? m[1] : null;
 }
 function readRecovery(name) {
@@ -91,10 +91,10 @@ function checkpoint(d) {
   try { localStorage.setItem(key, text); return; } catch {}
   try {
     // 只清当前账号（和旧版不分账号）的草稿，别的账号的草稿留着
-    const mine = `presetAtelier:recovery:v180:${userHandle()}:`;
+    const mine = `mcdonalds:recovery:v180:${userHandle()}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
-      if (k && k !== key && (k.startsWith(mine) || k.startsWith("presetAtelier:recovery:v110:")) && !drafts.get(recoveryName(k))?.dirty) localStorage.removeItem(k);
+      if (k && k !== key && (k.startsWith(mine) || k.startsWith("mcdonalds:recovery:v110:")) && !drafts.get(recoveryName(k))?.dirty) localStorage.removeItem(k);
     }
     localStorage.setItem(key, text);
   } catch {

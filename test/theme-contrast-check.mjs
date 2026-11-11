@@ -28,7 +28,7 @@ function actualSurfaces() {
     return value.startsWith('color(srgb') ? [nums[0] * 255, nums[1] * 255, nums[2] * 255, nums[3] ?? 1] : [...nums.slice(0, 3), nums[3] ?? 1];
   };
   const mix = (fg, bg, alpha = fg[3]) => [0, 1, 2].map(i => fg[i] * alpha + bg[i] * (1 - alpha));
-  const root = document.getElementById('pa-root');
+  const root = document.getElementById('mcd-root');
   return [...root.querySelectorAll('.pa-sheet .pa-item-on,.pa-sheet .pa-item-name,.pa-sheet .pa-hint,.pa-sheet .pa-mode.on b,.pa-sheet .pa-mode.on small,.pa-sheet .pa-snip,.pa-sheet .pa-input,.pa-sheet .pa-select')].map(node => {
     const chain = [];
     for (let current = node; current; current = current.parentElement) chain.unshift(current);
@@ -55,7 +55,7 @@ try {
     page.on('pageerror', e => errors.push(e.message));
     await page.route('**/index.js?*', route => route.fulfill({ contentType: 'text/javascript', body: source }));
     await page.goto(process.env.BCW_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html');
-    await page.waitForFunction(() => window.__presetAtelier?.open);
+    await page.waitForFunction(() => window.__mcdonalds?.open);
     await page.evaluate(() => {
       const prompt = (identifier, name) => ({ identifier, name, content: '只写动作和对白。', role: 'system', marker: false, system_prompt: false });
       const make = (names, gid) => {
@@ -69,8 +69,8 @@ try {
       Object.assign(m.live, structuredClone(m.presets.at(-1)));
       // 2.7.1 默认配色为「素」，这里检查跟随酒馆主题
       const st = window.SillyTavern.getContext().extensionSettings;
-      Object.assign(st.presetAtelier || (st.presetAtelier = {}), { theme: 'follow', ui271: true });
-      window.__presetAtelier.open('suture');
+      Object.assign(st.mcdonalds || (st.mcdonalds = {}), { theme: 'follow', ui271: true });
+      window.__mcdonalds.open('suture');
     });
     await choose(page, '.pa-src-name', '对比度来源');
     await choose(page, '.pa-dst-picker .pa-namebtn', '对比度目标');
@@ -92,16 +92,16 @@ try {
         for (const [key, value] of Object.entries({ SmartThemeBlurTintColor: `rgb(${theme.bg.join(',')})`, SmartThemeBodyColor: theme.text, SmartThemeQuoteColor: theme.accent, SmartThemeEmColor: theme.em })) document.body.style.setProperty('--' + key, value);
       }, theme);
       await page.waitForFunction(theme => {
-        const root = document.getElementById('pa-root');
+        const root = document.getElementById('mcd-root');
         return root.style.getPropertyValue('--pa-tint') === `rgb(${theme.bg.join(', ')})` && root._paThemeSignature.includes(theme.text);
       }, theme);
       const colors = await page.evaluate(() => {
-        const root = document.getElementById('pa-root'), label = root.querySelector('.pa-item-on'), input = label.querySelector('input');
+        const root = document.getElementById('mcd-root'), label = root.querySelector('.pa-item-on'), input = label.querySelector('input');
         const cs = getComputedStyle(root), ctl = getComputedStyle(input), button = getComputedStyle(root.querySelector('.pa-sheet-actions .pa-btn-primary'));
         return { text: getComputedStyle(label).color, title: getComputedStyle(root.querySelector('.pa-item-name')).color, badge: getComputedStyle(root.querySelector('.pa-item-meta .pa-chip')).color, dim: cs.getPropertyValue('--pa-dim'), accent: ctl.backgroundColor, ink: button.color, primary: button.backgroundColor, border: ctl.borderColor, width: ctl.width, height: ctl.height, appearance: ctl.appearance, image: ctl.backgroundImage, shadow: ctl.boxShadow, filter: ctl.filter, mask: ctl.maskImage, pseudo: getComputedStyle(input, '::before').content, shellBlur: getComputedStyle(root.querySelector('.pa-shell')).backdropFilter, sheetBlur: getComputedStyle(root.querySelector('.pa-sheet')).backdropFilter };
       });
       assert.ok(ratio(rgb(colors.text), theme.bg) >= 4.5, theme.name + ': 开启标签可读');
-      assert.equal(await page.evaluate(() => document.getElementById('pa-root').classList.contains('pa-guard')), true, theme.name + ': 检测到宿主强改字色');
+      assert.equal(await page.evaluate(() => document.getElementById('mcd-root').classList.contains('pa-guard')), true, theme.name + ': 检测到宿主强改字色');
       assert.ok(ratio(rgb(colors.title), theme.bg) >= 4.5, theme.name + ': 标题不受宿主 span 字色污染');
       assert.ok(ratio(rgb(colors.badge), theme.bg) >= 4.5, theme.name + ': 标签保持自己的主题色');
       assert.ok(ratio(rgb(colors.dim), theme.bg) >= 4.5, theme.name + ': 次级说明可读');
@@ -144,33 +144,33 @@ try {
     // 内置浅色/深色主题也在同一个真实预览中测量实际叠加表面。
     for (const theme of ['night', 'goose']) {
       await page.evaluate(theme => {
-        window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = theme;
-        window.__presetAtelier.open('suture');
+        window.SillyTavern.getContext().extensionSettings.mcdonalds.theme = theme;
+        window.__mcdonalds.open('suture');
       }, theme);
       for (const surface of await page.evaluate(actualSurfaces)) assert.ok(ratio(surface.painted, surface.bg) >= 4.5, `${theme}: ${surface.name} 在实际表面上的对比度 ${ratio(surface.painted, surface.bg).toFixed(3)}`);
       const palette = await page.evaluate(() => {
-        const cs = getComputedStyle(document.getElementById('pa-root'));
+        const cs = getComputedStyle(document.getElementById('mcd-root'));
         return ['thread', 'on-accent'].map(k => cs.getPropertyValue('--pa-' + k));
       });
       assert.ok(ratio(rgb(palette[0]), rgb(palette[1])) >= 4.5);
     }
     await page.evaluate(() => {
-      window.SillyTavern.getContext().extensionSettings.presetAtelier.theme = 'follow';
-      window.__presetAtelier.open('suture');
+      window.SillyTavern.getContext().extensionSettings.mcdonalds.theme = 'follow';
+      window.__mcdonalds.open('suture');
     });
     // 仅关闭预览，不确认缝合；主题变换不能修改预设数据。
     await page.click('.pa-sheet-actions .pa-btn:not(.pa-btn-primary)');
     assert.equal(await page.evaluate(() => window.__saved || 0), 0);
     await page.click('[data-g=close]');
     await page.evaluate(() => {
-      const root = document.getElementById('pa-root');
+      const root = document.getElementById('mcd-root');
       window.__themeHiddenBefore = root._paThemeSignature;
       document.body.style.setProperty('--SmartThemeBlurTintColor', 'rgb(249, 241, 228)');
     });
     await page.waitForTimeout(60);
-    assert.equal(await page.evaluate(() => document.getElementById('pa-root')._paThemeSignature === window.__themeHiddenBefore), true, '隐藏后不再测量和重算主题');
-    await page.evaluate(() => window.__presetAtelier.open('organize'));
-    await page.waitForFunction(() => document.getElementById('pa-root').style.getPropertyValue('--pa-tint') === 'rgb(249, 241, 228)');
+    assert.equal(await page.evaluate(() => document.getElementById('mcd-root')._paThemeSignature === window.__themeHiddenBefore), true, '隐藏后不再测量和重算主题');
+    await page.evaluate(() => window.__mcdonalds.open('organize'));
+    await page.waitForFunction(() => document.getElementById('mcd-root').style.getPropertyValue('--pa-tint') === 'rgb(249, 241, 228)');
     assert.deepEqual(errors, []);
     await page.close();
   }

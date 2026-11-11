@@ -29,9 +29,9 @@ var current = "organize";
 var lastCheckPage = "cot";
 var cleanups = [];
 function injectStyle() {
-  document.getElementById("pa-style")?.remove();
+  document.getElementById("mcd-style")?.remove();
   const s = document.createElement("style");
-  s.id = "pa-style";
+  s.id = "mcd-style";
   s.textContent = style_default;
   document.head.append(s);
 }
@@ -43,10 +43,10 @@ function syncViewport() {
   if (!r) return;
   const h = Math.round(window.innerHeight || document.documentElement.clientHeight || 0);
   if (h > 0) r.style.setProperty("--pa-vh", h + "px");
-  let probe = document.getElementById("pa-safe-probe");
+  let probe = document.getElementById("mcd-safe-probe");
   if (!probe) {
     probe = document.createElement("div");
-    probe.id = "pa-safe-probe";
+    probe.id = "mcd-safe-probe";
     probe.style.cssText = "position:fixed;left:0;top:0;width:0;height:0;visibility:hidden;pointer-events:none;padding-top:env(safe-area-inset-top);padding-bottom:env(safe-area-inset-bottom)";
     document.documentElement.append(probe);
   }
@@ -68,9 +68,9 @@ function syncViewport() {
   }
 }
 function buildRoot() {
-  document.getElementById("pa-root")?.remove();
+  document.getElementById("mcd-root")?.remove();
   const navBtn = ([k, l, grp]) => `<button type="button" class="pa-nav-${grp}" data-nav="${k}" aria-label="${l}">${navSvg(k)}<span>${l}</span></button>`;
-  rootEl2 = el(`<div id="pa-root" class="pa-root" hidden>
+  rootEl2 = el(`<div id="mcd-root" class="mcd-root" hidden>
         <div class="pa-shell">
             <nav class="pa-tabs" aria-label="主导航">
                 <div class="pa-brand"><span class="pa-logo" aria-hidden="true"><svg viewBox="0 0 24 24"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.1 15.9M14.5 14.5 20 20M8.1 8.1 12 12"/></svg></span><span class="pa-brand-t"><b class="pa-appname">${esc(appName())}</b><small>v${esc(VERSION)} · by EC</small></span></div>
@@ -286,8 +286,8 @@ function open(tab, sub) {
   applyTheme(rootEl2);
   rootEl2.hidden = false;
   syncViewport();
-  document.documentElement.classList.add("pa-open");
-  document.getElementById("pa-ball")?.setAttribute("hidden", "");
+  document.documentElement.classList.add("mcd-open");
+  document.getElementById("mcd-ball")?.setAttribute("hidden", "");
   rootEl2.dataset.paShown = "";
   show(tab || current, sub);
   rootEl2.dataset.paShown = "1";
@@ -392,8 +392,8 @@ async function close({ fromBack = false } = {}) {
     }
   }
   rootEl2.hidden = true;
-  document.documentElement.classList.remove("pa-open");
-  document.getElementById("pa-ball")?.removeAttribute("hidden");
+  document.documentElement.classList.remove("mcd-open");
+  document.getElementById("mcd-ball")?.removeAttribute("hidden");
   flushPresetNotice();
   if (backArmed) {
     backArmed = false;
@@ -401,10 +401,10 @@ async function close({ fromBack = false } = {}) {
   }
 }
 function addMenuEntry() {
-  if (document.getElementById("pa-menu-entry")) return;
+  if (document.getElementById("mcd-menu-entry")) return;
   const menu = document.getElementById("extensionsMenu");
   if (!menu) return;
-  const item = el(`<div id="pa-menu-entry" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem">
+  const item = el(`<div id="mcd-menu-entry" class="list-group-item flex-container flexGap5 interactable" tabindex="0" role="listitem">
         <div class="fa-solid fa-scissors extensionsMenuExtensionButton"></div><span class="pa-appname">${esc(appName())}</span></div>`);
   item.addEventListener("click", () => open());
   item.addEventListener("keydown", (e) => {
@@ -465,12 +465,12 @@ async function manifestVersion(url) {
   }
 }
 function addSettingsEntry() {
-  if (document.getElementById("pa-settings")) return;
+  if (document.getElementById("mcd-settings")) return;
   const host2 = document.getElementById("extensions_settings2") || document.getElementById("extensions_settings");
   if (!host2) return;
   const log = changelogSections();
   const kind = BUILD_KIND === "extension" ? "" : " · 脚本版";
-  const box = el(`<div id="pa-settings" class="pa-set">
+  const box = el(`<div id="mcd-settings" class="pa-set">
     <div class="inline-drawer">
       <div class="inline-drawer-toggle inline-drawer-header">
         <b><span class="pa-appname">${esc(appName())}</span> <span class="pa-set-badge">v${esc(VERSION)}</span></b>
@@ -502,7 +502,7 @@ function addSettingsEntry() {
         </div>
         <div class="pa-set-maint"></div>
         ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
-        <div class="pa-set-foot">打开方式：点上方按钮，或用选好的入口（魔棒菜单、悬浮球），或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/www.mcdonalds.com.cn" target="_blank" rel="noopener">GitHub</a></div>
+        <div class="pa-set-foot">打开方式：点上方按钮，或用选好的入口（魔棒菜单、悬浮球），或在聊天输入框发送 /mcd。<a href="https://github.com/Xiaxiii/www.mcdonalds.com.cn" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>
   </div>`);
@@ -602,21 +602,21 @@ function addSettingsEntry() {
 // 1.5.1：iOS Safari 在页面顶部下拉会刷新整页（酒馆没有关掉这个行为），玩着玩着就被刷新了。
 // 给 html、body 加 overscroll-behavior-y: none 即可阻止（Safari 16 起支持）。只影响「拖到顶再往下拖」，不影响正常滚动。
 function applyPullGuard() {
-  let st = document.getElementById("pa-pull-guard");
+  let st = document.getElementById("mcd-pull-guard");
   const on = settings().noPullRefresh !== false;
   if (on && !st) {
     st = document.createElement("style");
-    st.id = "pa-pull-guard";
+    st.id = "mcd-pull-guard";
     st.textContent = "html, body { overscroll-behavior-y: none; }";
     document.head.append(st);
   } else if (!on && st) st.remove();
 }
 // 2.3.5 悬浮球：点一下打开，按住拖动换位置，松手贴到左右边。默认关闭，扩展页设置框和「更多 → 外观」里开关
 var BALL = 44, BALL_GAP = 8;
-// 2.5.4 入口自选：魔棒菜单、悬浮球、两个都要；2.6.1 加「都不要」，这时从扩展页的「打开」按钮或 /atelier 打开。
+// 2.5.4 入口自选：魔棒菜单、悬浮球、两个都要；2.6.1 加「都不要」，这时从扩展页的「打开」按钮或 /mcd 打开。
 // 以前开了悬浮球的（floatBall），魔棒菜单也一直在，算「两个都要」
 var ENTRY_MODES = [["wand", "魔棒菜单"], ["ball", "悬浮球"], ["both", "两个都要"], ["none", "都不要"]];
-var NO_ENTRY_NOTE = "从扩展页设置框点「打开」，或在聊天输入框发送 /atelier。";
+var NO_ENTRY_NOTE = "从扩展页设置框点「打开」，或在聊天输入框发送 /mcd。";
 function entryMode() {
   const s = settings();
   if (ENTRY_MODES.some(([k]) => k === s.entry)) return s.entry;
@@ -629,14 +629,14 @@ function setEntryMode(mode) {
   saveSettings();
   applyFloatBall();
   applyMenuEntry();
-  const sel = document.querySelector("#pa-settings [data-opt=entry]");
+  const sel = document.querySelector("#mcd-settings [data-opt=entry]");
   if (sel) sel.value = mode;
-  document.querySelectorAll("#pa-root [data-entry]").forEach((b) => b.classList.toggle("on", b.dataset.entry === mode));
+  document.querySelectorAll("#mcd-root [data-entry]").forEach((b) => b.classList.toggle("on", b.dataset.entry === mode));
   document.querySelectorAll(".pa-noentry").forEach((n) => { n.hidden = mode !== "none"; });
 }
 // 魔棒菜单项用 display 藏：酒馆给菜单项的 flex 样式会盖过 hidden 属性
 function applyMenuEntry() {
-  const item = document.getElementById("pa-menu-entry");
+  const item = document.getElementById("mcd-menu-entry");
   if (item) item.style.display = entryMode() === "ball" || entryMode() === "none" ? "none" : "";
 }
 // 位置按可移动范围的比例存，换横竖屏、改窗口大小后仍在同一侧
@@ -647,10 +647,10 @@ function placeBall(ball) {
   ball.style.top = Math.round(BALL_GAP + Math.min(1, Math.max(0, p.y)) * Math.max(0, h - BALL - BALL_GAP * 2)) + "px";
 }
 function applyFloatBall() {
-  let ball = document.getElementById("pa-ball");
+  let ball = document.getElementById("mcd-ball");
   if (entryMode() === "wand" || entryMode() === "none") return ball?.remove();
   if (ball) return placeBall(ball);
-  ball = el(`<button id="pa-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
+  ball = el(`<button id="mcd-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
   let start = null, moved = false, frame = 0, dx = 0, dy = 0;
   // 酒馆在 html 上监听 mousedown/touchstart，点到抽屉外就收起打开着的抽屉（扩展页等）。拖球、点球都不该让它收起
   for (const t of ["mousedown", "touchstart", "click"]) ball.addEventListener(t, (e) => e.stopPropagation());
@@ -669,7 +669,7 @@ function applyFloatBall() {
   ball.addEventListener("pointermove", (e) => {
     if (!start) return;
     if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
-    if (!moved) { moved = true; ball.classList.add("pa-ball-drag"); }
+    if (!moved) { moved = true; ball.classList.add("mcd-ball-drag"); }
     dx = Math.min(start.w - BALL, Math.max(0, start.left + e.clientX - start.x)) - start.left;
     dy = Math.min(start.h - BALL, Math.max(0, start.top + e.clientY - start.y)) - start.top;
     if (!frame) frame = requestAnimationFrame(paint);
@@ -689,7 +689,7 @@ function applyFloatBall() {
     saveSettings();
     // 先落在松手的位置并让浏览器算好，再去掉拖动标记贴边，才有从松手处滑过去的动画
     void ball.offsetLeft;
-    ball.classList.remove("pa-ball-drag");
+    ball.classList.remove("mcd-ball-drag");
     placeBall(ball);
   };
   ball.addEventListener("pointerup", drop);
@@ -709,22 +709,22 @@ function registerSlash() {
     const c2 = ctx();
     if (c2.SlashCommandParser && c2.SlashCommand) {
       c2.SlashCommandParser.addCommandObject(c2.SlashCommand.fromProps({
-        name: "atelier",
-        aliases: ["焦香鸡翅"],
-        helpString: "打开焦香鸡翅",
+        name: "mcd",
+        aliases: ["麦当劳"],
+        helpString: "打开麦当劳",
         callback: () => {
           open();
           return "";
         }
       }));
     } else if (c2.registerSlashCommand) {
-      c2.registerSlashCommand("atelier", () => {
+      c2.registerSlashCommand("mcd", () => {
         open();
         return "";
-      }, ["焦香鸡翅"], "打开焦香鸡翅");
+      }, ["麦当劳"], "打开麦当劳");
     }
   } catch (e) {
-    console.warn("[焦香鸡翅] 注册斜杠命令失败", e);
+    console.warn("[麦当劳] 注册斜杠命令失败", e);
   }
 }
 var applying = false;
@@ -752,7 +752,7 @@ function chatInfoToast(scheme) {
     const msg = `模型：${model}${scheme ? `\n方案：${scheme.name}` : ""}`;
     if (t?.info) tapToClose(t, t.info(msg, `预设：${preset}`, { timeOut: 3e3, extendedTimeOut: 1e3, closeOnHover: false, preventDuplicates: false, toastClass: "toast pa-chat-toast", escapeHtml: true, tapToDismiss: true }));
   } catch (e) {
-    console.warn("[焦香鸡翅] 提示当前预设失败", e);
+    console.warn("[麦当劳] 提示当前预设失败", e);
   }
 }
 var onChatChanged = debounce(async () => {
@@ -788,21 +788,21 @@ async function autoApplyBinding() {
     if (presetOk && personaOk && siteOk && schemeMatches(d, sc)) return sc;
     return await applyScheme(sc, { quiet: true, silent: true }) ? sc : null;
   } catch (e) {
-    console.warn("[焦香鸡翅] 套用聊天绑定方案失败", e);
+    console.warn("[麦当劳] 套用聊天绑定方案失败", e);
     toast(`套用本聊天绑定的方案「${sc.name}」失败：${e.message}`, "warning");
     return null;
   }
 }
 function whoFromStack(stack) {
   const names = [...String(stack || "").matchAll(/extensions\/third-party\/([^/?#]+)\//g)].map((m) => decodeURIComponent(m[1]));
-  const other = names.find((n) => !/burnt|chicken|atelier|焦香/i.test(n));
+  const other = names.find((n) => n !== EXT_DIR && !/mcdonalds|麦当劳/i.test(n));
   if (other) return other;
   const scripts = [...String(stack || "").matchAll(/scripts\/extensions\/([^/?#]+)\//g)].map((m) => m[1]).find((n) => n !== "third-party");
   return scripts ? `酒馆内置扩展 ${scripts}` : "";
 }
 function watchMirrorWrites() {
   const orig = window.fetch;
-  if (typeof orig !== "function" || orig.__paWatch) return;
+  if (typeof orig !== "function" || orig.__mcdWatch) return;
   const wrapped = function(input, init) {
     const t0 = performance.now();
     try {
@@ -819,7 +819,7 @@ function watchMirrorWrites() {
             if (!settings().mirrorWrites || typeof settings().mirrorWrites !== "object") settings().mirrorWrites = {};
             settings().mirrorWrites[b.name] = { at: Date.now(), by };
             saveSettings();
-            console.warn("[焦香鸡翅] 有人把旧的重复分组写回了预设", b.name, by || "(酒馆保存预设)", new Error().stack);
+            console.warn("[麦当劳] 有人把旧的重复分组写回了预设", b.name, by || "(酒馆保存预设)", new Error().stack);
           }
         }
       }
@@ -829,7 +829,7 @@ function watchMirrorWrites() {
     if (ms > 1) jankOwn("保存预设时检查重复分组", t0, ms);
     return orig.apply(this, arguments);
   };
-  wrapped.__paWatch = true;
+  wrapped.__mcdWatch = true;
   window.fetch = wrapped;
   cleanups.push(() => { if (window.fetch === wrapped) window.fetch = orig; });
 }
@@ -857,7 +857,7 @@ function bindEvents() {
   };
   on(et2.PRESET_CHANGED, (e) => {
     if (e?.apiId && e.apiId !== "openai") return;
-    try { onPresetSwitchReasoning(e?.name); } catch (err) { console.warn("[焦香鸡翅] 切换推理格式失败", err); }
+    try { onPresetSwitchReasoning(e?.name); } catch (err) { console.warn("[麦当劳] 切换推理格式失败", err); }
     // 正则保存只刷新原生面板，保留正在操作的来源选择和缝合位置。
     if (presetRegexRefreshName && e?.apiId === "openai" && e?.name === presetRegexRefreshName) return;
     try { notePresetUse(currentPresetName()); } catch {}
@@ -872,9 +872,9 @@ function bindEvents() {
   bindBalanceWatch(on, et2);
 }
 async function start() {
-  const prev = globalThis.__presetAtelier;
+  const prev = globalThis.__mcdonalds;
   if (prev && prev.kind === "extension" && BUILD_KIND === "script") {
-    console.info("[焦香鸡翅] 已经装了扩展版，脚本版不再启动");
+    console.info("[麦当劳] 已经装了扩展版，脚本版不再启动");
     return;
   }
   if (prev?.destroy) {
@@ -898,16 +898,16 @@ async function start() {
   injectStyle();
   try { applyPullGuard(); } catch {}
   // 1.8.0 去掉了后台中断补救，清掉它留下的记录
-  try { localStorage.removeItem("presetAtelier:generating"); } catch {}
+  try { localStorage.removeItem("mcdonalds:generating"); } catch {}
   try { delete settings().rescue; } catch {}
   try { if (migrateLegacyKeys(settings().sites)) saveSettings(); } catch {}
-  cleanups.push(() => document.getElementById("pa-pull-guard")?.remove());
+  cleanups.push(() => document.getElementById("mcd-pull-guard")?.remove());
   addMenuEntry();
   addSettingsEntry();
   try { applyFloatBall(); } catch {}
-  const replaceBall = () => { const b = document.getElementById("pa-ball"); if (b) placeBall(b); };
+  const replaceBall = () => { const b = document.getElementById("mcd-ball"); if (b) placeBall(b); };
   window.addEventListener("resize", replaceBall);
-  cleanups.push(() => { window.removeEventListener("resize", replaceBall); document.getElementById("pa-ball")?.remove(); });
+  cleanups.push(() => { window.removeEventListener("resize", replaceBall); document.getElementById("mcd-ball")?.remove(); });
   registerSlash();
   bindEvents();
   try { notePresetUse(currentPresetName(), { save: false }); } catch {}
@@ -916,9 +916,9 @@ async function start() {
   const timer = setInterval(() => {
     addMenuEntry();
     addSettingsEntry();
-    if (++tries > 20 || document.getElementById("pa-menu-entry") && document.getElementById("pa-settings")) clearInterval(timer);
+    if (++tries > 20 || document.getElementById("mcd-menu-entry") && document.getElementById("mcd-settings")) clearInterval(timer);
   }, 1e3);
-  globalThis.__presetAtelier = {
+  globalThis.__mcdonalds = {
     version: VERSION,
     kind: BUILD_KIND,
     open,
@@ -931,14 +931,14 @@ async function start() {
         } catch {
         }
       });
-      document.getElementById("pa-root")?.remove();
-      document.getElementById("pa-style")?.remove();
-      document.getElementById("pa-menu-entry")?.remove();
-      document.getElementById("pa-settings")?.remove();
+      document.getElementById("mcd-root")?.remove();
+      document.getElementById("mcd-style")?.remove();
+      document.getElementById("mcd-menu-entry")?.remove();
+      document.getElementById("mcd-settings")?.remove();
       rootEl2 = null;
     }
   };
-  console.log(`[焦香鸡翅] ${VERSION} 已加载`);
+  console.log(`[麦当劳] ${VERSION} 已加载`);
 }
 // 备份：每批修改开始前自动备份一次修改前的版本，每个预设保留最近 backupMax() 份（2.4.2 可关闭）
 async function backupsSheet(name) {
@@ -963,8 +963,8 @@ async function backupsSheet(name) {
     toast("已恢复", "success");
   }
 }
-// 1.4.1：扩展名称可修改，默认「焦香鸡翅」。酒馆「扩展管理」列表里的名称来自 manifest.json，无法按用户修改
-var DEFAULT_APP_NAME = "焦香鸡翅";
+// 1.4.1：扩展名称可修改，默认「麦当劳」。酒馆「扩展管理」列表里的名称来自 manifest.json，无法按用户修改
+var DEFAULT_APP_NAME = "麦当劳";
 function appName() {
   try {
     return settings().appName || DEFAULT_APP_NAME;
@@ -979,6 +979,6 @@ function nameRowHtml() {
 }
 function refreshAppName() {
   document.querySelectorAll(".pa-appname").forEach((x) => { x.textContent = appName(); });
-  const ball = document.getElementById("pa-ball");
+  const ball = document.getElementById("mcd-ball");
   if (ball) { ball.title = appName(); ball.setAttribute("aria-label", `打开${appName()}`); }
 }

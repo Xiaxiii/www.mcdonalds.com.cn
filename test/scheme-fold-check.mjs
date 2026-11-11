@@ -9,27 +9,27 @@ async function openPage(saved) {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on("pageerror", (e) => errs.push(e.message));
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   await page.evaluate((saved) => {
     const c = window.SillyTavern.getContext();
     c.characters = [{ name: "沈砚", avatar: "shen.png" }, { name: "林栖", avatar: "lin.png" }];
     c.characterId = "0";
     c.chatId = "chat-1";
     const m = window.__mock;
-    c.extensionSettings.presetAtelier = saved ? structuredClone(saved) : {
+    c.extensionSettings.mcdonalds = saved ? structuredClone(saved) : {
       schemes: [
         { id: "a", name: "沈砚·正剧", preset: m.names[0], scope: "all", states: {}, groupStates: {}, charKey: "shen.png" },
         { id: "b", name: "林栖·日常", preset: m.names[0], scope: "all", states: {}, groupStates: {}, charKey: "lin.png" }
       ]
     };
-    window.__presetAtelier.open("more", "schemes");
+    window.__mcdonalds.open("more", "schemes");
   }, saved);
   await page.waitForTimeout(500);
   return page;
 }
 const groups = (page) => page.evaluate(() => [...document.querySelectorAll(".pa-schemes .pa-sgroup")].map((g) => (g.classList.contains("open") ? "+" : "-") + g.querySelector(".pa-sghead b").textContent).join(" "));
 const opts = (page) => page.evaluate(() => [...document.querySelectorAll(".pa-opthead")].map((h) => h.getAttribute("aria-expanded")).join(","));
-const saved = (page) => page.evaluate(() => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier));
+const saved = (page) => page.evaluate(() => structuredClone(window.SillyTavern.getContext().extensionSettings.mcdonalds));
 
 let page = await openPage(null);
 assert.equal(await groups(page), "+沈砚 -林栖", "没动过时当前角色那组展开");

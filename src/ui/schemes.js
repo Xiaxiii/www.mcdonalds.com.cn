@@ -1,4 +1,4 @@
-var META_KEY = "presetAtelierScheme";
+var META_KEY = "mcdonaldsScheme";
 var LIKELY = /文风|风格|人设|人物|角色|情感|基调|性格|题材|狗|daddy|年上|年下|nsfw|涩|色|play|玩法|关系|buff/i;
 function schemeStates(d, scheme) {
   const ids = scheme.scope === "all" ? d.order.map((o) => o.identifier) : d.order.filter((o) => scheme.scope.includes(d.groupOf(o.identifier))).map((o) => o.identifier);

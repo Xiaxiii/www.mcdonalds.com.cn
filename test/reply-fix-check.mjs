@@ -30,7 +30,7 @@ async function openPage() {
     });
   });
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   return page;
 }
 const emitted = (page, event) => page.evaluate((event) => window.__emits.filter((e) => e[0] === event).length, event);
@@ -41,7 +41,7 @@ try {
       { is_user: false, mes: '开场白' }, { is_user: true, mes: '继续' },
       { is_user: false, mes: '<think>先分析用户要求\n<content>故事正文。</content>', swipe_id: 1, swipes: ['旧的滑动', '<think>先分析用户要求\n<content>故事正文。</content>'], extra: { reasoning: '' } }
     ];
-    window.__presetAtelier.open('reply-check');
+    window.__mcdonalds.open('reply-check');
   });
   await page.click('[data-r=latest]');
   const result = page.locator('[data-r=result]');
@@ -80,16 +80,16 @@ try {
   assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chat[2].extra.reasoning), '我在想。\n<content>被吞进思考区的正文</content>');
   ok('正文被解析进思考区时可移回，回复变化后拒绝过期修正，撤销还原推理字段');
 
-  await page.evaluate(() => window.__presetAtelier.open('organize'));
+  await page.evaluate(() => window.__mcdonalds.open('organize'));
   // 酒馆推理前缀是 <ECoT>，模型又自带思考：<ECoT> 留在正文，说明原因；ECoT 当作思考标签，不算爆思维链
   await page.evaluate(() => {
     const c = window.SillyTavern.getContext();
     c.powerUserSettings.reasoning = { auto_parse: true, prefix: '<ECoT>', suffix: '</ECoT>' };
     c.chat[2] = { is_user: false, mes: '<ECoT>\n# 确认身份\n我是作者，开始仔细思考本轮剧情要怎么写，写够字数。\n</ECoT>\n<content>正文。</content>', extra: { reasoning: 'Processing Complex Instructions', reasoning_type: 'model' } };
   });
-  await page.evaluate(() => window.__presetAtelier.open('reply-rules'));
+  await page.evaluate(() => window.__mcdonalds.open('reply-rules'));
   assert.equal(await page.locator('[data-r=thinking]').inputValue(), 'ECoT');
-  await page.evaluate(() => window.__presetAtelier.open('reply-check'));
+  await page.evaluate(() => window.__mcdonalds.open('reply-check'));
   await page.click('[data-r=latest]');
   assert.match(await result.innerText(), /<ECoT> 留在了正文里/);
   assert.match(await result.innerText(), /请求思维链/);
@@ -105,7 +105,7 @@ try {
   assert.equal(await page.locator('[data-r=fix]').count(), 0);
   ok('正文标签前的大段分析文字列出原文片段，不提供自动修正');
 
-  await page.evaluate(() => { window.__emits = []; window.__presetAtelier.open('organize'); });
+  await page.evaluate(() => { window.__emits = []; window.__mcdonalds.open('organize'); });
   await expandAll(page);
   const saves = await page.evaluate(() => window.__saved || 0);
   await page.locator('.pa-list .pa-row .pa-switch').first().click();

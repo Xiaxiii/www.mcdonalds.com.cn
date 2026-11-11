@@ -8,10 +8,10 @@ for (const mode of ["script", "both"]) {
   page.on("console", (m) => logs.push(m.text()));
   page.on("pageerror", (e) => logs.push("ERR " + e.message));
   await page.goto(`http://127.0.0.1:8765/test/site/script.html?mode=${mode}`);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   await page.waitForTimeout(800);
-  const info = await page.evaluate(() => ({ kind: window.__presetAtelier.kind, version: window.__presetAtelier.version, menus: document.querySelectorAll("#pa-menu-entry").length, styles: document.querySelectorAll("#pa-style").length }));
-  console.log(mode, JSON.stringify(info), logs.filter((l) => /焦香鸡翅|ERR/.test(l)).join(" | "));
+  const info = await page.evaluate(() => ({ kind: window.__mcdonalds.kind, version: window.__mcdonalds.version, menus: document.querySelectorAll("#mcd-menu-entry").length, styles: document.querySelectorAll("#mcd-style").length }));
+  console.log(mode, JSON.stringify(info), logs.filter((l) => /麦当劳|ERR/.test(l)).join(" | "));
   assert.equal(info.kind, mode === "script" ? "script" : "extension");
   assert.equal(info.menus, 1, "菜单入口只有一个");
   assert.equal(info.styles, 1, "样式只注入一次");

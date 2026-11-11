@@ -66,14 +66,14 @@ try {
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1100, height: 900 }, isMobile: mobile, hasTouch: mobile });
     page.on('pageerror', e => errors.push(e.message));
     await page.goto('http://127.0.0.1:8768/test/site/index.html');
-    await page.waitForFunction(() => window.__presetAtelier?.open);
+    await page.waitForFunction(() => window.__mcdonalds?.open);
     await page.evaluate(({ original, source, targetName, sourceName }) => {
       const m = window.__mock;
       m.names.splice(0, m.names.length, targetName, sourceName);
       m.presets.splice(0, m.presets.length, original, source);
       m.live.preset_settings_openai = targetName;
       Object.assign(m.live, structuredClone(original));
-      window.__presetAtelier.open('organize');
+      window.__mcdonalds.open('organize');
     }, { original, source, targetName, sourceName });
     await choose(page, '[data-page=organize] .pa-picker-slot .pa-namebtn', targetName);
     const list = page.locator('[data-page=organize] .pa-list');
@@ -131,7 +131,7 @@ try {
     await page.evaluate(() => window.__perfContentNotify());
     assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeContent.renders, 0, '思维链可见时内容通知不会重画后台整理列表');
     assert.equal(await page.evaluate(() => window.__perf.analyses) - beforeContent.analyses, 1, '内容通知只重新分析可见思维链页一次');
-    await page.evaluate(() => window.__presetAtelier.open("suture"));
+    await page.evaluate(() => window.__mcdonalds.open("suture"));
     await page.waitForSelector('.pa-src-list .pa-group');
     assert.equal(await page.locator('.pa-src-list .pa-row').count(), 0);
     await page.locator('.pa-src-list .pa-group').first().locator('.pa-gname').click();

@@ -12,7 +12,7 @@ async function boot(ctx) {
   const errs = [];
   page.on("pageerror", (e) => errs.push(e.message));
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   return { page, errs };
 }
 
@@ -41,14 +41,14 @@ async function boot(ctx) {
     window.__nameA = a;
   });
   const nameA = await page.evaluate(() => window.__nameA);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__mcdonalds.open("organize"));
   await page.waitForTimeout(400);
   await expandAll(page);
   await page.locator(".pa-list .pa-row .pa-switch").first().click();
   await page.waitForTimeout(600); // 自动保存已发出，还没回来
   assert.ok(log.includes("save-start:" + nameA) && !log.includes("save-end:" + nameA), "保存正在进行");
   // 用户在酒馆里换到了别的预设，再去清理页删除甲
-  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__presetAtelier.open("clean"); });
+  await page.evaluate(() => { window.__mock.live.preset_settings_openai = "乙预设"; window.__mcdonalds.open("clean"); });
   await page.waitForTimeout(300);
   await page.click('[data-f="all"]'); await page.waitForTimeout(200);
   await page.click(`.pa-crow:has-text("${nameA}") input[data-c=pick]`);
@@ -72,14 +72,14 @@ async function boot(ctx) {
   await page.evaluate(() => {
     const m = window.__mock;
     const c = window.SillyTavern.getContext();
-    c.extensionSettings.presetAtelier = {
+    c.extensionSettings.mcdonalds = {
       sites: [{ id: "s-oai", name: "官方", source: "openai", url: "", model: "gpt-x" }],
       schemes: [
         { id: "k1", name: "记着别的站点", preset: m.live.preset_settings_openai, scope: "all", states: {}, groupStates: {}, siteId: "s-oai" },
         { id: "k2", name: "只记开关", preset: m.live.preset_settings_openai, scope: "all", states: {}, groupStates: {} }
       ],
     };
-    window.__presetAtelier.open("schemes");
+    window.__mcdonalds.open("schemes");
   });
   await page.waitForTimeout(500);
   const card = (n) => page.$eval(`.pa-srow:has-text("${n}") .pa-srow-main`, (x) => x.innerText);
@@ -97,24 +97,24 @@ async function boot(ctx) {
   const { page, errs } = await boot(ctx);
   await page.evaluate(() => {
     const c = window.SillyTavern.getContext();
-    c.extensionSettings.presetAtelier = {
+    c.extensionSettings.mcdonalds = {
       sites: [{ id: "s1", name: "中转甲", source: "custom", url: "https://a.example/v1", model: "m1", secretId: "gone", localKey: true }, { id: "s2", name: "中转乙", source: "custom", url: "https://b.example/v1", model: "m2" }],
       activeSiteId: "s2"
     };
-    localStorage.setItem("presetAtelier:key:default-user:s1", "sk-local-key-123");
-    window.__presetAtelier.open("conn");
+    localStorage.setItem("mcdonalds:key:default-user:s1", "sk-local-key-123");
+    window.__mcdonalds.open("conn");
   });
   await page.waitForTimeout(400);
   const vault = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.length);
   const before = await vault();
   for (let i = 0; i < 2; i++) {
-    await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier.activeSiteId = "s2"; window.__presetAtelier.open("conn"); });
+    await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds.activeSiteId = "s2"; window.__mcdonalds.open("conn"); });
     await page.waitForTimeout(300);
     await page.click('.pa-site:has-text("中转甲") [data-a="use"]');
     await page.waitForTimeout(1500);
   }
   assert.equal(await vault(), before + 1, "只存进去一次");
-  assert.notEqual(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].secretId), "gone");
+  assert.notEqual(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].secretId), "gone");
   assert.deepEqual(errs, []);
   ok("本地密钥重新存进密钥库后记下编号，不重复存");
   await ctx.close();
@@ -124,8 +124,8 @@ async function boot(ctx) {
 {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 } });
   const { page, errs } = await boot(ctx);
-  const otherKey = "presetAtelier:recovery:v180:别的账号:某预设";
-  const mineKey = "presetAtelier:recovery:v180:default-user:旧预设";
+  const otherKey = "mcdonalds:recovery:v180:别的账号:某预设";
+  const mineKey = "mcdonalds:recovery:v180:default-user:旧预设";
   await page.evaluate(([o, m]) => {
     localStorage.setItem(o, JSON.stringify({ preset: { prompts: [] }, time: 1 }));
     localStorage.setItem(m, JSON.stringify({ preset: { prompts: [] }, time: 1 }));
@@ -133,16 +133,16 @@ async function boot(ctx) {
     const real = Storage.prototype.setItem;
     let failed = false;
     Storage.prototype.setItem = function (k, v) {
-      if (!failed && String(k).startsWith("presetAtelier:recovery:v180:default-user:") && k !== m) { failed = true; throw new DOMException("full", "QuotaExceededError"); }
+      if (!failed && String(k).startsWith("mcdonalds:recovery:v180:default-user:") && k !== m) { failed = true; throw new DOMException("full", "QuotaExceededError"); }
       return real.call(this, k, v);
     };
-    window.__presetAtelier.open("organize");
+    window.__mcdonalds.open("organize");
   }, [otherKey, mineKey]);
   await page.waitForTimeout(400);
   await expandAll(page);
   await page.locator(".pa-list .pa-row .pa-switch").first().click();
   // 单次修改不再立刻整份写草稿（等自动保存）；关页面/切后台时才写，这里模拟关页面
-  assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("presetAtelier:recovery:v180:default-user:") && !k.endsWith(":旧预设")).length), 0, "点一下开关不立刻写整份草稿");
+  assert.equal(await page.evaluate(() => Object.keys(localStorage).filter((k) => k.startsWith("mcdonalds:recovery:v180:default-user:") && !k.endsWith(":旧预设")).length), 0, "点一下开关不立刻写整份草稿");
   await page.evaluate(() => window.dispatchEvent(new Event("pagehide")));
   await page.waitForTimeout(200);
   const left = await page.evaluate(([o, m]) => [localStorage.getItem(o) !== null, localStorage.getItem(m) !== null], [otherKey, mineKey]);

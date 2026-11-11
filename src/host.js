@@ -11,7 +11,7 @@ async function load(name, path) {
       stUrl(path)
     );
   } catch (e) {
-    console.warn("[焦香鸡翅] 无法加载", path, e);
+    console.warn("[麦当劳] 无法加载", path, e);
     mods[name] = null;
   }
   return mods[name];
@@ -116,7 +116,7 @@ async function flushPresetNotice() {
     const et2 = ctx().eventTypes || ctx().event_types;
     await ctx().eventSource.emit(et2.OAI_PRESET_CHANGED_AFTER);
   } catch (e) {
-    console.warn("[焦香鸡翅] 通知酒馆刷新预设失败", e);
+    console.warn("[麦当劳] 通知酒馆刷新预设失败", e);
   }
 }
 // backup：写之前把服务器上的旧版本存一份备份（每批修改只存一次，由调用方决定）
@@ -128,7 +128,7 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
     try {
       await backupPut(name, presets[idx], reason);
     } catch (e) {
-      console.warn("[焦香鸡翅] 备份失败", e);
+      console.warn("[麦当劳] 备份失败", e);
       throw Object.assign(new Error(String(e?.message || e || "未知错误")), { kind: "backup" });
     }
   }
@@ -172,7 +172,7 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
         presetRegexRefreshName = name;
         await ctx().eventSource.emit(et2.PRESET_CHANGED, { apiId: "openai", name });
       } catch (e) {
-        console.warn("[焦香鸡翅] 正则已保存，通知酒馆刷新失败", e);
+        console.warn("[麦当劳] 正则已保存，通知酒馆刷新失败", e);
         toast("正则已保存，请重新选择预设以刷新酒馆正则列表", "warning");
       } finally {
         presetRegexRefreshName = previousRefresh;
@@ -371,7 +371,7 @@ function keepKeyId(site, view) {
 }
 // 旧版酒馆没有密钥库编号：密钥只存在这个浏览器里，不写进会上传到服务器的设置文件
 function localKeyName(siteId) {
-  return `presetAtelier:key:${userHandle()}:${siteId}`;
+  return `mcdonalds:key:${userHandle()}:${siteId}`;
 }
 function getLocalKey(site) {
   try {
@@ -392,7 +392,7 @@ function setLocalKey(siteId, key) {
 // 2.5.0 存进酒馆密钥库的密钥，在这个浏览器里另留一份，眼睛按钮看全文时用：
 // 酒馆默认不把已保存的密钥发回浏览器（config.yaml 的 allowKeysExposure）。和上面一样只存在本浏览器，不进设置文件
 function keyCopyName(secretId) {
-  return `presetAtelier:keycopy:${userHandle()}:${secretId}`;
+  return `mcdonalds:keycopy:${userHandle()}:${secretId}`;
 }
 function getKeyCopy(secretId) {
   try {
@@ -469,7 +469,7 @@ async function dropKey(source, id) {
   try {
     await mods.secrets.deleteSecret(secretKey, id);
   } catch (e) {
-    console.warn("[焦香鸡翅] 删除密钥失败", e);
+    console.warn("[麦当劳] 删除密钥失败", e);
   }
 }
 // 2.5.0 取出已保存密钥的全文：先用本浏览器留的那份；没有再问酒馆，酒馆要在 config.yaml 打开 allowKeysExposure 才给。
@@ -524,7 +524,7 @@ function pruneKeyCopies(state) {
     const lists = Object.values(state || {}).filter(Array.isArray);
     if (!lists.some((l) => l.length)) return;
     const alive = new Set(lists.flat().map((x) => x?.id).filter(Boolean));
-    const prefix = `presetAtelier:keycopy:${userHandle()}:`;
+    const prefix = `mcdonalds:keycopy:${userHandle()}:`;
     for (let i = localStorage.length - 1; i >= 0; i--) {
       const k = localStorage.key(i);
       if (k?.startsWith(prefix) && !alive.has(k.slice(prefix.length))) localStorage.removeItem(k);
@@ -687,7 +687,7 @@ function setBindPresetToConnection(on) {
 function sleep(ms) {
   return new Promise((r) => setTimeout(r, ms));
 }
-var DB = "preset-atelier";
+var DB = "mcdonalds";
 var BACKUP_MAX = 10;
 // 2.4.2：自动备份可关闭，保留份数可选 1–30。世界书的备份同样适用
 function backupOn() {

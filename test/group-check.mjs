@@ -6,7 +6,7 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROME ||
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const T = process.argv[2] || "【众生相】Claude-Lite-v1.8";
 // 假柏宝箱：使用实际核对过的全局缓存字段；缓存不失效时会把旧分组写回。
 await page.evaluate((T) => {
@@ -30,7 +30,7 @@ await page.evaluate((T) => {
       window.__bbReset = (window.__bbReset || 0) + 1;
     }
   });
-  window.__presetAtelier.open("organize");
+  window.__mcdonalds.open("organize");
 }, T);
 await page.waitForTimeout(400);
 await choose(page, ".pa-picker-slot .pa-namebtn", T); await page.waitForTimeout(300);
@@ -47,7 +47,7 @@ await page.click(".pa-pick-item >> text=建成分组"); await page.waitForTimeou
 await page.fill(".pa-sheet input.pa-input", "新组测试"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(2500);
 check((await groups()).includes("新组测试"), "建成分组后保存仍在");
 // 缝合页：新建空白分组
-await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(300);
+await page.evaluate(() => window.__mcdonalds.open("suture")); await page.waitForTimeout(300);
 await page.click('[data-st="newgroup"]'); await page.waitForTimeout(300);
 await page.fill(".pa-sheet input.pa-input", "空白组"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(300);
 await page.locator(".pa-dst-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(2500);

@@ -7,7 +7,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const active = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.find((s) => s.active)?.value);
 await page.evaluate(async () => {
   const live = window.__mock.live;
@@ -24,8 +24,8 @@ await page.evaluate(async () => {
   window.__toasts = [];
   window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
   (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true });
-  window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: "x", name: "小汐", source: "custom", url: "https://x.example/v1", model: "m1", models: ["m1"], secretId: "old", keyMask: "sk-…oldd" }], activeSiteId: "x" };
-  window.__presetAtelier.open("conn");
+  window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [{ id: "x", name: "小汐", source: "custom", url: "https://x.example/v1", model: "m1", models: ["m1"], secretId: "old", keyMask: "sk-…oldd" }], activeSiteId: "x" };
+  window.__mcdonalds.open("conn");
 });
 await page.waitForTimeout(400);
 assert.equal(await active(), "old");
@@ -35,7 +35,7 @@ await page.fill(".pa-sheet [data-f=key]", "sk-new-key-abcd");
 await page.locator(".pa-sheet-mask:not(.pa-out) .pa-sheet-actions .pa-btn-primary").click();
 await page.waitForTimeout(2500);
 assert.equal(await active(), "bcd", "当前连接换上了新密钥（模拟密钥库只存末三位）");
-const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0]);
+const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0]);
 assert.notEqual(site.secretId, "old");
 assert.match((await page.evaluate(() => window.__toasts)).join("|"), /已用新密钥重新连接|重新连接未成功/);
 console.log("✓ 编辑当前站点换密钥：保存后当前连接改用新密钥");

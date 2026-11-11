@@ -13,11 +13,11 @@ async function boot(viewport, mobile) {
   page.on("pageerror", (e) => errs.push(e.message));
   await page.route("**/api/presets/save", (r) => r.fulfill({ json: { name: r.request().postDataJSON().name } }));
   await page.goto(`http://127.0.0.1:${PORT}/test/site/index.html`);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   return { page, errs };
 }
 const state = (page) => page.evaluate(() => {
-  const root = document.getElementById("pa-root");
+  const root = document.getElementById("mcd-root");
   const vis = (e) => !!e && e.getClientRects().length > 0 && getComputedStyle(e).visibility !== "hidden";
   return {
     title: root.querySelector(".pa-title").textContent,
@@ -31,7 +31,7 @@ const state = (page) => page.evaluate(() => {
 // 手机
 {
   const { page, errs } = await boot({ width: 390, height: 844 }, true);
-  await page.evaluate(() => window.__presetAtelier.open());
+  await page.evaluate(() => window.__mcdonalds.open());
   await page.waitForTimeout(300);
   let s = await state(page);
   assert.deepEqual(s.nav, ["预设", "缝合", "检查", "连接", "更多"]);
@@ -63,7 +63,7 @@ const state = (page) => page.evaluate(() => {
   await page.locator('[data-page=reply] [data-r="body"]').dispatchEvent("change");
   await page.waitForTimeout(200);
   assert.equal(await rp.locator('[data-r="save"]').count(), 0, "改动即保存，没有「保存设置」按钮");
-  const saved = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard);
+  const saved = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.replyGuard);
   assert.ok(saved && Object.values(saved).some((v) => v.bodyTag === "content"), "离开输入框即写入当前预设");
   await page.screenshot({ path: S + "n-3-phone-reply.png" });
   ok("手机：检查 → 回复为单页，检查、标签、处理方式、语义审查同页");
@@ -105,14 +105,14 @@ const state = (page) => page.evaluate(() => {
   ok("手机：更多下分方案、清理、体检、设置，记住上次的分页");
 
   // 旧的打开方式
-  await page.evaluate(() => window.__presetAtelier.open("more", "look"));
+  await page.evaluate(() => window.__mcdonalds.open("more", "look"));
   assert.deepEqual((await state(page)).page, ["look"]);
-  await page.evaluate(() => window.__presetAtelier.open("suture"));
+  await page.evaluate(() => window.__mcdonalds.open("suture"));
   s = await state(page);
   assert.deepEqual(s.page, ["suture"]); assert.deepEqual(s.navOn, ["缝合"]);
-  await page.evaluate(() => window.__presetAtelier.open("reply-rules"));
+  await page.evaluate(() => window.__mcdonalds.open("reply-rules"));
   assert.deepEqual((await state(page)).page, ["reply"]);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__mcdonalds.open("organize"));
   assert.deepEqual((await state(page)).page, ["organize"]);
   ok("旧写法 open(\"more\", 子页)、open(\"suture\")、open(\"reply-rules\") 仍可用");
 
@@ -136,7 +136,7 @@ const state = (page) => page.evaluate(() => {
 // 宽屏
 for (const [w, h] of [[1280, 800], [1024, 768]]) {
   const { page, errs } = await boot({ width: w, height: h }, false);
-  await page.evaluate(() => window.__presetAtelier.open());
+  await page.evaluate(() => window.__mcdonalds.open());
   await page.waitForTimeout(300);
   let s = await state(page);
   assert.deepEqual(s.nav, ["预设", "缝合", "检查", "连接", "方案", "清理", "体检", "设置"]);

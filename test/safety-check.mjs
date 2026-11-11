@@ -14,7 +14,7 @@ async function boot(ctx, init) {
   page.on("pageerror", (e) => errs.push(e.message));
   if (init) await page.addInitScript(init);
   await page.goto(URL0);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   return { page, errs };
 }
 const sheetTitle = (page) => page.$eval(".pa-sheet-mask:last-child .pa-sheet-head b", (x) => x.textContent).catch(() => null);
@@ -25,7 +25,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
 {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 }, acceptDownloads: true });
   const { page, errs } = await boot(ctx);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__mcdonalds.open("organize"));
   await page.waitForTimeout(400);
   await expandAll(page);
   await page.locator(firstToggle).first().click(); await page.waitForTimeout(900);
@@ -59,15 +59,15 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   await page.evaluate((name) => {
     const p = structuredClone(window.__mock.presets[window.__mock.names.indexOf(name)]);
     p.prompts[0].content = "草稿里的内容";
-    localStorage.setItem(`presetAtelier:recovery:v180:default-user:${name}`, JSON.stringify({ preset: p, baseSig: "别的版本", time: Date.now() }));
+    localStorage.setItem(`mcdonalds:recovery:v180:default-user:${name}`, JSON.stringify({ preset: p, baseSig: "别的版本", time: Date.now() }));
   }, name);
   const before = await savedCount(page);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__mcdonalds.open("organize"));
   await page.waitForTimeout(900);
   assert.equal(await sheetTitle(page), "发现未保存的草稿");
   assert.equal(await savedCount(page), before, "没有自动写入");
   await page.click(".pa-sheet-mask:last-child .pa-btn-danger"); await page.waitForTimeout(300);
-  assert.equal(await page.evaluate((name) => localStorage.getItem(`presetAtelier:recovery:v180:default-user:${name}`), name), null, "丢弃后清掉草稿");
+  assert.equal(await page.evaluate((name) => localStorage.getItem(`mcdonalds:recovery:v180:default-user:${name}`), name), null, "丢弃后清掉草稿");
   assert.deepEqual(errs, []);
   ok("草稿基于旧版本时先询问，不自动覆盖");
   await ctx.close();
@@ -76,9 +76,9 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
 // ---- 3) 备份失败：不写入，由用户选择
 {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 }, acceptDownloads: true });
-  const breakIdb = () => { const real = indexedDB.open.bind(indexedDB); indexedDB.open = (name, v) => { if (name === "preset-atelier") throw new Error("存储已满"); return real(name, v); }; };
+  const breakIdb = () => { const real = indexedDB.open.bind(indexedDB); indexedDB.open = (name, v) => { if (name === "mcdonalds") throw new Error("存储已满"); return real(name, v); }; };
   const { page } = await boot(ctx, breakIdb);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__mcdonalds.open("organize"));
   await page.waitForTimeout(400);
   await expandAll(page);
   const before = await savedCount(page);
@@ -97,9 +97,9 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
 // ---- 3b) 2.4.2 关闭自动备份：不碰备份库，直接保存
 {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 } });
-  const breakIdb = () => { const real = indexedDB.open.bind(indexedDB); indexedDB.open = (name, v) => { if (name === "preset-atelier") throw new Error("存储已满"); return real(name, v); }; };
+  const breakIdb = () => { const real = indexedDB.open.bind(indexedDB); indexedDB.open = (name, v) => { if (name === "mcdonalds") throw new Error("存储已满"); return real(name, v); }; };
   const { page, errs } = await boot(ctx, breakIdb);
-  await page.evaluate(() => { const c = window.SillyTavern.getContext(); c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), autoBackup: false }; window.__presetAtelier.open("organize"); });
+  await page.evaluate(() => { const c = window.SillyTavern.getContext(); c.extensionSettings.mcdonalds = { ...(c.extensionSettings.mcdonalds || {}), autoBackup: false }; window.__mcdonalds.open("organize"); });
   await page.waitForTimeout(400);
   await expandAll(page);
   const before = await savedCount(page);
@@ -115,7 +115,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
 {
   const ctx = await browser.newContext({ viewport: { width: 1024, height: 900 } });
   const { page, errs } = await boot(ctx);
-  await page.evaluate(() => window.__presetAtelier.open("organize"));
+  await page.evaluate(() => window.__mcdonalds.open("organize"));
   await page.waitForTimeout(400);
   await expandAll(page);
   const row = page.locator(".pa-list .pa-row").first();
@@ -156,7 +156,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   }
   // 没有弹窗时 Esc 关闭面板
   await page.keyboard.press("Escape"); await page.waitForTimeout(400);
-  assert.ok(await page.$eval("#pa-root", (x) => x.hidden), "Esc 关闭面板");
+  assert.ok(await page.$eval("#mcd-root", (x) => x.hidden), "Esc 关闭面板");
   ok("Esc 关闭面板");
   assert.deepEqual(errs, []);
   await ctx.close();
@@ -169,7 +169,7 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   await page.route("**/api/backends/chat-completions/status", (r) => r.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [{ id: "m1" }, { id: "m2" }] }) }));
   const state = () => page.evaluate(async () => (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.map((s) => `${s.id}${s.active ? "*" : ""}`).join(","));
   await page.evaluate(async () => { (await import("/test/site/scripts/secrets.js")).secret_state.api_key_custom.push({ id: "old", value: "old", active: true }); });
-  await page.evaluate(() => window.__presetAtelier.open("conn"));
+  await page.evaluate(() => window.__mcdonalds.open("conn"));
   await page.waitForTimeout(500);
   // 保存一个带新密钥的站点
   await page.click("[data-a=new]"); await page.waitForTimeout(200);
@@ -192,13 +192,13 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
   ok("取消添加时删掉刚存的密钥；Esc 只关最上面的弹窗");
   // 写入失败：不保存站点
   await page.evaluate(() => { globalThis.__secretWriteFails = true; });
-  const sites0 = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.length);
+  const sites0 = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites.length);
   await page.click("[data-a=new]"); await page.waitForTimeout(200);
   await page.fill(".pa-sheet [data-f=name]", "失败站");
   await page.fill(".pa-sheet [data-f=url]", "https://bad.example/v1");
   await page.fill(".pa-sheet [data-f=key]", "sk-bad-123456789");
   await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
-  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.length), sites0, "密钥没存上时不保存站点");
+  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites.length), sites0, "密钥没存上时不保存站点");
   ok("密钥写入失败时不保存站点");
   assert.deepEqual(errs, []);
   await ctx.close();

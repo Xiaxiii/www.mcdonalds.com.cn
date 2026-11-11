@@ -1,11 +1,11 @@
 {
-  "display_name": "焦香鸡翅",
+  "display_name": "麦当劳",
   "loading_order": 100,
   "requires": [],
   "optional": [],
   "js": "index.js",
   "author": "Xiaxiii",
-  "version": "2.10.1",
+  "version": "2.11.0",
   "homePage": "https://github.com/Xiaxiii/www.mcdonalds.com.cn",
   "auto_update": true
 }

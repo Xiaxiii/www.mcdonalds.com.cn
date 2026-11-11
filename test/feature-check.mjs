@@ -9,12 +9,12 @@ const page = await browser.newPage({ viewport: { width: 1024, height: 1000 } });
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const ok = (m) => console.log("✓", m);
 const live = () => page.evaluate(() => window.__mock.live.prompts);
 
 // 1) 新建条目：放在选中的条目后面，编辑角色、插入位置、深度，点保存才写进去
-await page.evaluate(() => window.__presetAtelier.open("organize"));
+await page.evaluate(() => window.__mcdonalds.open("organize"));
 await page.waitForTimeout(400);
 await expandAll(page); await page.waitForTimeout(200);
 const firstId = await page.locator(".pa-list .pa-row").first().getAttribute("data-id");
@@ -63,7 +63,7 @@ assert.ok(copy && copy.content === "新条目的正文" && copy.identifier !== m
 ok("复制条目");
 
 // 3) 缝合：已选清单里可以逐条去掉；新建分组在目标列表里
-await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(400);
+await page.evaluate(() => window.__mcdonalds.open("suture")); await page.waitForTimeout(400);
 await page.locator(".pa-src-list .pa-ghead").first().click(); await page.waitForTimeout(150);
 const rows = page.locator(".pa-src-list .pa-row:visible");
 await rows.nth(0).click(); await rows.nth(1).click(); await page.waitForTimeout(150);
@@ -94,28 +94,28 @@ ok("缝进世界书后撤销");
 // 5) 站点模型：酒馆里换了模型不悄悄写进站点，点「改记为当前模型」才写
 await page.evaluate(() => {
   document.body.insertAdjacentHTML("beforeend", '<select id="model_custom_select"><option value="m-a">m-a</option><option value="m-b">m-b</option></select><input id="custom_model_id">');
-  const s = window.SillyTavern.getContext().extensionSettings.presetAtelier;
+  const s = window.SillyTavern.getContext().extensionSettings.mcdonalds;
   s.sites = [{ id: "s1", name: "中转A", source: "custom", url: "https://example.com/v1", model: "m-a", models: [] }];
   s.activeSiteId = "s1";
   window.__mock.live.custom_model = "m-b";
 });
 await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(400);
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-a");
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].model), "m-a");
 await page.click('[data-a="keepmodel"]'); await page.waitForTimeout(300);
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model), "m-b");
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].model), "m-b");
 ok("站点模型不被悄悄覆盖，确认后才改");
 
 // 6) 设置框改名：在行内改，不弹浏览器输入框
 await page.click(".pa-close"); await page.waitForTimeout(200);
-await page.click('#pa-settings [data-a="rename"]'); await page.waitForTimeout(100);
-await page.fill("#pa-settings .pa-set-input", "我的鸡翅");
+await page.click('#mcd-settings [data-a="rename"]'); await page.waitForTimeout(100);
+await page.fill("#mcd-settings .pa-set-input", "我的麦当劳");
 await page.keyboard.press("Enter"); await page.waitForTimeout(150);
-assert.equal(await page.$eval("#pa-settings .pa-set-namerow .pa-appname", (x) => x.textContent), "我的鸡翅");
-assert.equal(await page.$eval("#pa-menu-entry .pa-appname", (x) => x.textContent), "我的鸡翅");
-await page.click('#pa-settings [data-a="rename"]'); await page.waitForTimeout(100);
-await page.fill("#pa-settings .pa-set-input", "");
-await page.click('#pa-settings [data-a="rename-ok"]'); await page.waitForTimeout(150);
-assert.equal(await page.$eval("#pa-menu-entry .pa-appname", (x) => x.textContent), "焦香鸡翅", "留空恢复默认");
+assert.equal(await page.$eval("#mcd-settings .pa-set-namerow .pa-appname", (x) => x.textContent), "我的麦当劳");
+assert.equal(await page.$eval("#mcd-menu-entry .pa-appname", (x) => x.textContent), "我的麦当劳");
+await page.click('#mcd-settings [data-a="rename"]'); await page.waitForTimeout(100);
+await page.fill("#mcd-settings .pa-set-input", "");
+await page.click('#mcd-settings [data-a="rename-ok"]'); await page.waitForTimeout(150);
+assert.equal(await page.$eval("#mcd-menu-entry .pa-appname", (x) => x.textContent), "麦当劳", "留空恢复默认");
 ok("设置框行内改名，留空恢复默认");
 
 assert.deepEqual(errs, []);

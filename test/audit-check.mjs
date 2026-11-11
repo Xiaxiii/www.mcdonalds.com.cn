@@ -25,19 +25,19 @@ async function open(mobile=false) {
     }});
   });
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
-  await page.waitForFunction(()=>window.__presetAtelier?.open,null,{timeout:15000});
+  await page.waitForFunction(()=>window.__mcdonalds?.open,null,{timeout:15000});
   await page.evaluate(()=>{
     const texts=['{{getvar::audit_flow}}','{{setvar::audit_flow::内容}}','{{setvar::audit_flow::}}','{{getvar::audit_flow}}'];
     const live=window.__mock.live;
     texts.forEach((content,i)=>{const identifier='audit-'+i;live.prompts.push({identifier,name:'顺序测试'+i,content,role:'system'});live.prompt_order.find(x=>x.character_id===100001).order.push({identifier,enabled:true});});
-    window.__presetAtelier.open('cot');
+    window.__mcdonalds.open('cot');
   });
   return page;
 }
 const pause=page=>page.waitForTimeout(220);
 const close=async(page,label)=>{await page.locator('.pa-sheet-actions .pa-btn').filter({hasText:label}).click();await pause(page);};
 // 2.7.7 变量检查在「预设 → 变量」页，语义审查在「回复 → 语义审查」页
-const go=async(page,key)=>{await page.evaluate(k=>window.__presetAtelier.open(k),key);await pause(page);};
+const go=async(page,key)=>{await page.evaluate(k=>window.__mcdonalds.open(k),key);await pause(page);};
 const R=s=>`[data-page=reply] ${s}`;
 // 2.8.0 AI 语义审查收在回复页页尾的折叠块里
 const goAi=async(page)=>{await go(page,'reply-ai');await page.evaluate(()=>{const d=document.querySelector('[data-page=reply] details.pa-rai');if(d)d.open=true;});};

@@ -13,7 +13,7 @@ try {
   await page.route('**/api/secrets/find', (r) => r.fulfill({ json: { value: 'sk-x' } }));
   await page.route('**/api/backends/chat-completions/status', (r) => r.fulfill({ json: { error: true, data: { data: [] } } }));
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(async () => {
     const m = window.__mock;
     for (const p of [m.presets[m.presets.length - 1], m.live]) p.prompts.filter((x) => x.content)[0].name = '角色的日记（小剧场）[来自某个预设 v3.2 正式版] 很长很长很长的名字';
@@ -24,10 +24,10 @@ try {
     document.body.insertAdjacentHTML('beforeend', `<div hidden><select id="main_api"><option value="openai">openai</option></select><select id="chat_completion_source"><option value="custom">custom</option></select><input id="custom_api_url_text"><input id="custom_model_id"><select id="model_custom_select">${models.map((x) => `<option value="${x}">${x}</option>`).join('')}</select><button id="api_button_openai"></button></div>`);
     $('#main_api').val('openai'); $('#chat_completion_source').val('custom');
     $('#custom_api_url_text').on('input', function () { m.live.custom_url = this.value; });
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [
       { id: 'a', name: '甲站', source: 'custom', url: 'https://a.example/v1', model: models[0], models, secretId: 'k1', note: '甲vt0.17/甲as0.15/乙vt0.2/乙ais0.16/丙ep0.18/丁0.15/戊0.2/己0.3' },
       { id: 'b', name: '乙站', source: 'custom', url: 'https://b.example/v1', model: 'plain-model', models: ['plain-model'] }], activeSiteId: 'a' };
-    window.__presetAtelier.open('organize');
+    window.__mcdonalds.open('organize');
   });
   await page.locator('.pa-gname').first().click();
   const row = page.locator('.pa-row', { hasText: '角色的日记' });
@@ -45,7 +45,7 @@ try {
   assert.equal(await page.locator('.pa-tabs').isVisible(), true);
   ok('撤销、完成在页头；多选栏含「复制」，多选时占用底部导航的位置');
 
-  await page.evaluate(() => window.__presetAtelier.open('conn'));
+  await page.evaluate(() => window.__mcdonalds.open('conn'));
   await page.locator('.pa-live [data-a="livemodel"]').click();
   const item = page.locator('.pa-sheet .pa-mpick-item[data-m^="「甲站」"]');
   const box = await item.evaluate((e) => { const b = e.getBoundingClientRect(), l = e.querySelector('.pa-mlabel').getBoundingClientRect(); return { top: l.top - b.top, bottom: b.bottom - l.bottom }; });
@@ -64,7 +64,7 @@ try {
   await page.locator('[data-o="balshow"]').uncheck();
   assert.equal(await page.locator('.pa-live .pa-bal').count(), 0);
   assert.match(await page.locator('.pa-plan-sites .pa-site', { hasText: '甲站' }).innerText(), /vt-model-3\.1-pro-preview/);
-  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.balanceShow), false);
+  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.balanceShow), false);
   await page.locator('.pa-plan-sites .pa-site', { hasText: '甲站' }).locator('.pa-site-name').click();
   assert.equal(await page.locator('.pa-sheet [data-f=bal]').isVisible(), false);
   const note = page.locator('.pa-sheet [data-f=note]');

@@ -5,7 +5,7 @@ const fs = require('node:fs');
 const path = require('node:path');
 const source = ['../src/core/replycheck.js', '../src/maintenance/replyguard.js']
   .map((file) => fs.readFileSync(path.join(__dirname, file), 'utf8')).join('\n');
-const KEY = 'presetAtelier:reply-format';
+const KEY = 'mcdonalds:reply-format';
 const EVENTS = Object.fromEntries(['GENERATION_AFTER_COMMANDS', 'CHAT_CHANGED', 'PRESET_CHANGED', 'GENERATION_STARTED', 'GENERATION_ENDED', 'GENERATION_STOPPED'].map((key) => [key, key.toLowerCase()]));
 let passed = 0;
 function test(name, run) {

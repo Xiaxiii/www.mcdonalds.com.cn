@@ -1,6 +1,6 @@
 # 1.9.0 实施记录
 
-对应需求文档《焦香鸡翅：修复、加载优化与后续拆分需求文档》v1.0（2026-10-14）。按阶段 A～E 记录；每阶段写明改动、影响范围、测试结果和未覆盖的部分。
+对应需求文档《麦当劳：修复、加载优化与后续拆分需求文档》v1.0（2026-10-14）。按阶段 A～E 记录；每阶段写明改动、影响范围、测试结果和未覆盖的部分。
 
 ## 开工前核对
 
@@ -91,7 +91,7 @@
   - 状态拆开：安装、开启（`disabledExtensions`）、后端可用、运行中、版本；兼容等级「已验证」（目前没有任何组合在真实酒馆测过，所以不会出现）／「已识别但未验证」（版本与核对过的源码一致）／「未知」。
   - 按方面列出提供者和本扩展的规则；只对设置读取、角色列表、扩展清单三项判断重叠。
   - `discoverExtensions` 从 `cleanmore.js` 挪到这里，「清理 → 扩展数据」继续使用。
-- 新增 `src/maintenance/card.js`：扩展页设置框里的「加载与兼容」卡片。按钮：检查兼容性、加载体检、应用推荐配置（不可用）、停用加速（不可用）。打开面板的按钮沿用原有的「打开焦香鸡翅」。
+- 新增 `src/maintenance/card.js`：扩展页设置框里的「加载与兼容」卡片。按钮：检查兼容性、加载体检、应用推荐配置（不可用）、停用加速（不可用）。打开面板的按钮沿用原有的「打开麦当劳」。
 - 诊断报告带上最近一次兼容检查的结果；没检查过时只带快速状态。
 
 识别依据：
@@ -181,12 +181,12 @@
 
 测试版在 `claude/maintenance-diagnostics` 分支上。三种装法，任选一种：
 
-1. **已经装了焦香鸡翅（推荐）**：扩展管理 → 焦香鸡翅一行的「Switch branch／切换分支」按钮（分支图标）→ 选 `origin/claude/maintenance-diagnostics` → Switch → 刷新页面。较新的酒馆才有这个按钮。
-2. **新装或重装**：先在扩展管理里删除焦香鸡翅（预设、草稿、备份不会被删：预设在服务器上，草稿和备份在浏览器里，设置在设置文件里），然后「安装扩展」，网址填 `https://github.com/Xiaxiii/Burnt-chicken-wings`，「Branch or tag name」填 `claude/maintenance-diagnostics`。较新的酒馆才有这个输入框。
+1. **已经装了麦当劳（推荐）**：扩展管理 → 麦当劳一行的「Switch branch／切换分支」按钮（分支图标）→ 选 `origin/claude/maintenance-diagnostics` → Switch → 刷新页面。较新的酒馆才有这个按钮。
+2. **新装或重装**：先在扩展管理里删除麦当劳（预设、草稿、备份不会被删：预设在服务器上，草稿和备份在浏览器里，设置在设置文件里），然后「安装扩展」，网址填 `https://github.com/Xiaxiii/Burnt-chicken-wings`，「Branch or tag name」填 `claude/maintenance-diagnostics`。较新的酒馆才有这个输入框。
 3. **能进服务器命令行**：进入扩展目录（用户扩展一般在 `data/<用户名>/extensions/Burnt-chicken-wings`，全局扩展在 `public/scripts/extensions/third-party/Burnt-chicken-wings`），执行
    `git fetch origin claude/maintenance-diagnostics && git checkout -B claude/maintenance-diagnostics origin/claude/maintenance-diagnostics`，再刷新酒馆。
 
-确认装的是哪一版：扩展页「焦香鸡翅」设置框标题显示 `v1.9.0`（稳定版是 1.8.0）；点「检查更新」，下面会显示「当前分支 claude/maintenance-diagnostics · 提交 xxxxxxx」，提交号应与 PR 里的最新提交一致。分支以后有新提交时，在同一处点「更新」即可。
+确认装的是哪一版：扩展页「麦当劳」设置框标题显示 `v1.9.0`（稳定版是 1.8.0）；点「检查更新」，下面会显示「当前分支 claude/maintenance-diagnostics · 提交 xxxxxxx」，提交号应与 PR 里的最新提交一致。分支以后有新提交时，在同一处点「更新」即可。
 
 切回稳定版：用上面同样的方法切回 `main` 分支（切换分支选 `origin/main` 或 `main`；命令行执行 `git checkout main && git pull`），刷新页面，设置框显示 `v1.8.0`。1.9.0 没有改动保存格式，切回去不需要迁移。
 

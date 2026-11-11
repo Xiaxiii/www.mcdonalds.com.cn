@@ -9,12 +9,12 @@ const page = await browser.newPage({ viewport: { width: 1024, height: 1366 }, ha
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 await page.evaluate(() => {
   document.body.insertAdjacentHTML("beforeend", '<select id="model_custom_select"><option value="claude-opus">claude-opus</option><option value="claude-sonnet">claude-sonnet</option></select><input id="custom_model_id">');
   const s = window.SillyTavern.getContext().extensionSettings;
-  s.presetAtelier = { sites: [{ id: "s1", name: "中转A", source: "custom", url: "https://example.com/v1", model: "claude-x", models: [], keyMask: "sk-…L3a" }], activeSiteId: "s1" };
-  window.__presetAtelier.open("organize");
+  s.mcdonalds = { sites: [{ id: "s1", name: "中转A", source: "custom", url: "https://example.com/v1", model: "claude-x", models: [], keyMask: "sk-…L3a" }], activeSiteId: "s1" };
+  window.__mcdonalds.open("organize");
 });
 await page.waitForTimeout(400);
 await expandAll(page); await page.waitForTimeout(200);
@@ -43,12 +43,12 @@ console.log("✓ 思维链页");
 await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(300);
 await page.click('[data-a="livemodel"]'); await page.waitForTimeout(200);
 await page.click('.pa-mpick-item >> text=claude-sonnet'); await page.waitForTimeout(300);
-const m = await page.evaluate(() => [document.getElementById("custom_model_id").value, window.SillyTavern.getContext().extensionSettings.presetAtelier.sites[0].model]);
+const m = await page.evaluate(() => [document.getElementById("custom_model_id").value, window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].model]);
 assert.deepEqual(m, ["claude-sonnet", "claude-sonnet"]);
 console.log("✓ 当前连接换模型");
 
 // 4) 缝合位置：点展开的组里的条目＝放进组里，它的后面
-await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(300);
+await page.evaluate(() => window.__mcdonalds.open("suture")); await page.waitForTimeout(300);
 const g = page.locator(".pa-dst-list .pa-group").nth(1);
 await g.locator(".pa-caret").click(); await page.waitForTimeout(150);
 const rowName = (await g.locator(".pa-row .pa-name").first().textContent()).trim();

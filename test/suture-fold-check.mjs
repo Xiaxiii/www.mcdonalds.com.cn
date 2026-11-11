@@ -7,8 +7,8 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = {}; window.__presetAtelier.open("suture"); });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds = {}; window.__mcdonalds.open("suture"); });
 await page.waitForTimeout(400);
 const fold = (side) => page.evaluate((side) => [...document.querySelectorAll(`.pa-${side}-list .pa-group`)].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".pa-gname")?.textContent.trim()).join(" "), side);
 // 换掉所有分组编号（模拟没有编号的分组被重新读取），并让草稿重新读取
@@ -40,7 +40,7 @@ assert.ok(!(await fold("src")).includes("+"), "收起后重新读取，不会又
 console.log("✓ 缝合页分组折叠：预设重新读取、分组编号变化后保持原状");
 
 // 2.6.5 折叠状态存进设置：重新打开（含重新加载酒馆）后保持最后一次的状态
-const store = () => page.evaluate(() => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier.sutureFold || {}));
+const store = () => page.evaluate(() => structuredClone(window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureFold || {}));
 let saved = await store();
 assert.ok(Object.keys(saved).some((k) => k.startsWith("dst:")), JSON.stringify(saved));
 // 缝合后目标组自动展开，合上后记为合上
@@ -63,8 +63,8 @@ const dstNow = await fold("dst"), srcNow = await fold("src");
 const page2 = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
 page2.on("pageerror", (e) => errs.push(e.message));
 await page2.goto("http://127.0.0.1:8765/test/site/index.html");
-await page2.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page2.evaluate((saved) => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { sutureFold: saved }; window.__presetAtelier.open("suture"); }, await store());
+await page2.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page2.evaluate((saved) => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { sutureFold: saved }; window.__mcdonalds.open("suture"); }, await store());
 await page2.waitForTimeout(500);
 const fold2 = (side) => page2.evaluate((side) => [...document.querySelectorAll(`.pa-${side}-list .pa-group`)].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".pa-gname")?.textContent.trim()).join(" "), side);
 assert.equal(await fold2("dst"), dstNow, "重新加载后目标栏与最后一次相同");

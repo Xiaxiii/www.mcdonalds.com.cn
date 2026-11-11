@@ -7,8 +7,8 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, devi
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate(() => window.__presetAtelier.open("suture"));
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => window.__mcdonalds.open("suture"));
 await page.waitForTimeout(600);
 const ok = (m) => console.log("✓", m);
 const kwOf = (t) => [...t].filter((c) => /[一-龥a-zA-Z]/.test(c)).slice(0, 2).join("");
@@ -36,12 +36,12 @@ await rows.first().click(); await page.waitForTimeout(200);
 assert.match(await page.locator(".pa-picked-n").innerText(), /已选 1 条/, "筛出来的条目直接点选");
 assert.equal(await page.inputValue(srcQ), kw, "点选后搜的词还在");
 await page.locator(srcQ).blur(); await page.waitForTimeout(200);
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sutureQuery.qSrc), kw);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureQuery.qSrc), kw);
 await page.screenshot({ path: S + "ss-1-src.png" });
 ok("来源：列表上方直接搜，点了就选，搜的词记着");
 
 // 重开面板：词还在，搜索框展开
-await page.evaluate(() => window.__presetAtelier.open("organize")); await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(300);
+await page.evaluate(() => window.__mcdonalds.open("organize")); await page.evaluate(() => window.__mcdonalds.open("suture")); await page.waitForTimeout(300);
 assert.equal(await page.locator(srcQ).isVisible(), true);
 assert.equal(await page.inputValue(srcQ), kw);
 ok("重开后搜索框和词都在");
@@ -60,7 +60,7 @@ ok("目标：列表里筛出来，点一条定缝合位置");
 await page.click(".pa-qrow[data-qside=src] .pa-qx"); await page.waitForTimeout(300);
 assert.equal(await page.locator(srcQ).isVisible(), false);
 assert.equal(await page.locator(".pa-src-list .pa-row").count(), before, "清除后恢复原样");
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sutureQuery.qSrc), "");
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureQuery.qSrc), "");
 await page.click("[data-st=dstsearch]"); await page.waitForTimeout(300);
 assert.equal(await page.locator(dstQ).isVisible(), false, "再点放大镜收起");
 ok("✕ 或再点放大镜：清除并收起");

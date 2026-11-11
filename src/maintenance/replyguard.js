@@ -1,5 +1,5 @@
 // 只检查当前回复原文；格式提醒通过酒馆的临时提示接口加入，不改聊天或预设正文。
-var REPLY_GUARD_KEY = "presetAtelier:reply-format";
+var REPLY_GUARD_KEY = "mcdonalds:reply-format";
 function replyGuardConfig(name = currentPresetName()) {
   const saved = settings().replyGuard;
   return saved && Object.hasOwn(saved, name) ? saved[name] : {};
@@ -233,7 +233,7 @@ function scheduleReplyAutoFix() {
       const left = plan.after.issues.length;
       toast(`已自动修正这条回复：${plan.steps.join("；")}${left ? `。还有 ${left} 个问题要手动处理` : ""}。可在「检查 → 回复」里撤销`, left ? "warning" : "success");
     } catch (e) {
-      console.warn("[焦香鸡翅] 自动修正失败", e);
+      console.warn("[麦当劳] 自动修正失败", e);
     }
   }, 300);
 }
@@ -257,10 +257,10 @@ function prepareReplyGuard(type, _options, dryRun) {
     if (!latest) return;
     // 填了必需标签时要知道当前对话用到哪些：世界书没读好就先读（酒馆等生成前事件处理完才组装提示词）
     const loading = normalizeReplyRules(config).requiredTags.length ? refreshReplyWorld(c) : null;
-    if (loading) return loading.then(() => injectReplyGuard(c, config, latest), (e) => console.warn("[焦香鸡翅] 正文格式检查失败", e));
+    if (loading) return loading.then(() => injectReplyGuard(c, config, latest), (e) => console.warn("[麦当劳] 正文格式检查失败", e));
     injectReplyGuard(c, config, latest);
   } catch (e) {
-    console.warn("[焦香鸡翅] 正文格式检查失败", e);
+    console.warn("[麦当劳] 正文格式检查失败", e);
   }
 }
 function injectReplyGuard(c, config, latest) {
@@ -276,7 +276,7 @@ function injectReplyGuard(c, config, latest) {
       replyLastReminder = { at: Date.now(), preset: currentPresetName(), index: latest.index, reasons: report.issues.map((i) => i.text), text: reminder };
     }
   } catch (e) {
-    console.warn("[焦香鸡翅] 正文格式检查失败", e);
+    console.warn("[麦当劳] 正文格式检查失败", e);
   }
 }
 function bindReplyGuard(on, events) {

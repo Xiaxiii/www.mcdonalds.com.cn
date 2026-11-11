@@ -8,7 +8,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, devi
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.route("**/api/backends/chat-completions/status", (route) => route.fulfill({ json: { data: [{ id: "[0.28/次] claude-opus-4-6" }, { id: "claude-sonnet" }] } }));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 
 // 合成的来源预设 F1：两个分组 + 散条目
 const P = (id, name, content) => ({ identifier: id, name, content, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100 });
@@ -19,7 +19,7 @@ const F1 = {
   extensions: { baibaiToolkit: { presetPromptGroups: { version: 1, groups: [{ id: "g-style", name: "F1文风", order: 0, collapsed: true, enabled: true }, { id: "g-th", name: "F1小剧场", order: 1, collapsed: true, enabled: true }], prompts: { "f1-s1": { groupId: "g-style" }, "f1-s2": { groupId: "g-style" }, "f1-s3": { groupId: "g-style" }, "f1-t1": { groupId: "g-th" } } } } },
 };
 const T = "【众生相】Claude-Lite-v1.8";
-await page.evaluate((F1) => { window.__mock.names.push("F1"); window.__mock.presets.push(F1); window.__presetAtelier.open("suture"); }, F1);
+await page.evaluate((F1) => { window.__mock.names.push("F1"); window.__mock.presets.push(F1); window.__mcdonalds.open("suture"); }, F1);
 await page.waitForTimeout(400);
 await choose(page, ".pa-dst-picker .pa-namebtn", T); await page.waitForTimeout(300);
 await choose(page, ".pa-src-name", "F1"); await page.waitForTimeout(300);
@@ -161,7 +161,7 @@ check(opts.length === 2 && opts.includes("claude-sonnet"), "获取后弹出模�
 await page.screenshot({ path: "test/shots/p-7-api.png" });
 await page.locator(".pa-mpick-item", { hasText: "claude-sonnet" }).click(); await page.waitForTimeout(300);
 await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
-const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sites.find((s) => s.name === "测试站"));
+const site = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites.find((s) => s.name === "测试站"));
 check(site?.model === "claude-sonnet" && site.models.length === 2, "站点保存了模型和列表");
 // 切到这个站点，再存方案（API 默认不记录，选「当前连接」后记录 API 站点）
 await page.locator(".pa-site", { hasText: "测试站" }).locator('[data-a="use"]').click(); await page.waitForTimeout(2500);
@@ -171,7 +171,7 @@ await page.fill('.pa-sheet [data-f="name"]', "测试方案");
 check(/测试站/.test(await page.locator(".pa-sheet .pa-save-list").innerText()), "保存窗口列出将保存的 API");
 await page.selectOption('.pa-sheet [data-f="api"]', "__live");
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
-const sc = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.schemes.find((s) => s.name === "测试方案"));
+const sc = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.schemes.find((s) => s.name === "测试方案"));
 check(sc?.siteId === site.id && sc.conn?.siteId === site.id && !!sc.conn.model, "方案记录了 API（站点和模型）");
 check(/用于 /.test(await page.locator(".pa-plan-sites .pa-site", { hasText: "测试站" }).locator(".pa-site-name").getAttribute("title")), "站点那一行的提示里写用于哪些预设（行内只显示余额）");
 await page.screenshot({ path: "test/shots/p-8-plan.png", fullPage: false });

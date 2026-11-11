@@ -7,7 +7,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const ok = (m) => console.log("✓", m);
 await page.evaluate(() => {
   const live = window.__mock.live;
@@ -21,14 +21,14 @@ await page.evaluate(() => {
   $("#custom_model_id").val("[A]old-model").on("input", function () { live.custom_model = this.value; });
   live.custom_url = "https://a.example/v1";
   live.custom_model = "[A]old-model";
-  window.SillyTavern.getContext().extensionSettings.presetAtelier = {
+  window.SillyTavern.getContext().extensionSettings.mcdonalds = {
     sites: [
       { id: "a", name: "A站", source: "custom", url: "https://a.example/v1", model: "[A]old-model", models: ["[A]old-model"] },
       { id: "b", name: "B站", source: "custom", url: "https://b.example/v1", model: "", models: ["[B]m1", "[B]m2"] }
     ],
     activeSiteId: "a"
   };
-  window.__presetAtelier.open("conn");
+  window.__mcdonalds.open("conn");
 });
 await page.waitForTimeout(500);
 
@@ -43,7 +43,7 @@ await page.evaluate(() => {
   $("#model_custom_select").html('<option value="">None</option><option value="[B]m1">[B]m1</option><option value="[B]m2">[B]m2</option>');
   $("#custom_model_id").val("[A]old-model").trigger("input");
 });
-await page.evaluate(() => window.__presetAtelier.open("conn")); await page.waitForTimeout(300);
+await page.evaluate(() => window.__mcdonalds.open("conn")); await page.waitForTimeout(300);
 await page.click('[data-a="livemodel"]'); await page.waitForTimeout(300);
 const items = await page.locator(".pa-sheet .pa-mpick-item").evaluateAll((xs) => xs.map((x) => x.dataset.m));
 assert.ok(items.length >= 2 && !items.some((t) => t.includes("[A]old-model")), items.join("|"));

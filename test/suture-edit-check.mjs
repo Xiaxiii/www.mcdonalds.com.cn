@@ -15,8 +15,8 @@ for (const [label, opt] of sizes) {
   const errs = [];
   page.on("pageerror", (e) => errs.push(e.message));
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-  await page.evaluate(() => window.__presetAtelier.open("suture"));
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+  await page.evaluate(() => window.__mcdonalds.open("suture"));
   await page.waitForTimeout(600);
   const touch = !!opt.hasTouch;
   const focused = () => page.evaluate(() => document.activeElement?.matches("input:not([type=checkbox]), textarea") || false);

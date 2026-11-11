@@ -55,7 +55,7 @@ async function restoreArchived(entry, { ask = true } = {}) {
   const i = list.indexOf(entry);
   if (i >= 0) list.splice(i, 1);
   saveSettings();
-  await userFileDel(entry.path).catch((e) => console.warn("[焦香鸡翅] 归档文件删除失败", e));
+  await userFileDel(entry.path).catch((e) => console.warn("[麦当劳] 归档文件删除失败", e));
   dropDraft(entry.name);
   return true;
 }
@@ -311,7 +311,7 @@ function mountCleanup(sec) {
         st.sel.delete(n);
         done.push(n);
       } catch (e) {
-        console.warn("[焦香鸡翅] 归档失败", n, e);
+        console.warn("[麦当劳] 归档失败", n, e);
         // 已上传但没删掉预设：把上传的文件删掉，保持原样
         if (path && listPresets().includes(n)) userFileDel(path).catch(() => {});
         fail.push(`${n}：${e.message}`);

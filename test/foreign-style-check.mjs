@@ -1,4 +1,4 @@
-// 别的扩展或酒馆主题按输入框类型改样式（方角、白底）时，焦香鸡翅的搜索框、密钥框不受影响；密钥框仍是密码框。
+// 别的扩展或酒馆主题按输入框类型改样式（方角、白底）时，麦当劳的搜索框、密钥框不受影响；密钥框仍是密码框。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/foreign-style-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -14,12 +14,12 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.addStyleTag({ content: FOREIGN });
   // 2.7.1 默认配色「素」的输入框本来就是白底，这里用跟随酒馆主题（深色）区分
-  await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings; Object.assign(st.presetAtelier || (st.presetAtelier = {}), { theme: "follow", ui271: true }); window.__presetAtelier.open(); });
-  await page.click('#pa-root [data-tool=search]');
-  const q = page.locator('#pa-root [data-page=organize] .pa-findrow .pa-input');
+  await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings; Object.assign(st.mcdonalds || (st.mcdonalds = {}), { theme: "follow", ui271: true }); window.__mcdonalds.open(); });
+  await page.click('#mcd-root [data-tool=search]');
+  const q = page.locator('#mcd-root [data-page=organize] .pa-findrow .pa-input');
   await q.waitFor();
   const look = (loc) => loc.evaluate((x) => { const s = getComputedStyle(x); return { radius: s.borderTopLeftRadius, margin: s.marginBottom, type: x.type, mode: x.inputMode, hint: x.enterKeyHint }; });
   const a = await look(q);
@@ -28,11 +28,11 @@ try {
   assert.equal(a.mode, 'search'); assert.equal(a.hint, 'search');
   assert.notEqual(await q.evaluate((x) => getComputedStyle(x).backgroundColor), 'rgb(255, 255, 255)', '搜索框底色是配色里的');
   const wrap = (sel) => page.locator(sel).evaluate((x) => { const s = getComputedStyle(x); return [s.backgroundColor, s.paddingBottom, s.borderTopWidth]; });
-  assert.deepEqual(await wrap('#pa-root [data-page=organize] .pa-findrow'), ['rgba(0, 0, 0, 0)', '0px', '0px'], '外面那层没有外来的底色、下边距');
+  assert.deepEqual(await wrap('#mcd-root [data-page=organize] .pa-findrow'), ['rgba(0, 0, 0, 0)', '0px', '0px'], '外面那层没有外来的底色、下边距');
   ok('整理页搜索框不受别处按类型、类名、搜索键改的样式影响，键盘照样是搜索键');
 
   // 选预设的列表、选择模型的搜索框
-  await page.click('#pa-root .pa-toolbar .pa-namebtn');
+  await page.click('#mcd-root .pa-toolbar .pa-namebtn');
   const nq = page.locator('.pa-sheet .pa-npick-q');
   await nq.waitFor();
   const n = await look(nq);
@@ -44,9 +44,9 @@ try {
   await page.click('.pa-sheet-mask:not(.pa-out) .pa-sheet-x'); await page.waitForTimeout(200);
   await page.evaluate(() => {
     document.body.insertAdjacentHTML('beforeend', '<select id="model_custom_select"><option value="m1">m1</option><option value="m2">m2</option></select><input id="custom_model_id">');
-    window.__presetAtelier.open('conn');
+    window.__mcdonalds.open('conn');
   });
-  await page.click('#pa-root [data-a=livemodel]');
+  await page.click('#mcd-root [data-a=livemodel]');
   const mq = page.locator('.pa-sheet .pa-mfind .pa-input');
   await mq.waitFor();
   const m = await look(mq);
@@ -55,8 +55,8 @@ try {
   await page.click('.pa-sheet-mask:not(.pa-out) .pa-sheet-x'); await page.waitForTimeout(200);
   ok('选预设、选择模型的搜索框同样不受影响');
 
-  await page.evaluate(() => window.__presetAtelier.open('conn'));
-  await page.click('#pa-root [data-a=new]');
+  await page.evaluate(() => window.__mcdonalds.open('conn'));
+  await page.click('#mcd-root [data-a=new]');
   const key = page.locator('.pa-sheet [data-f=key]').first();
   await key.waitFor();
   const k = await look(key);

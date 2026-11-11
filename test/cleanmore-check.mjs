@@ -9,14 +9,14 @@ const page = await ctx.newPage();
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 const deleted = [];
-await page.route("**/api/extensions/discover", (r) => r.fulfill({ json: [{ type: "system", name: "regex" }, { type: "local", name: "third-party/st-goodext" }, { type: "local", name: "third-party/Burnt-chicken-wings" }] }));
+await page.route("**/api/extensions/discover", (r) => r.fulfill({ json: [{ type: "system", name: "regex" }, { type: "local", name: "third-party/st-goodext" }, { type: "local", name: "third-party/www.mcdonalds.com.cn" }] }));
 await page.route("**/scripts/extensions/third-party/st-goodext/manifest.json", (r) => r.fulfill({ json: { display_name: "好扩展", js: "index.js" } }));
 await page.route("**/scripts/extensions/third-party/st-goodext/index.js", (r) => r.fulfill({ contentType: "text/javascript", body: 'import { x } from "./src/core.js"; export const a = 1;' }));
 await page.route("**/scripts/extensions/third-party/st-goodext/src/core.js", (r) => r.fulfill({ contentType: "text/javascript", body: 'extension_settings["myHiddenKey"] = {}; extension_settings.anotherKey = 1;' }));
 await page.route("**/scripts/extensions/regex/manifest.json", (r) => r.fulfill({ json: { display_name: "Regex", js: "index.js" } }));
 await page.route("**/scripts/extensions/regex/index.js", (r) => r.fulfill({ contentType: "text/javascript", body: "extension_settings.regex = [];" }));
-await page.route("**/scripts/extensions/third-party/Burnt-chicken-wings/manifest.json", (r) => r.fulfill({ json: { display_name: "焦香鸡翅", js: "index.js" } }));
-await page.route("**/scripts/extensions/third-party/Burnt-chicken-wings/index.js", (r) => r.fulfill({ contentType: "text/javascript", body: 'var KEY = "presetAtelier";' }));
+await page.route("**/scripts/extensions/third-party/www.mcdonalds.com.cn/manifest.json", (r) => r.fulfill({ json: { display_name: "麦当劳", js: "index.js" } }));
+await page.route("**/scripts/extensions/third-party/www.mcdonalds.com.cn/index.js", (r) => r.fulfill({ contentType: "text/javascript", body: 'var KEY = "mcdonalds";' }));
 const charGets = [];
 await page.route("**/api/characters/get", (r) => {
   const a = r.request().postDataJSON().avatar_url;
@@ -27,7 +27,7 @@ await page.route("**/api/characters/get", (r) => {
 });
 await page.route("**/api/characters/delete", (r) => { deleted.push(r.request().postDataJSON()); r.fulfill({ status: 200, body: "" }); });
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 await page.evaluate(() => {
   const c = window.SillyTavern.getContext();
   c.getRequestHeaders = () => ({ "Content-Type": "application/json" });
@@ -39,7 +39,7 @@ await page.evaluate(() => {
   ];
   c.characterId = 0;
   c.getCharacters = async () => { c.characters = c.characters.filter((x) => !window.__delChars?.includes(x.avatar)); };
-  window.__presetAtelier.open("more");
+  window.__mcdonalds.open("more");
 });
 await page.waitForTimeout(300);
 await page.click('[data-m="clean"]'); await page.waitForTimeout(300);
@@ -58,7 +58,7 @@ assert.match(txt, /myHiddenKey[\s\S]*检测：好扩展在用/, "跟进相对 im
 assert.match(txt, /oldUninstalled[\s\S]*检测：已安装扩展的代码里没找到它，疑似卸载残留，删除前请核对/);
 assert.match(txt, /勾选 1 项疑似残留/);
 assert.match(txt, /goodext[\s\S]*名称像「好扩展」，请确认/);
-assert.ok(await page.$eval('.pa-clean-other input[data-k="presetAtelier"]', (x) => x.disabled));
+assert.ok(await page.$eval('.pa-clean-other input[data-k="mcdonalds"]', (x) => x.disabled));
 await page.screenshot({ path: S + "m-1-ext.png" });
 await page.click('[data-x="pickorphans"]'); await page.waitForTimeout(200);
 assert.ok(await page.$eval('.pa-clean-other input[data-k="oldUninstalled"]', (x) => x.checked), "疑似残留被勾选");
@@ -182,7 +182,7 @@ assert.ok(!wbToasts.some((t) => t.startsWith("error:")), wbToasts.join("|"));
 assert.ok(wbToasts.includes("success:已删除 2 本世界书"), wbToasts.join("|"));
 await page.unroute("**/api/worldinfo/delete");
 // 本地备份
-await page.evaluate(async () => { for (let i = 0; i < 5; i++) await new Promise((res, rej) => { const rq = indexedDB.open("preset-atelier", 2); rq.onupgradeneeded = () => { const d = rq.result; if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups", { keyPath: "id", autoIncrement: true }).createIndex("preset", "preset"); if (!d.objectStoreNames.contains("assets")) d.createObjectStore("assets"); }; rq.onerror = () => rej(rq.error); rq.onsuccess = () => { const t = rq.result.transaction("backups", "readwrite"); t.objectStore("backups").add({ preset: "P1", reason: "x", time: i, data: { prompts: ["z".repeat(1000)] } }); t.oncomplete = () => { rq.result.close(); res(); }; t.onerror = () => rej(t.error); }; }); });
+await page.evaluate(async () => { for (let i = 0; i < 5; i++) await new Promise((res, rej) => { const rq = indexedDB.open("mcdonalds", 2); rq.onupgradeneeded = () => { const d = rq.result; if (!d.objectStoreNames.contains("backups")) d.createObjectStore("backups", { keyPath: "id", autoIncrement: true }).createIndex("preset", "preset"); if (!d.objectStoreNames.contains("assets")) d.createObjectStore("assets"); }; rq.onerror = () => rej(rq.error); rq.onsuccess = () => { const t = rq.result.transaction("backups", "readwrite"); t.objectStore("backups").add({ preset: "P1", reason: "x", time: i, data: { prompts: ["z".repeat(1000)] } }); t.oncomplete = () => { rq.result.close(); res(); }; t.onerror = () => rej(t.error); }; }); });
 await page.click('[data-kind="local"]'); await page.waitForTimeout(600);
 assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /备份 5 份/);
 await page.screenshot({ path: S + "m-4-local.png" });
@@ -192,7 +192,7 @@ assert.equal(await page.locator('[data-bk="dec"]').count(), 0, "自动备份设�
 await page.click('.pa-bk-head b'); await page.waitForTimeout(100);
 for (let i = 0; i < 7; i++) await page.click('[data-bk="dec"]');
 assert.equal(await page.$eval('[data-bk="n"]', (x) => x.value), "3");
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.backupMax), 3);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.backupMax), 3);
 await page.fill('[data-bk="n"]', "99"); await page.press('[data-bk="n"]', "Tab"); await page.waitForTimeout(100);
 assert.equal(await page.$eval('[data-bk="n"]', (x) => x.value), "30", "上限 30");
 await page.fill('[data-bk="n"]', "3"); await page.press('[data-bk="n"]', "Tab"); await page.waitForTimeout(100);
@@ -202,7 +202,7 @@ await page.click(".pa-sheet .pa-btn-danger"); await page.waitForTimeout(800);
 assert.match(await page.$eval(".pa-clean-other", (x) => x.innerText), /备份 3 份/);
 await page.screenshot({ path: S + "m-4b-local-trim.png" });
 await page.click(".pa-bk-set .pa-switch"); await page.waitForTimeout(150);
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.autoBackup), false);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.autoBackup), false);
 assert.match(await page.$eval(".pa-bk-set", (x) => x.innerText), /已关闭/);
 assert.ok(await page.$eval('[data-bk="n"]', (x) => x.disabled), "关闭后份数不能改");
 await page.screenshot({ path: S + "m-4c-local-off.png" });
@@ -213,7 +213,7 @@ assert.ok(await page.$(".pa-clean-body .pa-sum"));
 // 日落海岸
 await page.click('[data-m="look"]'); await page.click('[data-theme-id="dusk"]'); await page.waitForTimeout(200);
 await page.screenshot({ path: S + "m-5-dusk.png" });
-await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(300);
+await page.evaluate(() => window.__mcdonalds.open("organize")); await page.waitForTimeout(300);
 await page.screenshot({ path: S + "m-6-dusk-organize.png" });
 assert.deepEqual(errs, []);
 console.log("清理其他几栏检查全部通过");

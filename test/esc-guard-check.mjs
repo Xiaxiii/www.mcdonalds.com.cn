@@ -9,17 +9,17 @@ const boot = async (vp) => {
   const page = await browser.newPage(vp);
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
-  await page.waitForFunction(() => window.__presetAtelier?.open);
-  await page.evaluate(() => window.__presetAtelier.open('organize'));
+  await page.waitForFunction(() => window.__mcdonalds?.open);
+  await page.evaluate(() => window.__mcdonalds.open('organize'));
   await page.waitForTimeout(300);
   return page;
 };
-const hidden = (page) => page.$eval('#pa-root', (x) => x.hidden);
+const hidden = (page) => page.$eval('#mcd-root', (x) => x.hidden);
 const sheets = (page) => page.locator('.pa-sheet-mask:not(.pa-out)').count();
 try {
   // —— 宽屏 ——
   const page = await boot({ viewport: { width: 1280, height: 800 } });
-  const org = '#pa-root [data-page=organize]';
+  const org = '#mcd-root [data-page=organize]';
   await page.click(`${org} .pa-toolbar > [data-tool=search]`);
   await page.keyboard.type('思');
   await page.waitForTimeout(300);
@@ -62,22 +62,22 @@ try {
   assert.equal(await page.$eval('.pa-editpane', (x) => x.hidden), true, '放弃修改后关闭');
   ok('宽屏编辑栏：改过后 Esc、✕ 先确认');
   // 其他输入框里 Esc：先移走光标，再按一次才关面板
-  await page.evaluate(() => window.__presetAtelier.open('reply')); await page.waitForTimeout(300);
-  await page.locator('#pa-root [data-page=reply] [data-r=sample]').click();
+  await page.evaluate(() => window.__mcdonalds.open('reply')); await page.waitForTimeout(300);
+  await page.locator('#mcd-root [data-page=reply] [data-r=sample]').click();
   await page.keyboard.press('Escape'); await page.waitForTimeout(200);
   assert.equal(await hidden(page), false, '输入框里第一次 Esc 不关面板');
   await page.keyboard.press('Escape'); await page.waitForTimeout(400);
   assert.equal(await hidden(page), true, '再按一次关闭面板');
   ok('输入框里按 Esc：先移走光标，再按关闭面板');
   // 对齐：组外条目的手柄、开关与组头在同一条竖线上
-  await page.evaluate(() => window.__presetAtelier.open('organize')); await page.waitForTimeout(300);
+  await page.evaluate(() => window.__mcdonalds.open('organize')); await page.waitForTimeout(300);
   const edges = async (p) => p.evaluate(() => {
-    const x = (sel, side) => Math.round(document.querySelector(`#pa-root [data-page=organize] ${sel}`).getBoundingClientRect()[side]);
+    const x = (sel, side) => Math.round(document.querySelector(`#mcd-root [data-page=organize] ${sel}`).getBoundingClientRect()[side]);
     return { headHandle: x('.pa-ghead .pa-handle', 'left'), looseHandle: x('.pa-loose .pa-row .pa-handle', 'left'), headSwitch: x('.pa-ghead .pa-switch', 'right'), looseSwitch: x('.pa-loose .pa-row .pa-switch', 'right'), headName: x('.pa-ghead .pa-gname', 'left'), looseName: x('.pa-loose .pa-row .pa-namebox', 'left'), title: x('.pa-toolbar .pa-picker-slot', 'left'), group: x('.pa-group', 'left') };
   });
   let e = await edges(page);
   assert.equal(e.looseHandle, e.headHandle, '手柄同列'); assert.equal(e.looseSwitch, e.headSwitch, '开关同列'); assert.equal(e.looseName, e.headName, '名称同列');
-  const titleLeft = await page.$eval('#pa-root .pa-title', (x) => Math.round(x.getBoundingClientRect().left));
+  const titleLeft = await page.$eval('#mcd-root .pa-title', (x) => Math.round(x.getBoundingClientRect().left));
   assert.equal(e.group, titleLeft, '宽屏：分组卡片左边与页头标题对齐');
   await page.close();
 
@@ -102,11 +102,11 @@ try {
   assert.equal(await sheets(m), 0, '点「取消」直接关闭');
   ok('编辑条目弹窗：改过后点窗口外先确认，「取消」直接关');
   // 站点窗口：填了名称后点 ✕ 先确认
-  await m.evaluate(() => window.__presetAtelier.open('conn')); await m.waitForTimeout(300);
-  await m.locator('#pa-root [data-a=new]').tap(); await m.waitForTimeout(350);
+  await m.evaluate(() => window.__mcdonalds.open('conn')); await m.waitForTimeout(300);
+  await m.locator('#mcd-root [data-a=new]').tap(); await m.waitForTimeout(350);
   await m.locator('.pa-sheet .pa-sheet-x').tap(); await m.waitForTimeout(350);
   assert.equal(await sheets(m), 0, '没填内容：✕ 直接关');
-  await m.locator('#pa-root [data-a=new]').tap(); await m.waitForTimeout(350);
+  await m.locator('#mcd-root [data-a=new]').tap(); await m.waitForTimeout(350);
   await m.fill('.pa-sheet [data-f=name]', '新站点');
   await m.locator('.pa-sheet .pa-sheet-x').first().tap(); await m.waitForTimeout(350);
   assert.equal(await sheets(m), 2, '填过内容：✕ 先确认');

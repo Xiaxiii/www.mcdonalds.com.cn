@@ -4,12 +4,12 @@ const browser = await chromium.launch({ executablePath: process.env.PW_CHROME ||
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: "goose" }; window.__presetAtelier.open("cot"); });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { theme: "goose" }; window.__mcdonalds.open("cot"); });
 await page.waitForTimeout(500);
 await page.screenshot({ path: "test/shots/real-1-cot-zsx.png" });
 // 缝合：众生相 墟里春生 → Ariadne 笔法区
-await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(300);
+await page.evaluate(() => window.__mcdonalds.open("suture")); await page.waitForTimeout(300);
 await choose(page, ".pa-dst-picker .pa-namebtn", "Ariadne_V1.3Beta"); await page.waitForTimeout(400);
 await choose(page, ".pa-src-name", "众生相-真实版"); await page.waitForTimeout(400);
 await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-src-list .pa-ghead")) if (h.textContent.includes("文风设定")) h.click(); });

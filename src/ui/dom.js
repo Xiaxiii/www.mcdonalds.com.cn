@@ -1,7 +1,7 @@
 var esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c2) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c2]);
 function toast(msg, type = "info") {
   const t = globalThis.toastr;
-  if (!t?.[type]) return console.log("[焦香鸡翅]", msg);
+  if (!t?.[type]) return console.log("[麦当劳]", msg);
   // 2.8.0 点按即关闭，与酒馆其他提示一致
   const $t = t[type](msg, "", { timeOut: type === "error" ? 6e3 : 2600, preventDuplicates: true, tapToDismiss: true, closeOnHover: false });
   tapToClose(t, $t);

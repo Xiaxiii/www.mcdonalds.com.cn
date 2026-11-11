@@ -28,14 +28,14 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(({ preset, NAME }) => {
     const m = window.__mock;
     m.names.splice(0, m.names.length, NAME);
     m.presets.splice(0, m.presets.length, preset);
     m.live.preset_settings_openai = NAME;
     Object.assign(m.live, structuredClone(preset));
-    window.__presetAtelier.open('cot');
+    window.__mcdonalds.open('cot');
   }, { preset, NAME });
   const cards = page.locator('.pa-dead');
   await cards.first().waitFor();
@@ -85,7 +85,7 @@ try {
     m.prompts.push({ identifier: 'cot-nsfw', name: '开nsfw思考，关其他思考', content: '<ECoT>\n# 确认身份\n- 本轮如何写', role: 'system' });
     m.prompt_order[0].order.push({ identifier: 'cot-nsfw', enabled: true });
     Object.assign(window.__mock.live, structuredClone(m));
-    window.__presetAtelier.open('organize'); window.__presetAtelier.open('cot');
+    window.__mcdonalds.open('organize'); window.__mcdonalds.open('cot');
   });
   await page.locator('.pa-cot .pa-card-warn', { hasText: '同时开着 2 套思维链开头' }).waitFor();
   assert.match(await page.locator('.pa-cot .pa-card-warn', { hasText: '套思维链开头' }).innerText(), /思维链主体.*开nsfw思考，关其他思考/s);
@@ -96,7 +96,7 @@ try {
     m.prompts.push({ identifier: 'fmt', name: '📌 格式强调', content: '部件：{{getvar::content}}({{getvar::草稿检查小CoT}})', role: 'system' });
     m.prompt_order[0].order.push({ identifier: 'fmt', enabled: true });
     Object.assign(window.__mock.live, structuredClone(m));
-    window.__presetAtelier.open('organize'); window.__presetAtelier.open('cot');
+    window.__mcdonalds.open('organize'); window.__mcdonalds.open('cot');
   });
   await page.waitForFunction(() => ![...document.querySelectorAll('.pa-dead')].some((x) => x.textContent.includes('草稿检查小CoT')));
   ok('片段变量由开启的非思维链条目读取时不再报「思维链没读」');

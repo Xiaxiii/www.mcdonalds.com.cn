@@ -19,14 +19,14 @@ try {
   const page = await browser.newPage({ viewport: { width: 1100, height: 900 } });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(({ target, source, targetName, sourceName }) => {
     const m = window.__mock;
     m.names.splice(0, m.names.length, targetName, sourceName);
     m.presets.splice(0, m.presets.length, target, source);
     m.live.preset_settings_openai = targetName;
     Object.assign(m.live, structuredClone(target));
-    window.__presetAtelier.open('suture');
+    window.__mcdonalds.open('suture');
   }, { target, source, targetName, sourceName });
   await choose(page, '.pa-src-name', sourceName);
   await choose(page, '.pa-dst-picker .pa-namebtn', targetName);

@@ -7,12 +7,12 @@ async function run({ w, h, screenH, insetT, insetB }) {
   const page = await browser.newPage({ viewport: { width: w, height: h }, isMobile: true, hasTouch: true, deviceScaleFactor: 2 });
   await page.addInitScript(([sw, sh]) => { Object.defineProperty(window.screen, "width", { get: () => sw }); Object.defineProperty(window.screen, "height", { get: () => sh }); }, [w, screenH]);
   await page.goto("http://127.0.0.1:8765/test/site/index.html");
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   // 模拟系统报告的安全区
-  await page.addStyleTag({ content: `#pa-safe-probe{padding-top:${insetT}px!important;padding-bottom:${insetB}px!important}` });
-  await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(400);
+  await page.addStyleTag({ content: `#mcd-safe-probe{padding-top:${insetT}px!important;padding-bottom:${insetB}px!important}` });
+  await page.evaluate(() => window.__mcdonalds.open("organize")); await page.waitForTimeout(400);
   const r = await page.evaluate(() => {
-    const root = document.getElementById("pa-root"), cs = getComputedStyle(root);
+    const root = document.getElementById("mcd-root"), cs = getComputedStyle(root);
     const tabs = root.querySelector(".pa-tabs").getBoundingClientRect(), top = root.querySelector(".pa-top").getBoundingClientRect();
     return { sat: cs.getPropertyValue("--pa-sat").trim(), sab: cs.getPropertyValue("--pa-sab").trim(), rootH: root.getBoundingClientRect().height, tabsBottom: tabs.bottom, topH: top.height, vh: innerHeight };
   });

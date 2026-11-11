@@ -1,4 +1,4 @@
-# 焦香鸡翅
+# 麦当劳
 
 改 `src/` 里的源码，改完运行 `node build.mjs`，把生成的 `index.js` 一起提交（CI 会比对）。核心测试：`node test/run-core.cjs`；浏览器检查：`bash test/run-browser.sh`。
 

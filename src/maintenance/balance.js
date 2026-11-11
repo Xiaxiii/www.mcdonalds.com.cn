@@ -16,7 +16,7 @@ function balIdent(live = liveConnection()) {
   return [live.source, (live.url || "").replace(/\/+$/, ""), live.secretId || ""].join("\u0001");
 }
 function balStoreKey(id) {
-  return `presetAtelier:balance:${userHandle()}:${id}`;
+  return `mcdonalds:balance:${userHandle()}:${id}`;
 }
 function balRecords(live = liveConnection()) {
   try {
@@ -197,7 +197,7 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
     return r;
   } catch (e) {
     BAL.err = e.message || String(e);
-    if (!quiet) console.warn("[焦香鸡翅] 查询余额失败", e);
+    if (!quiet) console.warn("[麦当劳] 查询余额失败", e);
     return null;
   } finally {
     BAL.busy = false;

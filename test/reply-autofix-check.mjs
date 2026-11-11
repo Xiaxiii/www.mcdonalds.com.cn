@@ -4,7 +4,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
-const KEY = 'presetAtelier:reply-format';
+const KEY = 'mcdonalds:reply-format';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
 const ok = (message) => console.log('✓', message);
@@ -28,7 +28,7 @@ try {
     });
   });
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   await page.evaluate(() => {
     window.__toasts = [];
     window.toastr = Object.fromEntries(['success', 'info', 'warning', 'error'].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
@@ -45,7 +45,7 @@ try {
     await page.waitForTimeout(700);
   };
   const setConfig = (config) => page.evaluate((config) => {
-    const c = window.SillyTavern.getContext(), s = c.extensionSettings.presetAtelier || (c.extensionSettings.presetAtelier = {});
+    const c = window.SillyTavern.getContext(), s = c.extensionSettings.mcdonalds || (c.extensionSettings.mcdonalds = {});
     s.replyGuard = { [window.__mock.live.preset_settings_openai]: config };
   }, config);
 
@@ -67,15 +67,15 @@ try {
   ok('生成结束后自动修正，下一轮照样提醒');
 
   // 「回复」页：自动页显示已开启，检查页显示已自动修正，可撤销
-  await page.evaluate(() => window.__presetAtelier.open('reply-auto'));
+  await page.evaluate(() => window.__mcdonalds.open('reply-auto'));
   await page.locator('[data-page=reply] [data-r=autofix]').waitFor();
   assert.equal(await page.locator('[data-page=reply] [data-r=autofix]').isChecked(), true);
-  await page.evaluate(() => window.__presetAtelier.open('reply-check'));
+  await page.evaluate(() => window.__mcdonalds.open('reply-check'));
   await page.click('[data-page=reply] [data-r=latest]');
   await page.locator('[data-page=reply] [data-r=undo-auto]').click();
   await page.locator('[data-page=reply] [data-r=result]', { hasText: '已撤销自动修正' }).waitFor();
   assert.equal((await chat()).mes, LEAK, '撤销后恢复原文');
-  await page.evaluate(() => window.__presetAtelier.open('organize'));
+  await page.evaluate(() => window.__mcdonalds.open('organize'));
   ok('可在「回复 → 检查」撤销自动修正');
 
   // 手动停止、续写、末尾只缺结束标签（可能被截断）：都不自动改

@@ -20,14 +20,14 @@ async function open(viewport, extra = {}) {
   const page = await browser.newPage({ viewport, ...extra });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(({ oldPreset, newPreset, oldName, newName }) => {
     const m = window.__mock;
     m.names.splice(0, m.names.length, oldName, newName);
     m.presets.splice(0, m.presets.length, oldPreset, newPreset);
     m.live.preset_settings_openai = oldName;
     Object.assign(m.live, structuredClone(oldPreset));
-    window.__presetAtelier.open('suture');
+    window.__mcdonalds.open('suture');
   }, { oldPreset, newPreset, oldName, newName });
   await choose(page, '.pa-src-name', newName);
   await choose(page, '.pa-dst-picker .pa-namebtn', oldName);

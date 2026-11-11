@@ -27,12 +27,12 @@ try {
     r.fulfill({ json: { data: [{ id: 'claude-x' }, { id: LONG }, { id: 'gemini-z' }, { id: 'gemini-y' }, { id: TAGGED }] } });
   });
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(async () => {
     const sec = await import('/test/site/scripts/secrets.js');
     sec.secret_state.api_key_custom.push({ id: 'k1', value: 'est', active: true });
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [], activeSiteId: null };
-    window.__presetAtelier.open('conn');
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [], activeSiteId: null };
+    window.__mcdonalds.open('conn');
   });
   const card = page.locator('[data-page=conn] .pa-bal');
   await card.waitFor();
@@ -46,10 +46,10 @@ try {
   assert.match(txt, /近 24 小时\s*\$0\.120/);
   // 打开「每轮生成后自动查询」后，生成结束自动再查一次，标为「上一轮」
   await page.locator('.pa-bal [data-o=balauto]').check({ force: true });
-  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.balanceAuto), true);
+  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.balanceAuto), true);
   await page.evaluate(async () => {
     // 记录提前一小时，跳过 10 秒节流
-    const k = Object.keys(localStorage).find((x) => x.startsWith('presetAtelier:balance:'));
+    const k = Object.keys(localStorage).find((x) => x.startsWith('mcdonalds:balance:'));
     const list = JSON.parse(localStorage.getItem(k));
     list.forEach((r) => { r.t -= 3600e3; });
     localStorage.setItem(k, JSON.stringify(list));
@@ -96,7 +96,7 @@ try {
   await page.locator('[data-page=conn] [data-a=livefetch]').click();
   await page.waitForFunction(() => window.__opts.length > 0);
   assert.equal(await page.evaluate(() => window.__opts[0].tapToDismiss), true);
-  const z = await page.evaluate(() => [+getComputedStyle(document.getElementById('toast-container')).zIndex, +getComputedStyle(document.getElementById('pa-root')).zIndex]);
+  const z = await page.evaluate(() => [+getComputedStyle(document.getElementById('toast-container')).zIndex, +getComputedStyle(document.getElementById('mcd-root')).zIndex]);
   assert.ok(z[0] > z[1], `面板打开时提示在面板之上（${z}）`);
   await page.locator('#tt').click();
   assert.equal(await page.evaluate(() => window.__cleared), 1);
@@ -127,14 +127,14 @@ try {
   ok('模型选择框：长名换行，带标签的名字分两行；搜索时可收起段落');
 
   // 缝合：分栏 ⇄ 切换
-  await page.evaluate(() => window.__presetAtelier.open('suture'));
+  await page.evaluate(() => window.__mcdonalds.open('suture'));
   await page.waitForTimeout(300);
   const btn = page.locator('.pa-top [data-g=sulayout]');
   assert.ok(await btn.isVisible(), '缝合页顶栏有布局按钮');
   assert.equal(await page.locator('[data-page=suture] .pa-swbar').isVisible(), false, '默认分栏');
   assert.ok(await page.locator('[data-page=suture] .pa-src').isVisible() && await page.locator('[data-page=suture] .pa-dst').isVisible());
   await btn.click();
-  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.sutureLayout), 'switch');
+  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout), 'switch');
   assert.ok(await page.locator('[data-page=suture] .pa-swbar').isVisible());
   assert.ok(await page.locator('[data-page=suture] .pa-src').isVisible());
   assert.equal(await page.locator('[data-page=suture] .pa-dst').isVisible(), false, '切换布局一次显示一栏');
@@ -145,9 +145,9 @@ try {
   assert.ok(await page.locator('[data-page=suture] .pa-dst').isVisible());
   assert.equal(await page.locator('[data-page=suture] .pa-src').isVisible(), false);
   await page.screenshot({ path: new URL('./shots/v280-suture-switch.png', import.meta.url).pathname });
-  await page.evaluate(() => window.__presetAtelier.open('conn'));
+  await page.evaluate(() => window.__mcdonalds.open('conn'));
   assert.equal(await btn.isVisible(), false, '其他页不显示布局按钮');
-  await page.evaluate(() => window.__presetAtelier.open('suture'));
+  await page.evaluate(() => window.__mcdonalds.open('suture'));
   assert.ok(await page.locator('[data-page=suture] .pa-swbar').isVisible(), '布局记在设置里');
   await btn.click();
   assert.equal(await page.locator('[data-page=suture] .pa-swbar').isVisible(), false);

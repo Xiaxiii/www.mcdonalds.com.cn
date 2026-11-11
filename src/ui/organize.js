@@ -10,7 +10,7 @@ function dupBannerHtml(d, dups) {
     : "这台设备上没看到谁写回来的，多半是另一台设备或另一个浏览器标签页里开着的酒馆：它内存里还是旧版本，一保存就把旧分组写回去了。";
   const known = w && w.at > fixed && w.by;
   const todo = known
-    ? `「${esc(w.by)}」会把它自己记着的分组写进预设（entryGrouping），关掉它的条目分组功能也照写，去掉多少次都会回来。<br>只要酒馆里分组显示正常（没有套两层），这份数据留着不影响使用，点「保留，不再提示」即可；之后焦香鸡翅保存时也不再动它，不会和它来回改。`
+    ? `「${esc(w.by)}」会把它自己记着的分组写进预设（entryGrouping），关掉它的条目分组功能也照写，去掉多少次都会回来。<br>只要酒馆里分组显示正常（没有套两层），这份数据留着不影响使用，点「保留，不再提示」即可；之后麦当劳保存时也不再动它，不会和它来回改。`
     : "先把其他设备、其他标签页里的酒馆刷新一下（或关掉），再点「再去掉一次」。如果分组显示已经正常，也可以点「保留，不再提示」。";
   return `<div class="pa-card pa-card-warn pa-dupgroups"><p><b>重复的一层去掉过（${when(fixed)}），又被写回来了。</b></p><small>${who}<br>${todo}<br>共 ${dups.length} 个分组重复：${names}。</small><div class="pa-card-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-dup="keep">保留，不再提示</button><button class="pa-btn pa-btn-s" data-dup="fix">再去掉一次</button></div></div>`;
 }
@@ -299,7 +299,7 @@ function mountOrganize(page) {
       if (!settings().mirrorIgnore || typeof settings().mirrorIgnore !== "object") settings().mirrorIgnore = {};
       settings().mirrorIgnore[draft().name] = true;
       saveSettings();
-      toast("这个预设里的 entryGrouping 保留，不再提示；焦香鸡翅保存时也不再动它", "success");
+      toast("这个预设里的 entryGrouping 保留，不再提示；麦当劳保存时也不再动它", "success");
       return render();
     }
     if (e.target.closest("[data-dup=fix]")) {

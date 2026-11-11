@@ -33,7 +33,7 @@ fs.writeFileSync('config-bcw.yaml', yaml.stringify(cfg));
 JS
 ```
 
-构建鸡翅，将扩展的生成文件装入这个独立宿主：
+构建麦当劳，将扩展的生成文件装入这个独立宿主：
 
 ```bash
 cd /workspace/Burnt-chicken-wings

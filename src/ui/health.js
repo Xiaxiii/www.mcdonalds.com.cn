@@ -206,7 +206,7 @@ function jankHtml(extData) {
   const mins = j.minutes < 1 ? "不到 1 分钟" : `${Math.round(j.minutes)} 分钟`;
   const how = j.mode === "loaf" ? "一帧画面超过 50 毫秒才画出记为一次卡顿，并记下这一帧里各来源脚本的耗时" : j.mode === "longtask" ? "单次占住页面超过 50 毫秒记为一次卡顿（本浏览器不提供按来源归类的记录）" : "按计时器晚到的时间估算（本浏览器不提供更准确的记录）";
   const top = j.scripts[0];
-  const mine = extData?.find((x) => x.key === "presetAtelier");
+  const mine = extData?.find((x) => x.key === KEY);
   let verdict;
   if (j.mode === "none") verdict = "本浏览器不提供卡顿记录。";
   else if (!j.count) verdict = "记录期间没有出现卡顿。卡顿再出现时，回到这一页查看。";

@@ -8,13 +8,13 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const ok = (m) => console.log("✓", m);
 await page.evaluate(() => {
   window.__toasts = [];
   window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
-  window.SillyTavern.getContext().extensionSettings.presetAtelier = {};
-  window.__presetAtelier.open("suture");
+  window.SillyTavern.getContext().extensionSettings.mcdonalds = {};
+  window.__mcdonalds.open("suture");
 });
 await page.waitForTimeout(400);
 const load = async (name, data) => {

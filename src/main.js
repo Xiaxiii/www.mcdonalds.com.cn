@@ -3,8 +3,8 @@ function boot() {
   if (booted) return;
   booted = true;
   start().catch((e) => {
-    console.error("[焦香鸡翅] 启动失败", e);
-    globalThis.toastr?.error?.("焦香鸡翅启动失败：" + e.message);
+    console.error("[麦当劳] 启动失败", e);
+    globalThis.toastr?.error?.("麦当劳启动失败：" + e.message);
   });
 }
 var c = globalThis.SillyTavern?.getContext?.();

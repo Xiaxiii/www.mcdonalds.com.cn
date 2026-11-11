@@ -6,7 +6,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const ok = (m) => console.log("✓", m);
 // 模拟酒馆的连接控件：改控件就改 oai_settings
 await page.evaluate(() => {
@@ -19,7 +19,7 @@ await page.evaluate(() => {
   $("#custom_api_url_text").val(live.custom_url).on("input", function () { live.custom_url = this.value; });
   $("#custom_model_id").val(live.custom_model).on("input", function () { live.custom_model = this.value; });
   const c = window.SillyTavern.getContext(), m = window.__mock;
-  c.extensionSettings.presetAtelier = {
+  c.extensionSettings.mcdonalds = {
     sites: [{ id: "s1", name: "一号站", source: "custom", url: "https://one/v1", model: "m1" }],
     activeSiteId: null,
     schemes: [
@@ -28,9 +28,9 @@ await page.evaluate(() => {
     ]
   };
 });
-await page.evaluate(() => window.__presetAtelier.open("more", "schemes")); await page.waitForTimeout(500);
+await page.evaluate(() => window.__mcdonalds.open("more", "schemes")); await page.waitForTimeout(500);
 const live = () => page.evaluate(() => ({ url: window.__mock.live.custom_url, model: window.__mock.live.custom_model, bind: window.__mock.live.bind_preset_to_connection }));
-const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
+const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds);
 
 // 1) 切到记了 API 的方案：连到它记的站点和模型；「使用中」站点不变
 await page.locator(".pa-srow", { hasText: "记了API" }).locator("[data-a=apply]").click(); await page.waitForTimeout(1500);

@@ -11,7 +11,7 @@ const problems = [];
 const scan = (p, where) => p.evaluate((where) => {
   const W = innerWidth, out = [];
   if (document.documentElement.scrollWidth > W + 1) out.push(`页面横向滚动 ${document.documentElement.scrollWidth}>${W}`);
-  const root = document.getElementById('pa-root');
+  const root = document.getElementById('mcd-root');
   const visible = (e) => { const r = e.getBoundingClientRect(); return r.width && r.height && getComputedStyle(e).visibility !== 'hidden'; };
   for (const e of root.querySelectorAll('button, input, select, label, .pa-chip, h3, b, .pa-card')) {
     if (!visible(e) || e.closest('.pa-tabs-scroll, .pa-seg, [style*="overflow"]')) continue;
@@ -29,19 +29,19 @@ for (const [w, h, mobile] of sizes) {
   p.setDefaultTimeout(4000);
   const errs = []; p.on('pageerror', (e) => errs.push(e.message));
   await p.goto('http://127.0.0.1:8765/test/site/index.html');
-  await p.waitForFunction(() => window.__presetAtelier?.open);
-  await p.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: 'sage' }; });
+  await p.waitForFunction(() => window.__mcdonalds?.open);
+  await p.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { theme: 'sage' }; });
   const tag = `${w}×${h}`;
   const go = async (where, fn) => { try { await fn(); await p.waitForTimeout(350); problems.push(...await scan(p, `${tag} ${where}`)); } catch (e) { problems.push(`${tag} ${where}：打不开 ${e.message.split('\n')[0]}`); } };
-  await go('整理', async () => { await p.evaluate(() => window.__presetAtelier.open()); await p.click('#pa-root [data-tool=search]'); });
-  await go('缝合', () => p.evaluate(() => window.__presetAtelier.open('suture')));
-  for (const sec of ['schemes', 'conn', 'reply', 'look', 'health', 'clean']) await go(`更多/${sec}`, () => p.evaluate((s) => window.__presetAtelier.open('more', s), sec));
-  await go('添加站点', async () => { await p.evaluate(() => window.__presetAtelier.open('conn')); await p.click('#pa-root [data-a=new]'); });
+  await go('整理', async () => { await p.evaluate(() => window.__mcdonalds.open()); await p.click('#mcd-root [data-tool=search]'); });
+  await go('缝合', () => p.evaluate(() => window.__mcdonalds.open('suture')));
+  for (const sec of ['schemes', 'conn', 'reply', 'look', 'health', 'clean']) await go(`更多/${sec}`, () => p.evaluate((s) => window.__mcdonalds.open('more', s), sec));
+  await go('添加站点', async () => { await p.evaluate(() => window.__mcdonalds.open('conn')); await p.click('#mcd-root [data-a=new]'); });
   await go('添加站点·看密钥', async () => { await p.locator('.pa-sheet [data-f=keyeye]').first().click(); });
-  await p.evaluate(() => document.querySelectorAll('#pa-root .pa-sheet-mask').forEach((m) => m.remove()));
-  await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__presetAtelier.open('cot'); }, { cotPreset, NAME }));
-  await go('回复规则·报错', async () => { await p.evaluate(() => window.__presetAtelier.open('reply-rules')); const r = p.locator('[data-page=reply] [data-r=required]'); await r.fill('1状态 lxs——status'); await r.blur(); });
-  for (const sec of ['reply-check', 'reply-auto', 'reply-ai', 'vars', 'suture']) await go(`页面/${sec}`, () => p.evaluate((s) => window.__presetAtelier.open(s), sec));
+  await p.evaluate(() => document.querySelectorAll('#mcd-root .pa-sheet-mask').forEach((m) => m.remove()));
+  await go('思维链（待核对）', () => p.evaluate(({ cotPreset, NAME }) => { const m = window.__mock; m.names.splice(0, m.names.length, NAME); m.presets.splice(0, m.presets.length, cotPreset); m.live.preset_settings_openai = NAME; Object.assign(m.live, structuredClone(cotPreset)); window.__mcdonalds.open('cot'); }, { cotPreset, NAME }));
+  await go('回复规则·报错', async () => { await p.evaluate(() => window.__mcdonalds.open('reply-rules')); const r = p.locator('[data-page=reply] [data-r=required]'); await r.fill('1状态 lxs——status'); await r.blur(); });
+  for (const sec of ['reply-check', 'reply-auto', 'reply-ai', 'vars', 'suture']) await go(`页面/${sec}`, () => p.evaluate((s) => window.__mcdonalds.open(s), sec));
   if (errs.length) problems.push(`${tag} 页面错误：${errs.join(' | ')}`);
   await p.close();
   console.log('✓', tag);

@@ -36,13 +36,13 @@ try {
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1100, height: 900 }, hasTouch: mobile, isMobile: mobile });
     page.on('pageerror', e => errors.push(e.message));
     await page.goto('http://127.0.0.1:8765/test/site/index.html');
-    await page.waitForFunction(() => window.__presetAtelier?.open);
+    await page.waitForFunction(() => window.__mcdonalds?.open);
     const original = fixture();
     await page.evaluate(({ title, preset, gateSupported }) => {
       const m = window.__mock; m.names.push(title); m.presets.push(preset);
       m.live.preset_settings_openai = title; Object.assign(m.live, structuredClone(preset));
       if (gateSupported) window.__baiBaiToolkitExtensionInstalled = {};
-      window.__presetAtelier.open('organize');
+      window.__mcdonalds.open('organize');
     }, { title, preset: original, gateSupported });
     await choosePreset(page, title);
     const theater = group(page, 'theater'), extras = group(page, 'extras');
@@ -92,8 +92,8 @@ try {
     // 旧方案仅记录分组状态时，也不能暗中全开未记录的条目。
     await page.evaluate(title => {
       const c = window.SillyTavern.getContext();
-      c.extensionSettings.presetAtelier.schemes.push({ id: 'parent-only', name: '只切换分组', preset: title, scope: 'all', states: {}, groupStates: { theater: true } });
-      window.__presetAtelier.open('more', 'schemes');
+      c.extensionSettings.mcdonalds.schemes.push({ id: 'parent-only', name: '只切换分组', preset: title, scope: 'all', states: {}, groupStates: { theater: true } });
+      window.__mcdonalds.open('more', 'schemes');
     }, title);
     for (const h of await page.locator('.pa-plan-schemes .pa-sgroup:not(.open) .pa-sghead').all()) await h.click();
     await page.locator('[data-id="parent-only"] [data-a=apply]').click();

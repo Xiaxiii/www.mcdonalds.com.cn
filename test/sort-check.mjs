@@ -10,14 +10,14 @@ try {
   const cdp = await ctx.newCDPSession(page);
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto('http://127.0.0.1:8765/test/site/index.html');
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(() => {
     const one = (i) => ({ id: 's' + i, name: '站点' + i, source: 'custom', url: `https://s${i}.example/v1`, model: 'm', models: [] });
     const key = (n, i) => ({ id: 'k' + i, name: n, secretId: 'x' + i, keyMask: 'sk-…' + i, models: [] });
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: 'multi', name: '多组', source: 'custom', url: 'https://a.example/v1', keys: [key('A', 1), key('B', 2), key('C', 3)], keyId: 'k1' }, one(1), one(2), one(3)], activeSiteId: null };
-    window.__presetAtelier.open('conn');
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [{ id: 'multi', name: '多组', source: 'custom', url: 'https://a.example/v1', keys: [key('A', 1), key('B', 2), key('C', 3)], keyId: 'k1' }, one(1), one(2), one(3)], activeSiteId: null };
+    window.__mcdonalds.open('conn');
   });
-  const settingsNow = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
+  const settingsNow = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds);
   // 手指按住把手，一路拖到目标行上沿
   const touchDrag = async (grip, toY) => {
     const b = await grip.boundingBox();
@@ -59,11 +59,11 @@ try {
   const mp = await browser.newPage({ viewport: { width: 1000, height: 900 } });
   mp.on('pageerror', (e) => errors.push(e.message));
   await mp.goto('http://127.0.0.1:8765/test/site/index.html');
-  await mp.waitForFunction(() => window.__presetAtelier?.open);
+  await mp.waitForFunction(() => window.__mcdonalds?.open);
   await mp.evaluate(() => {
     const key = (n, i) => ({ id: 'k' + i, name: n, secretId: 'x' + i, keyMask: 'sk-…' + i, models: [] });
-    window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: 'multi', name: '多组', source: 'custom', url: 'https://a.example/v1', keys: [key('A', 1), key('B', 2), key('C', 3)], keyId: 'k1' }], activeSiteId: null };
-    window.__presetAtelier.open('conn');
+    window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [{ id: 'multi', name: '多组', source: 'custom', url: 'https://a.example/v1', keys: [key('A', 1), key('B', 2), key('C', 3)], keyId: 'k1' }], activeSiteId: null };
+    window.__mcdonalds.open('conn');
   });
   await mp.locator('.pa-plan-sites .pa-site-mhead .pa-srow-main').click();
   await mp.locator('.pa-sheet .pa-keyrow').first().waitFor();

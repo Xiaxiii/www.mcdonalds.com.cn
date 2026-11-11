@@ -28,14 +28,14 @@ try {
     const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1100, height: 900 }, hasTouch: mobile, isMobile: mobile });
     page.on('pageerror', e => errors.push(e.message));
     await page.goto('http://127.0.0.1:8765/test/site/index.html');
-    await page.waitForFunction(() => window.__presetAtelier?.open);
+    await page.waitForFunction(() => window.__mcdonalds?.open);
     await page.evaluate(({ name, preset }) => {
       const m = window.__mock;
       m.names.push(name); m.presets.push(preset);
       m.live.preset_settings_openai = name; Object.assign(m.live, structuredClone(preset));
       window.__groupToasts = [];
       window.toastr = Object.fromEntries(['info', 'warning', 'success', 'error'].map(type => [type, msg => window.__groupToasts.push(msg)]));
-      window.__presetAtelier.open('organize');
+      window.__mcdonalds.open('organize');
     }, { name, preset: fixture() });
     await choose(page, '.pa-picker-slot .pa-namebtn', name);
     assert.match(await page.locator('.pa-group-repair').innerText(), /2 个分区/);

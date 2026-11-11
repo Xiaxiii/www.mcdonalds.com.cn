@@ -7,17 +7,17 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const ok = (m) => console.log("✓", m);
-const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier);
+const S = () => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds);
 
 await page.evaluate(() => {
   const c = window.SillyTavern.getContext();
   c.characters = [{ name: "沈砚", avatar: "shen.png" }, { name: "林栖", avatar: "lin.png" }];
   c.characterId = "0";
   const m = window.__mock;
-  c.extensionSettings.presetAtelier = { schemes: [{ id: "old", name: "旧方案", preset: m.names[0], scope: "all", states: {}, groupStates: {} }] };
-  window.__presetAtelier.open("more", "schemes");
+  c.extensionSettings.mcdonalds = { schemes: [{ id: "old", name: "旧方案", preset: m.names[0], scope: "all", states: {}, groupStates: {} }] };
+  window.__mcdonalds.open("more", "schemes");
 });
 await page.waitForTimeout(500);
 
@@ -33,7 +33,7 @@ const mine = st.schemes.find((x) => x.name === "沈砚·正剧");
 assert.equal(mine.charKey, "shen.png");
 assert.equal(mine.conn, null, "API 默认不记录");
 assert.equal(mine.persona, "u.png", "人设默认记当前人设");
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.presetAtelierScheme), mine.id);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.mcdonaldsScheme), mine.id);
 ok("保存时记到当前角色，并绑定本聊天");
 
 // 2) 按角色卡分组：当前角色一组展开，「未分角色」收起，点箭头展开
@@ -68,7 +68,7 @@ await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTim
 await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300);
 await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
 assert.equal(await page.locator(".pa-pick-item").count(), 0, "点 ✕ 才关掉");
-await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings.presetAtelier; st.sites = [{ id: "s1", name: "tree", source: "custom", url: "https://t/v1" }]; st.schemes.find((x) => x.id === "old").siteId = "s1"; });
+await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings.mcdonalds; st.sites = [{ id: "s1", name: "tree", source: "custom", url: "https://t/v1" }]; st.schemes.find((x) => x.id === "old").siteId = "s1"; });
 await page.click("[data-s=view]"); await page.waitForTimeout(200);
 await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
 const lin = page.locator(".pa-sgroup", { hasText: "林栖" });
@@ -80,7 +80,7 @@ ok("✏️ 做完一项回到菜单；取消归属；方案行显示 API 站点�
 const before = await page.evaluate(() => window.__mock.live.preset_settings_openai);
 await page.evaluate(async () => {
   const m = window.__mock, c = window.SillyTavern.getContext();
-  const sc = c.extensionSettings.presetAtelier.schemes.find((x) => x.name === "沈砚·正剧");
+  const sc = c.extensionSettings.mcdonalds.schemes.find((x) => x.name === "沈砚·正剧");
   sc.preset = m.names.find((n) => n !== m.live.preset_settings_openai) || sc.preset;
   await c.eventSource.emit("chat_changed", "c1");
 });
@@ -109,7 +109,7 @@ await page.click("[data-s=delpicked]"); await page.waitForTimeout(200);
 await page.click(".pa-sheet-actions .pa-btn-danger, .pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
 st = await S();
 assert.equal(st.schemes.length, 0);
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.presetAtelierScheme), undefined);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().chatMetadata.mcdonaldsScheme), undefined);
 assert.equal(await page.locator("[data-s=pickon]").count(), 0, "没有方案时不显示 🗑️");
 ok("🗑️ 勾选删除（单个、整组），绑定一起清掉");
 

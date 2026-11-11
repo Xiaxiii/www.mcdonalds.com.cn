@@ -11,11 +11,11 @@ try {
   const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(SITE);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
-  await page.evaluate(() => window.__presetAtelier.open('reply-rules'));
+  await page.waitForFunction(() => window.__mcdonalds?.open);
+  await page.evaluate(() => window.__mcdonalds.open('reply-rules'));
   const R = (r) => page.locator(`[data-page=reply] [data-r="${r}"]`);
   await R('required').waitFor();
-  const cfg = () => page.evaluate(() => Object.values(window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard || {})[0]);
+  const cfg = () => page.evaluate(() => Object.values(window.SillyTavern.getContext().extensionSettings.mcdonalds.replyGuard || {})[0]);
 
   assert.doesNotMatch(await page.locator('[data-page=reply]').innerHTML(), /lxs/i);
   ok('说明文字不出现具体角色卡的标签名');
@@ -61,8 +61,8 @@ try {
     const p = await browser.newPage({ viewport: { width: w, height: h }, isMobile: mobile, hasTouch: mobile });
     p.on('pageerror', (e) => errors.push(e.message));
     await p.goto(SITE);
-    await p.waitForFunction(() => window.__presetAtelier?.open);
-    await p.evaluate(() => window.__presetAtelier.open('reply-rules'));
+    await p.waitForFunction(() => window.__mcdonalds?.open);
+    await p.evaluate(() => window.__mcdonalds.open('reply-rules'));
     await p.locator('[data-page=reply] [data-r="diagnose"]').waitFor();
     await p.locator('[data-page=reply] [data-r="sample"]').fill(SAMPLE);
     await p.locator('[data-page=reply] [data-r="diagnose"]').click();

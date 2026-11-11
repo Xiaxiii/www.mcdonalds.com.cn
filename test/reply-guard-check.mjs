@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 import { choose } from './choose.mjs';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
-const KEY = 'presetAtelier:reply-format';
+const KEY = 'mcdonalds:reply-format';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
 const ok = (message) => console.log('✓', message);
@@ -30,8 +30,8 @@ async function openPage({ interfaces = true, mobile = false } = {}) {
     });
   });
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-  await page.evaluate(() => window.__presetAtelier.open('cot'));
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+  await page.evaluate(() => window.__mcdonalds.open('cot'));
   return page;
 }
 // 2.8.1 正文格式检查在「检查 → 回复」单页；设置改动即保存（离开输入框、点勾选框时）
@@ -42,7 +42,7 @@ const close = async (page, save = false) => {
   if (save) { await page.evaluate(() => document.activeElement?.blur?.()); await page.waitForTimeout(150); }
   await page.click('.pa-tabs [data-nav="preset"]');
 };
-const settings = (page) => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.presetAtelier.replyGuard);
+const settings = (page) => page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.replyGuard);
 const reminder = (page) => page.evaluate((key) => window.__replyPrompts[key] || '', KEY);
 const generate = (page, type = 'normal', dryRun = false) => page.evaluate(async ({ type, dryRun }) => {
   const c = window.SillyTavern.getContext();
@@ -133,7 +133,7 @@ try {
   await page.evaluate((name) => {
     window.__mock.names.push(name);
     window.__mock.presets.push(structuredClone(window.__mock.presets[0]));
-    window.__presetAtelier.open('cot');
+    window.__mcdonalds.open('cot');
   }, second);
   await choose(page, '.pa-picker-slot:visible .pa-namebtn', second);
   await dialog(page);

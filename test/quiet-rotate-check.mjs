@@ -7,7 +7,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const ok = (m) => console.log("✓", m);
 const rotations = [];
 await page.route("**/api/secrets/rotate", async (r) => {
@@ -25,8 +25,8 @@ await page.evaluate(async () => {
   window.toastr = Object.fromEntries(["success", "info", "warning", "error"].map((k) => [k, (m) => window.__toasts.push(`${k}:${m}`)]));
   const m = await import("/test/site/scripts/secrets.js");
   m.secret_state.api_key_custom.push({ id: "k1", value: "aaa", active: true }, { id: "k2", value: "bbb", active: false });
-  window.SillyTavern.getContext().extensionSettings.presetAtelier = { sites: [{ id: "b", name: "B站", source: "custom", url: "https://b.example/v1", model: "", models: [], secretId: "k2", keyMask: "sk-…bbbb" }], activeSiteId: null };
-  window.__presetAtelier.open("conn");
+  window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [{ id: "b", name: "B站", source: "custom", url: "https://b.example/v1", model: "", models: [], secretId: "k2", keyMask: "sk-…bbbb" }], activeSiteId: null };
+  window.__mcdonalds.open("conn");
 });
 await page.waitForTimeout(400);
 await page.locator(".pa-plan-sites .pa-site b", { hasText: "B站" }).click(); await page.waitForTimeout(300);

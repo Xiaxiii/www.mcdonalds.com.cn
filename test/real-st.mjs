@@ -17,7 +17,7 @@ try {
     const ok=page.locator('dialog[open] .popup-button-ok:visible').last();
     if (await ok.count()) await ok.click(); else break;
   }
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout:30000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout:30000 });
   await page.evaluate(() => window.jQuery('#main_api').val('openai').trigger('change'));
   await page.waitForFunction(() => window.SillyTavern.getContext().mainApi === 'openai');
   const setup = await page.evaluate(async () => {
@@ -39,7 +39,7 @@ try {
     window.jQuery('#custom_api_url_text').val('http://127.0.0.1:8888/v1').trigger('input');
     window.jQuery('#custom_model_id').val('review-fixture').trigger('input');
     window.jQuery('#api_button_openai').trigger('click');
-    return { avatar, version:window.__presetAtelier.version };
+    return { avatar, version:window.__mcdonalds.version };
   });
   await page.waitForFunction(()=>window.SillyTavern.getContext().onlineStatus !== 'no_connection',null,{timeout:15000});
   const macroCheck=await page.evaluate(()=>{
@@ -64,8 +64,8 @@ try {
   const afterCalls=(await (await fetch('http://127.0.0.1:8888/__test/requests')).json()).length;
   assert.equal(afterCalls,generationCalls+2,'滑动与续写各调用一次后端');
   console.log('✓ 真实酒馆原生生成、滑动与续写流程通过本地模型协议桩');
-  await page.evaluate(()=>window.__presetAtelier.open('cot'));
-  await page.evaluate(() => window.__presetAtelier.open('vars'));
+  await page.evaluate(()=>window.__mcdonalds.open('cot'));
+  await page.evaluate(() => window.__mcdonalds.open('vars'));
   const flow=await page.locator('[data-vf=result]').innerText();
   assert.match(flow,/可见写入之前读取/);assert.match(flow,/清空或删除/);
   await page.evaluate(()=>{
@@ -81,7 +81,7 @@ try {
     const c=window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);
     c.variables.local.set('bcw_zero',1);await c.eventSource.emit(c.eventTypes.GENERATION_ENDED,c.chat.length);
   });
-  await page.evaluate(() => window.__presetAtelier.open('vars'));
+  await page.evaluate(() => window.__mcdonalds.open('vars'));
   await page.click('[data-vf=refresh]');
   await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();
   assert.match(await page.locator('[data-vf=result]').innerText(),/bcw_zero.*变化/);
@@ -93,7 +93,7 @@ try {
     const c=window.SillyTavern.getContext();c.chat.push({is_user:true,mes:'测试输入'},{is_user:false,mes:text});c.variables.local.del('bcw_attack');
   },text);
   const chatBefore=await page.evaluate(()=>JSON.stringify(window.SillyTavern.getContext().chat));
-  await page.evaluate(() => window.__presetAtelier.open('reply-ai'));
+  await page.evaluate(() => window.__mcdonalds.open('reply-ai'));
   await page.locator('.pa-sheet details').filter({hasText:'AI 语义审查（可选）'}).locator('summary').click();
   await page.click('[data-r=ai-latest]');
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('模型标记了疑似内部分析'),null,{timeout:15000});

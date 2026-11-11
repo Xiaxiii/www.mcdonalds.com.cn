@@ -7,16 +7,16 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMo
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto(`http://127.0.0.1:${process.env.PA_PORT || 8765}/test/site/index.html`);
-await page.waitForFunction(() => window.__presetAtelier?.open);
+await page.waitForFunction(() => window.__mcdonalds?.open);
 // 模拟的第三方扩展「Fake-Heavy」占住页面 300 毫秒
 await page.addScriptTag({ url: "/test/site/scripts/extensions/third-party/Fake-Heavy/heavy.js" });
 await page.evaluate(() => window.__fakeHeavy(300));
 await page.waitForTimeout(300);
 // 本扩展处理：切换聊天、切换预设事件，翻几页
 await page.evaluate(async () => { const c = window.SillyTavern.getContext(); await c.eventSource.emit(c.eventTypes.CHAT_CHANGED); await c.eventSource.emit(c.eventTypes.PRESET_CHANGED, { apiId: "openai" }); });
-await page.evaluate(() => window.__presetAtelier.open("organize"));
-await page.evaluate(() => window.__presetAtelier.open("conn"));
-await page.evaluate(() => window.__presetAtelier.open("health"));
+await page.evaluate(() => window.__mcdonalds.open("organize"));
+await page.evaluate(() => window.__mcdonalds.open("conn"));
+await page.evaluate(() => window.__mcdonalds.open("health"));
 await page.waitForSelector("[data-page=health] .pa-jank");
 const text = await page.locator("[data-page=health] .pa-jank").innerText();
 assert.match(text, /页面卡顿 \d+ 次/, text);

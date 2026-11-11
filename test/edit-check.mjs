@@ -7,8 +7,8 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, devi
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
-await page.evaluate(() => window.__presetAtelier.open("organize")); await page.waitForTimeout(500);
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => window.__mcdonalds.open("organize")); await page.waitForTimeout(500);
 await page.locator(".pa-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(300);
 await page.evaluate(() => {
   const r = [...document.querySelectorAll(".pa-list .pa-row:not(.pa-sep)")].find((x) => x.offsetParent && !x.querySelector(".pa-chip-dim"));

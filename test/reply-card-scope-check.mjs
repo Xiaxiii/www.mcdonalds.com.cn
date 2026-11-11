@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
 const URL = process.env.PA_TEST_URL || 'http://127.0.0.1:8765/test/site/index.html';
-const KEY = 'presetAtelier:reply-format';
+const KEY = 'mcdonalds:reply-format';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
 const ok = (message) => console.log('✓', message);
@@ -33,7 +33,7 @@ try {
     });
   });
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+  await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
   await page.evaluate(async ({ preset, NAME, a, b }) => {
     window.toastr = Object.fromEntries(['success', 'info', 'warning', 'error'].map((k) => [k, () => {}]));
     const m = window.__mock;
@@ -54,7 +54,7 @@ try {
       { name: '丙', avatar: 'bing.png', description: '丙的设定', data: { extensions: { world: '丙书' }, character_book: { entries: [{ content: '正文后输出 <bing_bar><时>…</时></bing_bar>', enabled: true }] } } },
       { name: '丁', avatar: 'ding.png', description: '丁没有状态栏', data: { extensions: {} } }
     ];
-    c.extensionSettings.presetAtelier = { ...(c.extensionSettings.presetAtelier || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['card_status', 'zt', 'bing_bar'], enabled: true, autoFix: true } } };
+    c.extensionSettings.mcdonalds = { ...(c.extensionSettings.mcdonalds || {}), replyGuard: { [NAME]: { bodyTag: 'content', requiredTags: ['card_status', 'zt', 'bing_bar'], enabled: true, autoFix: true } } };
   }, { preset, NAME, a: rule('card_status'), b: rule('zt') });
 
   const use = (id) => page.evaluate(async (id) => {
@@ -112,7 +112,7 @@ try {
   await generate('<content>正文。</content>');
   await before();
   assert.equal(await reminder(), '', '丁卡没有状态栏，不要求任何状态栏标签');
-  await page.evaluate(() => window.__presetAtelier.open('reply-check'));
+  await page.evaluate(() => window.__mcdonalds.open('reply-check'));
   await page.locator('[data-page=reply] [data-r=unused]:not([hidden])').waitFor();
   assert.match(await page.locator('[data-page=reply] [data-r=unused]').innerText(), /没有 <card_status>、<zt>、<bing_bar>，这次不检查/);
   ok('丁卡不要求任何状态栏标签，「回复」页写明这次跳过的标签');

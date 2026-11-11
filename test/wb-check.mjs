@@ -10,11 +10,11 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, devi
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
-await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
 const T = "【众生相】Claude-Lite-v1.8";
 const P = (id, name, content, x = {}) => ({ identifier: id, name, content, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100, ...x });
 const F1 = { prompts: [P("f1-a", "开场白", "开场白要短。"), P("f1-d", "深度提醒", "回复不超过三段。", { injection_position: 1, injection_depth: 2, role: "user" })], prompt_order: [{ character_id: 100001, order: [{ identifier: "f1-a", enabled: true }, { identifier: "f1-d", enabled: true }] }] };
-await page.evaluate((F1) => { window.__mock.names.push("F1"); window.__mock.presets.push(F1); window.__presetAtelier.open("suture"); }, F1);
+await page.evaluate((F1) => { window.__mock.names.push("F1"); window.__mock.presets.push(F1); window.__mcdonalds.open("suture"); }, F1);
 await page.waitForTimeout(400);
 const wi = () => page.evaluate(() => structuredClone(globalThis.__wiStore));
 const rowClick = (list, name) => page.evaluate(([list, name]) => { const r = [...document.querySelectorAll(`${list} .pa-row`)].find((x) => x.querySelector(".pa-name")?.textContent.includes(name)); r.querySelector(".pa-name").click(); }, [list, name]);
@@ -84,7 +84,7 @@ await page.evaluate((T) => {
   for (const po of orig.prompt_order) po.order = po.order.filter((o) => orig.prompts.some((p) => p.identifier === o.identifier) || ["chatHistory", "worldInfoBefore", "worldInfoAfter", "charDescription", "charPersonality", "scenario", "personaDescription", "dialogueExamples", "main", "nsfw", "jailbreak", "enhanceDefinitions"].includes(o.identifier));
   delete orig.extensions.presetAtelier;
   m.names.push("众生相-v1.9"); m.presets.push(orig);
-  window.__presetAtelier.open("organize"); window.__presetAtelier.open("suture");
+  window.__mcdonalds.open("organize"); window.__mcdonalds.open("suture");
 }, T);
 await page.waitForTimeout(400);
 await chooseSrcType(page, "preset"); await page.waitForTimeout(200);

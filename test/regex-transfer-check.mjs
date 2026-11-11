@@ -108,7 +108,7 @@ async function boot(width, targetPreset = target) {
   const page = await browser.newPage({ viewport: { width, height: width < 500 ? 844 : 900 }, isMobile: width < 500, hasTouch: width < 500 });
   page.on('pageerror', e => errors.push(e.message));
   await page.goto(`${base}/test/site/index.html`);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   await page.evaluate(({ target, source, targetName, sourceName }) => {
     const m = window.__mock;
     m.names.splice(0, m.names.length, targetName, sourceName);
@@ -118,7 +118,7 @@ async function boot(width, targetPreset = target) {
     const settings = window.SillyTavern.getContext().extensionSettings;
     settings.regex = [{ id: 'global-kept', scriptName: '全局规则保持原样' }];
     settings.preset_allowed_regex = { openai: ['其他授权预设'] };
-    window.__presetAtelier.open('suture');
+    window.__mcdonalds.open('suture');
   }, { target: targetPreset, source, targetName, sourceName });
   await choose(page, '.pa-src-name', sourceName);
   await choose(page, '.pa-dst-picker .pa-namebtn', targetName);
@@ -311,10 +311,10 @@ try {
     await page.evaluate(() => {
       for (const [key, value] of Object.entries({ SmartThemeBlurTintColor: 'rgb(32,33,38)', SmartThemeBodyColor: '#e4e1dc', SmartThemeQuoteColor: '#d0debd', SmartThemeEmColor: '#a9bfae' })) document.body.style.setProperty('--' + key, value);
       // 2.7.1 默认配色为「素」，这一段检查跟随酒馆的深色主题
-      Object.assign(window.SillyTavern.getContext().extensionSettings.presetAtelier, { theme: 'follow', ui271: true });
-      if (!document.getElementById('pa-root').hidden) window.__presetAtelier.open();
+      Object.assign(window.SillyTavern.getContext().extensionSettings.mcdonalds, { theme: 'follow', ui271: true });
+      if (!document.getElementById('mcd-root').hidden) window.__mcdonalds.open();
     });
-    await page.waitForFunction(() => document.getElementById('pa-root').style.getPropertyValue('--pa-tint') === 'rgb(32, 33, 38)');
+    await page.waitForFunction(() => document.getElementById('mcd-root').style.getPropertyValue('--pa-tint') === 'rgb(32, 33, 38)');
     await openRegex(page);
     const d = dialog(page);
     await d.locator('[data-rx-group-name]').fill('   ');

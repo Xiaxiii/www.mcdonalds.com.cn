@@ -15,7 +15,7 @@ try {
     });
   });
   await page.goto(URL);
-  await page.waitForFunction(() => window.__presetAtelier?.open);
+  await page.waitForFunction(() => window.__mcdonalds?.open);
   const A = { name: 'ECoT', auto_parse: true, add_to_prompts: false, auto_expand: false, show_hidden: true, prefix: '<ECoT>', suffix: '</ECoT>', separator: '\n', max_additions: 1 };
   const B = { name: 'DeepSeek', auto_parse: false, add_to_prompts: true, auto_expand: true, show_hidden: false, prefix: '<think>', suffix: '</think>', separator: '\n', max_additions: 2 };
   const names = await page.evaluate((A) => {
@@ -38,11 +38,11 @@ try {
   await page.evaluate((B) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(B); }, B);
   await switchTo(names[0]);
   assert.deepEqual(await now(), B, '默认关闭时不切换');
-  assert.equal(await page.evaluate(() => Object.keys(window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningByPreset || {}).length), 0, '默认关闭时不记录');
+  assert.equal(await page.evaluate(() => Object.keys(window.SillyTavern.getContext().extensionSettings.mcdonalds.reasoningByPreset || {}).length), 0, '默认关闭时不记录');
   ok('默认关闭，切换预设不改推理格式、不记录');
 
   // 在界面上打开开关：记下当前预设（甲）现在的格式
-  await page.evaluate((A) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(A); window.__presetAtelier.open('schemes'); }, A);
+  await page.evaluate((A) => { window.SillyTavern.getContext().powerUserSettings.reasoning = structuredClone(A); window.__mcdonalds.open('schemes'); }, A);
   const box = page.locator('[data-o=reasoningfollow]');
   await box.waitFor();
   await box.check();
@@ -64,7 +64,7 @@ try {
     const templates = [{ name: 'DeepSeek', prefix: '<think>\n', suffix: '\n</think>', separator: '\n\n' }, { name: 'ECoT', prefix: '<ECoT>', suffix: '</ECoT>', separator: '\n' }];
     c.getPresetManager = (api) => api === 'reasoning' ? { getPresetList: () => ({ presets: templates }) } : orig(api);
   });
-  const stored = (n) => page.evaluate((n) => structuredClone(window.SillyTavern.getContext().extensionSettings.presetAtelier.reasoningByPreset[n]), n);
+  const stored = (n) => page.evaluate((n) => structuredClone(window.SillyTavern.getContext().extensionSettings.mcdonalds.reasoningByPreset[n]), n);
   const rows = page.locator('.pa-rrow');
   const sheet = page.locator('.pa-sheet-mask:not(.pa-out)').last();
   // 2.4.0：收起时只显示条数；点这一行（不是方框）展开记录列表，方框不变
