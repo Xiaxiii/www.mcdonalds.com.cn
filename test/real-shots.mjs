@@ -1,0 +1,36 @@
+import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+const errs = []; page.on("pageerror", (e) => errs.push(e.message));
+await page.goto("http://127.0.0.1:8765/test/site/index.html");
+await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: "goose" }; window.__presetAtelier.open("cot"); });
+await page.waitForTimeout(500);
+await page.screenshot({ path: "test/shots/real-1-cot-zsx.png" });
+// 缝合：众生相 墟里春生 → Ariadne 笔法区
+await page.evaluate(() => window.__presetAtelier.open("suture")); await page.waitForTimeout(300);
+await choose(page, ".pa-dst-picker .pa-namebtn", "Ariadne_V1.3Beta"); await page.waitForTimeout(400);
+await choose(page, ".pa-src-name", "众生相-真实版"); await page.waitForTimeout(400);
+await page.evaluate(() => { for (const h of document.querySelectorAll(".pa-src-list .pa-ghead")) if (h.textContent.includes("文风设定")) h.click(); });
+await page.waitForTimeout(200);
+await page.evaluate(() => { for (const r of document.querySelectorAll(".pa-src-list .pa-row")) if (r.textContent.includes("墟里春生")) { r.click(); break; } });
+await page.evaluate(() => { const r = [...document.querySelectorAll(".pa-dst-list .pa-row")].find((x) => x.textContent.includes("笔法·来点生活")); r.scrollIntoView(); r.click(); });
+await page.waitForTimeout(300);
+await page.screenshot({ path: "test/shots/real-2-suture.png" });
+await page.click('[data-st="go"]'); await page.waitForTimeout(600);
+await page.screenshot({ path: "test/shots/real-3-review.png" });
+await page.evaluate(() => document.querySelector(".pa-sheet-body").scrollTop = 700); await page.waitForTimeout(100);
+await page.screenshot({ path: "test/shots/real-4-review2.png" });
+await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(900);
+const check = await page.evaluate(() => {
+  const i = window.__mock.names.indexOf("Ariadne_V1.3Beta"); const p = window.__mock.presets[i];
+  const e = p.prompts.find((x) => /墟里春生/.test(x.name)); const ord = p.prompt_order[0].order.map((o) => o.identifier);
+  const pos = ord.indexOf(e?.identifier); const prev = p.prompts.find((x) => x.identifier === ord[pos - 1])?.name;
+  return { saved: !!e, prev, head: e?.content.slice(0, 40), tail: e?.content.slice(-60) };
+});
+console.log("E2E", JSON.stringify(check));
+await page.click('[data-tab="cot"]'); await page.waitForTimeout(400);
+await page.screenshot({ path: "test/shots/real-5-cot-ariadne.png" });
+console.log(errs.join("\n") || "no page errors");
+await browser.close();

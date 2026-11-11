@@ -1,0 +1,45 @@
+<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<style>
+:root{--SmartThemeBodyColor:#333;--SmartThemeBlurTintColor:rgba(235,236,240,.35);--SmartThemeBorderColor:rgba(0,0,0,.12);--SmartThemeQuoteColor:#444;--SmartThemeEmColor:#666;--mainFontSize:15px}
+body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-serif;background:#cfd8c4;min-height:100vh}
+.bg{padding:40px 20px;color:rgba(0,0,0,.35);font-size:34px;line-height:1.4}
+</style>
+<script src="jquery.min.js"></script>
+<script>
+(async () => {
+  const load = async (u) => (await fetch(u)).json();
+  // ako.json 是别人的预设（禁止二传），不在仓库里；本地放一份才会出现
+  const ako = await load("ako.json").catch(() => null), zsx = await load("zsx.json");
+  const names = [...(ako ? ["Ako1.92-修复版"] : []), "【众生相】Claude-Lite-v1.8"];
+  const presets = [...(ako ? [ako] : []), zsx];
+  // test/site/local/ 里放的真实预设（不进仓库）
+  for (const [n, f] of [["Ariadne_V1.3Beta", "local/ariadne.json"], ["众生相-真实版", "local/zsx-real.json"], ["V2.61", "local/v261.json"], ["【小冰块】v3.83", "local/xbk.json"]]) {
+    const x = await load(f).catch(() => null);
+    if (x) { names.push(n); presets.push(x); }
+  }
+  const live = { preset_settings_openai: names[names.length - 1], ...structuredClone(presets[presets.length - 1]), chat_completion_source: "custom", custom_url: "https://example.com/v1", custom_model: "claude-x" };
+  window.__mock = { live, presets, names };
+  const listeners = {};
+  const ctx = {
+    getPresetManager: () => ({
+      getPresetList: () => ({ presets, preset_names: Object.fromEntries(names.map((n, i) => [n, i])) }),
+      getSelectedPresetName: () => live.preset_settings_openai,
+      savePreset: async (name, data) => { window.__saved = (window.__saved || 0) + 1; },
+      findPreset: (n) => names.indexOf(n), selectPreset: async (i) => { live.preset_settings_openai = names[i]; Object.assign(live, structuredClone(presets[i])); }
+    }),
+    extensionSettings: {}, saveSettingsDebounced() {},
+    eventSource: { on(e, f) { (listeners[e] ||= []).push(f); }, removeListener() {}, async emit(e, ...a) { for (const f of listeners[e] || []) await f(...a); } },
+    eventTypes: { APP_READY: "app_ready", PRESET_CHANGED: "preset_changed", CHAT_CHANGED: "chat_changed", OAI_PRESET_CHANGED_AFTER: "oai_after" },
+    chatMetadata: {}, powerUserSettings: { personas: { "u.png": "我" } }, mainApi: "openai", onlineStatus: "Valid", chatId: "c1"
+  };
+  window.SillyTavern = { getContext: () => ctx };
+  const mode = new URLSearchParams(location.search).get("mode") || "script";
+  if (mode === "both") { const s = document.createElement("script"); s.type = "module"; s.src = "../../index.js?" + Date.now(); document.head.append(s); await new Promise(r => setTimeout(r, 1500)); }
+  // 脚本版文件名跟着版本号走（node build.mjs 生成）
+  const { version } = await (await fetch("../../package.json")).json();
+  const j = await (await fetch("../../dist/" + encodeURIComponent(`焦香鸡翅-脚本版-${version}.json`))).json();
+  new Function(j.content)();
+})();
+</script></head>
+<body><div class="bg">第3章｜两个音节摧毁了一个政客家族继承人二十三年来精心搭建的全部理性防线 少年没有立刻回答。</div>
+<div id="extensionsMenu"></div><div id="extensions_settings"></div></body></html>

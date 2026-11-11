@@ -1,0 +1,29 @@
+name: test
+on: [push, pull_request]
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 构建结果与源码一致（index.js 要随 src 一起提交）
+        run: |
+          node build.mjs
+          git diff --exit-code -- index.js manifest.json
+      - name: 核心逻辑测试
+        run: node test/run-core.cjs
+  browser:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 安装测试依赖
+        run: |
+          cd test && npm init -y >/dev/null && npm i playwright@1.56 jquery@3 --no-audit --no-fund
+          npx playwright install --with-deps chromium
+      - name: 浏览器检查
+        run: bash test/run-browser.sh

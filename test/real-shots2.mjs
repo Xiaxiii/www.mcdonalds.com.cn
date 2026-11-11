@@ -1,0 +1,38 @@
+import { chromium } from "playwright";
+import { choose, chooseSrcType, chooseDstType } from "./choose.mjs";
+const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
+const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
+const errs = []; page.on("pageerror", (e) => errs.push(e.message));
+await page.goto("http://127.0.0.1:8765/test/site/index.html");
+await page.waitForFunction(() => window.__presetAtelier?.open, null, { timeout: 15000 });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.presetAtelier = { theme: "lavender", nameWithSource: true }; window.__presetAtelier.open("suture"); });
+await page.waitForTimeout(400);
+await choose(page, ".pa-dst-picker .pa-namebtn", "Ariadne_V1.3Beta"); await page.waitForTimeout(300);
+await choose(page, ".pa-src-name", "V2.61"); await page.waitForTimeout(400);
+for (const gname of ["文风选择", "模块"]) await page.evaluate((g) => { for (const h of document.querySelectorAll(".pa-src-list .pa-ghead")) if (h.querySelector(".pa-gname")?.textContent.trim().startsWith(g)) h.querySelector(".pa-gname").click(); }, gname);
+await page.waitForTimeout(200);
+await page.evaluate(() => { for (const r of document.querySelectorAll(".pa-src-list .pa-row")) if (/中式清韵/.test(r.textContent)) r.click(); });
+await page.evaluate(() => { const r = [...document.querySelectorAll(".pa-dst-list .pa-row")].find((x) => x.textContent.includes("笔法·来点生活")); r.scrollIntoView(); r.click(); });
+await page.waitForTimeout(200);
+await page.click('[data-st="go"]'); await page.waitForTimeout(700);
+await page.screenshot({ path: "test/shots/m-1-review.png" });
+await page.evaluate(() => document.querySelector(".pa-sheet-body").scrollTop = 420); await page.waitForTimeout(100);
+await page.screenshot({ path: "test/shots/m-2-review.png" });
+// 第一条切成"直接缝入"
+await page.evaluate(() => document.querySelector('.pa-item[data-i="0"] input[value="raw"]').click()); await page.waitForTimeout(250);
+await page.evaluate(() => { const a = document.querySelector('.pa-item[data-i="0"]'); a.scrollIntoView(); });
+await page.screenshot({ path: "test/shots/m-3-raw.png" });
+await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+// 新建空白分组：起名，再点一个位置
+await page.click('[data-st="newgroup"]'); await page.waitForTimeout(300);
+await page.fill(".pa-sheet input.pa-input", "我的笔法"); await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(300);
+await page.screenshot({ path: "test/shots/m-4-newgroup.png" });
+await page.locator(".pa-dst-list .pa-ghead .pa-gname").first().click(); await page.waitForTimeout(800);
+await page.screenshot({ path: "test/shots/m-5-newgroup-done.png" });
+const g = await page.evaluate(() => { const i = window.__mock.names.indexOf("Ariadne_V1.3Beta"); const b = window.__mock.presets[i].extensions?.baibaiToolkit?.presetPromptGroups; return b ? b.groups.map((x) => x.name) : null; });
+console.log("saved groups:", JSON.stringify(g));
+await page.click(".pa-sheet .pa-btn-primary"); await page.waitForTimeout(600);
+const g2 = await page.evaluate(() => { const i = window.__mock.names.indexOf("Ariadne_V1.3Beta"); const b = window.__mock.presets[i].extensions?.baibaiToolkit?.presetPromptGroups; return b ? b.groups.map((x) => x.name) : null; });
+console.log("after dissolve:", JSON.stringify(g2));
+console.log(errs.join("\n") || "no page errors");
+await browser.close();

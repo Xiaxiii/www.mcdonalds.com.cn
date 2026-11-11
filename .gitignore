@@ -1,0 +1,14 @@
+node_modules/
+test/node_modules/
+test/package*.json
+test/shots/
+test/site/ako.json
+test/site/jquery.min.js
+test/fixtures/ako-*.json
+test/site/local/
+test/site/zsx.json
+test/fixtures/*.json
+dist/
+test/site/st/
+.taste-skill/
+__pycache__/

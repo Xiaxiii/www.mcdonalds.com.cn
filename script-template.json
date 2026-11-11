@@ -1,0 +1,17 @@
+{
+  "type": "script",
+  "enabled": true,
+  "name": "焦香鸡翅",
+  "id": "7f1d6c2e-5b8a-4c39-9e21-a7d4b0c3f915",
+  "content": "",
+  "info": "",
+  "button": {
+    "enabled": false,
+    "buttons": []
+  },
+  "data": {},
+  "export_with": {
+    "data": true,
+    "button": true
+  }
+}
