@@ -11,9 +11,36 @@ function balShown() {
 function balSupported(source) {
   return source === "custom" || source === "openrouter" || source === "deepseek";
 }
-// 一条连接一份记录：类型 + 网址 + 密钥编号
+// 一条连接一份记录：类型 + 网址 + 密钥编号。2.11.4 站点填了系统访问令牌时查的是账户余额，同一站点的各个密钥共用一份：类型 + 站点 + 用户 ID
 function balIdent(live = liveConnection()) {
+  const acct = balAcctOf(live);
+  if (acct) return [live.source, balOrigin(live.url), `acct:${acct.uid || ""}`].join("\u0001");
   return [live.source, (live.url || "").replace(/\/+$/, ""), live.secretId || ""].join("\u0001");
+}
+function balOrigin(url) {
+  try { return new URL(url).origin; } catch { return String(url || "").replace(/\/+$/, ""); }
+}
+// 2.11.4 账户余额：NewAPI / OneAPI 站点「个人设置」里生成的系统访问令牌（只存在本浏览器），加上用户 ID
+function balAcctOf(live = liveConnection()) {
+  if (live?.source !== "custom") return null;
+  const site = balSiteOf(live);
+  return site?.acct && balAcctToken(site) ? site.acct : null;
+}
+function balAcctToken(site) {
+  return site?.acct ? getLocalKey({ id: `${site.id}.acct`, localId: site.acct.localId || `${site.id}.acct` }) : null;
+}
+function balSetAcct(site, uid, token) {
+  const localId = `${site.id}.acct`;
+  uid = String(uid || "").trim();
+  token = String(token || "").trim().replace(/^Bearer\s+/i, "");
+  if (!token) {
+    setLocalKey(localId, null);
+    delete site.acct;
+    return true;
+  }
+  if (!setLocalKey(localId, token)) return false;
+  site.acct = { uid, localId };
+  return true;
 }
 function balStoreKey(id) {
   return `mcdonalds:balance:${userHandle()}:${id}`;
@@ -42,6 +69,7 @@ function balMerge(site, secretId, add) {
   const ok = Array.isArray(add) ? add.filter((r) => r && typeof r === "object" && Number.isFinite(r.t)) : [];
   if (!ok.length) return 0;
   const live = { source: site.source, url: site.url, secretId: secretId || null };
+  if (balAcctOf(live)) return 0;
   const have = balRecords(live), seen = new Set(have.map((r) => r.t));
   const fresh = ok.filter((r) => !seen.has(r.t));
   if (fresh.length) balSave(live, [...have, ...fresh].sort((a, b) => a.t - b.t));
@@ -91,10 +119,10 @@ async function balKey(live) {
 // 2.8.8 浏览器拦下（跨域）时，中转站经酒馆后台查询：借用酒馆拉取模型列表的接口（/status），
 // 网址末尾加「#」，酒馆拼上的「/models」落在 # 之后不发出，请求的就是余额接口本身；secret_id 指定用当前连接的密钥。
 // 酒馆收到站点的非 2xx 时只回 { error: true }，看不到状态码，按「站点返回错误」处理。返回 null 表示这条路走不通
-async function balViaST(url, live) {
+async function balViaST(url, live, headers = null) {
   let r;
   try {
-    const s = mods.openai?.oai_settings || {};
+    const s = headers ? { custom_include_headers: headers } : mods.openai?.oai_settings || {};
     r = await fetch(stUrl("api/backends/chat-completions/status"), {
       method: "POST",
       headers: { "Content-Type": "application/json", ...ctx().getRequestHeaders?.() || {} },
@@ -205,6 +233,38 @@ async function balQueryRaw(live, key) {
   }
   throw new Error("此连接类型没有余额接口");
 }
+// 2.11.4 账户余额：/api/user/self 给剩余额度 quota、已用额度 used_quota；/api/status 给换算单位（quota_per_unit，默认 500000 = $1）。
+// 令牌放在 Authorization，用户 ID 放在 New-Api-User（NewAPI 要求）。浏览器拦下（跨域）时经酒馆后台转发：这两项写进附加请求头，盖过酒馆自己的 Authorization
+async function balAccount(live, acct, token) {
+  const origin = balOrigin(live.url);
+  const get = async (path, headers) => {
+    let r = null;
+    try { r = await fetch(origin + path, { headers: { Accept: "application/json", ...headers }, cache: "no-store" }); } catch {}
+    if (r) {
+      if (r.status === 401 || r.status === 403) throw new Error("系统访问令牌或用户 ID 不对");
+      if (!r.ok) throw new Error(`站点返回 ${r.status}`);
+      const d = await r.json().catch(() => null);
+      if (!d) throw new Error("站点返回的不是账户数据");
+      return d;
+    }
+    const yaml = Object.entries(headers).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join("\n");
+    const via = await balViaST(origin + path, live, yaml || "{}");
+    if (via?.data) return via.data;
+    throw new Error(via?.failed ? "站点拒绝了查询（经酒馆转发），请核对系统访问令牌和用户 ID" : "请求被浏览器拦截，经酒馆转发也未成功");
+  };
+  const auth = { Authorization: `Bearer ${token}`, ...acct.uid ? { "New-Api-User": String(acct.uid) } : {} };
+  const self = await get("/api/user/self", auth);
+  if (self?.success === false) throw new Error(self.message ? `站点：${self.message}` : "系统访问令牌或用户 ID 不对");
+  const q = balNum(self?.data?.quota), u = balNum(self?.data?.used_quota);
+  if (q == null) throw new Error("站点没有返回账户额度");
+  let st = {};
+  try { st = (await get("/api/status", {}))?.data || {}; } catch {}
+  const per = balNum(st.quota_per_unit) || 5e5;
+  const rate = st.quota_display_type === "CNY" ? balNum(st.usd_exchange_rate) : null;
+  const k = rate || 1;
+  const n = (v) => Math.round(v / per * k * 1e6) / 1e6;
+  return { bal: n(q), used: u != null ? n(u) : null, cur: rate ? "¥" : "$", acct: true };
+}
 // 查一次并记下。gen：生成结束后自动查的（用于「上一轮」）
 async function balanceQuery({ gen = false, quiet = false } = {}) {
   const live = liveConnection();
@@ -215,15 +275,20 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
   BAL.errFor = balIdent(live);
   balEmit();
   try {
-    const k = await balKey(live);
-    // 中转站读不到密钥时改由酒馆后台查询；其他类型仍需密钥全文
-    if (live.source !== "custom") {
-      if (k.blocked) throw new Error("酒馆不允许读取密钥（config.yaml 中 allowKeysExposure 为 false）");
-      if (!k.value) throw new Error("取不到当前连接的密钥");
+    const acct = balAcctOf(live);
+    let r;
+    if (acct) r = await balAccount(live, acct, balAcctToken(balSiteOf(live)));
+    else {
+      const k = await balKey(live);
+      // 中转站读不到密钥时改由酒馆后台查询；其他类型仍需密钥全文
+      if (live.source !== "custom") {
+        if (k.blocked) throw new Error("酒馆不允许读取密钥（config.yaml 中 allowKeysExposure 为 false）");
+        if (!k.value) throw new Error("取不到当前连接的密钥");
+      }
+      r = await balQueryRaw(live, k.value || null);
     }
-    const r = await balQueryRaw(live, k.value || null);
     const list = balRecords(live);
-    const rec = { t: Date.now(), bal: r.bal, used: r.used, cur: r.cur, gen: gen || undefined, unl: r.unlimited || undefined };
+    const rec = { t: Date.now(), bal: r.bal, used: r.used, cur: r.cur, gen: gen || undefined, unl: r.unlimited || undefined, acct: r.acct || undefined };
     list.push(rec);
     balSave(live, list);
     balDeductManual(live, list[list.length - 2], rec);
@@ -245,7 +310,7 @@ function balSiteOf(live = liveConnection()) {
 }
 function balDeductManual(live, prev, rec) {
   const mb = balSiteOf(live)?.manualBalance;
-  if (!mb || !prev || prev.t < mb.at) return;
+  if (!mb || !prev || prev.t < mb.at || rec.acct) return;
   const spent = balSpent(prev, rec);
   if (!(spent > 0)) return;
   mb.amount = Math.round((mb.amount - spent) * 1e4) / 1e4;
@@ -270,10 +335,12 @@ function balSetManual(site, text) {
 }
 // 站点列表里显示的余额：手填的优先，其次这个站点（当前密钥）最近一次查到的余额
 function balSiteText(site) {
-  const mb = site.manualBalance;
-  if (mb) return fmtMoney(mb.amount, mb.cur);
   const k = siteKey(site);
   const rec = balRecords({ source: site.source, url: site.url, secretId: k?.secretId || null }).at(-1);
+  // 2.11.4 查得到账户余额时，以查到的为准
+  if (rec?.acct && rec.bal != null) return fmtMoney(rec.bal, rec.cur);
+  const mb = site.manualBalance;
+  if (mb) return fmtMoney(mb.amount, mb.cur);
   if (!rec) return "";
   return rec.unl ? "不限额度" : rec.bal != null ? fmtMoney(rec.bal, rec.cur) : "";
 }

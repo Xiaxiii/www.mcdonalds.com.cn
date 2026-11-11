@@ -654,13 +654,15 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const used = b.last ? [`${b.round && !b.round.gen ? "距上次查询" : "上一轮"} ${b.round ? fmtMoney(b.round.v, cur) : "—"}`, `近 24 小时 ${b.d1.pairs ? fmtMoney(b.d1.sum, cur) : "—"}`] : [];
     const canSet = !apiBal && b.site;
     const when = b.busy ? "正在查询…" : b.last ? `${hm(b.last.t)} 更新` : "尚未查询";
-    const manual = !apiBal && b.manual ? '<span class="pa-chip pa-chip-dim" title="手填的余额，按每次查到的用量扣减">手填</span>' : "";
+    const manual = !apiBal && b.manual ? '<span class="pa-chip pa-chip-dim" title="手填的余额，按每次查到的用量扣减">手填</span>' : b.last?.acct && apiBal ? '<span class="pa-chip pa-chip-dim" title="站点账户的余额，用系统访问令牌查询">账户</span>' : "";
+    // 2.11.4 中转站：用系统访问令牌查账户余额
+    const acctBtn = live.source === "custom" && b.site ? `<button class="pa-link pa-bal-set" data-a="balacct" type="button">${b.site.acct ? "账户查询设置" : "自动查账户余额"}</button>` : "";
     const usedLine = used.length ? used.map((x) => `<span>${esc(x)}</span>`).join("") : total ? `<span>${esc(when)}</span>` : "";
     return `<div class="pa-bal" aria-label="余额">
         <div class="pa-bal-top">${total ? `<b class="pa-bal-total pa-num" title="${esc(when)}">${esc(total)}</b>${manual}` : `<span class="pa-bal-time">${esc(when)}</span>`}<button class="pa-icon-btn pa-bal-q${b.busy ? " pa-spin" : ""}" data-a="balq" type="button" aria-label="查询余额" title="查询余额（${esc(when)}）"${b.busy ? " disabled" : ""}>${ICON.refresh}</button></div>
         ${usedLine ? `<div class="pa-bal-used pa-num">${usedLine}</div>` : ""}
         ${b.err ? `<p class="pa-live-res bad">${RES_BAD}${esc(b.err)}</p>` : ""}
-        <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
+        <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}${acctBtn}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
       </div>`;
   }
   function render() {
@@ -1156,6 +1158,37 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     if (k.localKey || k.legacyKey) return getLocalKey({ id: site.id, localId: k.localId, legacyKey: k.legacyKey }) || "";
     return "";
   }
+  // 2.11.4 账户余额查询：用户 ID + 系统访问令牌。令牌只存在本浏览器
+  async function acctSheet(site) {
+    const had = !!balAcctToken(site);
+    const body = el(`<div class="pa-form">
+      <p class="pa-hint">在「${esc(site.name || "站点")}」网页的「个人设置」中生成「系统访问令牌」，复制到下面；用户 ID 在同一页。查到的是整个账户的余额，不受密钥额度限制。</p>
+      <label class="pa-field"><span>用户 ID</span><input class="pa-input pa-num" data-f="uid" value="${esc(site.acct?.uid || "")}" placeholder="例如：1024" inputmode="numeric" autocomplete="off"></label>
+      <label class="pa-field"><span>系统访问令牌</span><input class="pa-input" data-f="token" type="password" value="" placeholder="${had ? "已保存；留空则不改" : "粘贴令牌"}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
+      <p class="pa-hint">令牌只保存在这个浏览器里，换设备、换浏览器需要重新填写。</p>
+    </div>`);
+    const v = await sheet({
+      title: "查询账户余额",
+      body,
+      place: "center",
+      guardDirty: true,
+      actions: [
+        { label: "取消", value: null },
+        ...had ? [{ label: "停用", value: "off" }] : [],
+        { label: "保存并查询", kind: "primary", value: (w) => ({ uid: w.querySelector("[data-f=uid]").value, token: w.querySelector("[data-f=token]").value }),
+          validate: (w) => {
+            if (had || w.querySelector("[data-f=token]").value.trim()) return true;
+            toast("请粘贴系统访问令牌", "warning");
+            return false;
+          } }
+      ]
+    });
+    if (!v) return false;
+    if (v === "off") { balSetAcct(site, "", ""); toast("已停用账户余额查询"); return true; }
+    const token = v.token.trim() || balAcctToken(site);
+    if (!balSetAcct(site, v.uid, token)) { toast("浏览器不允许保存令牌（可能是无痕模式）", "error"); return false; }
+    return true;
+  }
   async function exportSites(btn) {
     const list = sites();
     if (!list.length) return toast("还没有站点");
@@ -1554,6 +1587,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       // 记下此刻的用量作为起点，之后的用量从余额里扣
       if (site0.manualBalance) balanceQuery({ quiet: true });
       return render();
+    }
+    if (a === "balacct") {
+      const site0 = balSiteOf();
+      if (!site0) return;
+      if (await acctSheet(site0)) { saveSettings(); render(); balanceQuery(); }
+      return;
     }
     if (a === "new") return editSite(null);
     if (a === "exportsites") return exportSites(btn);
