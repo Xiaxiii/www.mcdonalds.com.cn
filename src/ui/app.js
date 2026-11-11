@@ -416,8 +416,15 @@ function addMenuEntry() {
   menu.append(item);
   applyMenuEntry();
   // 别的扩展加载有先有后，有的晚于本扩展才往魔棒菜单里加，本项的位置就会跟着变。始终把它挪回最下面
+  // 2.11.1 别的扩展也这样「保持最下面」时（如同时安装焦香鸡翅），两边会无休止地互相挪动，页面卡死。
+  // 一秒内挪动超过 3 次即停止，让出最下面的位置
+  let moves = 0, since = 0;
   const keepLast = new MutationObserver(() => {
-    if (item.isConnected && item.parentElement === menu && menu.lastElementChild !== item) menu.append(item);
+    if (!item.isConnected || item.parentElement !== menu || menu.lastElementChild === item) return;
+    const now = Date.now();
+    if (now - since > 1e3) { since = now; moves = 0; }
+    if (++moves > 3) return keepLast.disconnect();
+    menu.append(item);
   });
   keepLast.observe(menu, { childList: true });
   cleanups.push(() => keepLast.disconnect());
