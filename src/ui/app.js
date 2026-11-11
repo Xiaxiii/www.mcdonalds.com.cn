@@ -502,7 +502,7 @@ function addSettingsEntry() {
         </div>
         <div class="pa-set-maint"></div>
         ${log.length ? `<details class="pa-set-log pa-set-fold"><summary><span class="pa-set-fold-t">更新说明</span><small class="pa-set-sum">${esc(log[0].head)}</small></summary><div class="pa-set-logs">${log.slice(0, 2).map((x) => `<div class="pa-set-logv"><b>${esc(x.head)}</b><div>${esc(x.body).replace(/\n/g, "<br>")}</div></div>`).join("")}</div></details>` : ""}
-        <div class="pa-set-foot">打开方式：点上方按钮，或用选好的入口（魔棒菜单、悬浮球），或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/Burnt-chicken-wings" target="_blank" rel="noopener">GitHub</a></div>
+        <div class="pa-set-foot">打开方式：点上方按钮，或用选好的入口（魔棒菜单、悬浮球），或在聊天输入框发送 /atelier。<a href="https://github.com/Xiaxiii/www.mcdonalds.com.cn" target="_blank" rel="noopener">GitHub</a></div>
       </div>
     </div>
   </div>`);
@@ -564,7 +564,7 @@ function addSettingsEntry() {
           const disk = await manifestVersion(stUrl(`scripts/extensions/third-party/${EXT_DIR}/manifest.json`)) || VERSION;
           say(disk !== VERSION ? `已是最新版本（${esc(disk)}），刷新页面后生效。<div class="menu_button menu_button_icon pa-set-mini" data-a="reload" tabindex="0" role="button"><i class="fa-solid fa-arrows-rotate"></i><span>刷新页面</span></div>` : `已是最新版本（${esc(VERSION)}）。`, "ok");
         } else {
-          const remote = await manifestVersion(`https://raw.githubusercontent.com/Xiaxiii/Burnt-chicken-wings/${encodeURIComponent(v.currentBranchName || "main")}/manifest.json`);
+          const remote = await manifestVersion(`https://raw.githubusercontent.com/Xiaxiii/www.mcdonalds.com.cn/${encodeURIComponent(v.currentBranchName || "main")}/manifest.json`);
           say(`检测到新版本${remote ? `（${esc(remote)}）` : ""}。<div class="menu_button menu_button_icon pa-set-mini" data-a="update" tabindex="0" role="button"><i class="fa-solid fa-download"></i><span>更新</span></div>`, "new");
         }
       } else if (a === "update") {
