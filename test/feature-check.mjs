@@ -91,7 +91,7 @@ await page.click(".pa-sheet .pa-btn-danger"); await page.waitForTimeout(800);
 assert.equal(await wbCount(), n0, "撤销后条目数恢复");
 ok("缝进世界书后撤销");
 
-// 5) 站点模型：酒馆里换了模型不悄悄写进站点，点「改记为当前模型」才写
+// 5) 2.11.5 站点模型跟随当前模型：酒馆里换了模型，使用中站点记的模型一起改，不再另行提示
 await page.evaluate(() => {
   document.body.insertAdjacentHTML("beforeend", '<select id="model_custom_select"><option value="m-a">m-a</option><option value="m-b">m-b</option></select><input id="custom_model_id">');
   const s = window.SillyTavern.getContext().extensionSettings.mcdonalds;
@@ -100,10 +100,22 @@ await page.evaluate(() => {
   window.__mock.live.custom_model = "m-b";
 });
 await page.click('.pa-tabs [data-nav="conn"]'); await page.waitForTimeout(400);
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].model), "m-a");
-await page.click('[data-a="keepmodel"]'); await page.waitForTimeout(300);
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].model), "m-b");
-ok("站点模型不被悄悄覆盖，确认后才改");
+assert.equal(await page.locator(".pa-live-diff").count(), 0, "不再显示「站点记的是」");
+ok("站点模型跟随当前模型");
+// 酒馆切换预设时读入预设里存的模型：这期间不跟随；切完后在酒馆里换模型照常跟随
+await page.evaluate(async () => {
+  const ev = window.SillyTavern.getContext().eventSource;
+  await ev.emit("oai_before", {});
+  window.__mock.live.custom_model = "m-preset";
+  await ev.emit("cc_model_changed", "m-preset");
+  await ev.emit("oai_after");
+});
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].model), "m-b", "切换预设读入的模型不写进站点");
+await page.waitForTimeout(2200);
+await page.evaluate(() => { window.__mock.live.custom_model = "m-a"; return window.SillyTavern.getContext().eventSource.emit("cc_model_changed", "m-a"); });
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sites[0].model), "m-a");
+ok("切换预设读入预设模型时不跟随，之后换模型照常跟随");
 
 // 6) 设置框改名：在行内改，不弹浏览器输入框
 await page.click(".pa-close"); await page.waitForTimeout(200);

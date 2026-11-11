@@ -873,6 +873,10 @@ function bindEvents() {
     if (rootEl2 && !rootEl2.hidden) show(current);
   });
   on(et2.CHAT_CHANGED, () => onChatChanged());
+  // 2.11.5 站点模型跟随当前模型；切换预设读入预设里的模型时暂停，切完再等 2 秒（方案套用的连接在这期间完成）
+  on(et2.OAI_PRESET_CHANGED_BEFORE, () => holdModelSync(1e4));
+  on(et2.OAI_PRESET_CHANGED_AFTER, () => { modelSyncHold = Date.now() + 2e3; });
+  on(et2.CHATCOMPLETION_MODEL_CHANGED, () => { if (followLiveModel() && rootEl2 && !rootEl2.hidden && (current === "conn" || current === "schemes")) show(current); });
   bindReplyGuard(on, et2);
   bindVariableWatch(on, et2);
   bindSemanticReview(on, et2);

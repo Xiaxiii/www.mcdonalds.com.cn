@@ -24,6 +24,7 @@ try {
     document.body.insertAdjacentHTML('beforeend', `<div hidden><select id="main_api"><option value="openai">openai</option></select><select id="chat_completion_source"><option value="custom">custom</option></select><input id="custom_api_url_text"><input id="custom_model_id"><select id="model_custom_select">${models.map((x) => `<option value="${x}">${x}</option>`).join('')}</select><button id="api_button_openai"></button></div>`);
     $('#main_api').val('openai'); $('#chat_completion_source').val('custom');
     $('#custom_api_url_text').on('input', function () { m.live.custom_url = this.value; });
+    m.live.custom_model = models[0];
     window.SillyTavern.getContext().extensionSettings.mcdonalds = { sites: [
       { id: 'a', name: '甲站', source: 'custom', url: 'https://a.example/v1', model: models[0], models, secretId: 'k1', note: '甲vt0.17/甲as0.15/乙vt0.2/乙ais0.16/丙ep0.18/丁0.15/戊0.2/己0.3' },
       { id: 'b', name: '乙站', source: 'custom', url: 'https://b.example/v1', model: 'plain-model', models: ['plain-model'] }], activeSiteId: 'a' };

@@ -609,6 +609,26 @@ function parseSiteFile(text) {
   walk(data, 0);
   return out;
 }
+// 2.11.5 站点模型跟随当前模型：在酒馆或本扩展里换了模型，使用中站点（当前分组）记的模型一起改，两处显示一致。
+// 酒馆切换预设时会读入预设里存的模型，方案套用、切换连接时网址和模型先后变化，这些过程中不跟随
+var modelSyncHold = 0;
+function holdModelSync(ms) {
+  modelSyncHold = Math.max(modelSyncHold, Date.now() + ms);
+}
+function followLiveModel() {
+  if (Date.now() < modelSyncHold || connApplying > 0 || typeof applying !== "undefined" && applying) return false;
+  const live = liveConnection();
+  if (!live.model) return false;
+  const s = settings();
+  const active = s.sites?.find((x) => x.id === s.activeSiteId);
+  const norm = (u) => String(u || "").replace(/\/+$/, "");
+  if (!active || active.source !== live.source || live.source === "custom" && norm(active.url) !== norm(live.url)) return false;
+  const k = siteKey(active);
+  if (!k || siteMulti(active) && live.secretId && k.secretId !== live.secretId || k.model === live.model) return false;
+  k.model = live.model;
+  saveSettings();
+  return true;
+}
 function keyMaskOf(text) {
   return text.length > 8 ? `${text.slice(0, 3)}…${text.slice(-4)}` : "已保存";
 }
@@ -687,7 +707,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       ak.models = liveModels;
       saveSettings();
     }
-    const modelDiff = ak && live.model && ak.model && live.model !== ak.model;
+    followLiveModel();
     const usedBy = (id) => [...new Set(settings().schemes.filter((sc) => schemeConn(sc)?.siteId === id).map((sc) => sc.preset))];
     const dot = `<span class="pa-dot ${live.online ? "pa-dot-on" : ""}">${live.online ? "已连接" : "未连接"}</span>`;
     // 2.8.1 当前连接：名称、网址、模型、余额；测试、拉取、编辑为标题行的小图标，编辑一步打开站点窗口
@@ -705,7 +725,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
               ${bal ? `<dt class="pa-bal-dt">余额</dt><dd>${bal}</dd>` : ""}
             </dl>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
-            ${modelDiff ? `<p class="pa-hint pa-live-diff">站点记的是「${esc(ak.model)}」。切换预设后会换回它。<button class="pa-link" data-a="keepmodel">改记为当前模型</button></p>` : ""}
         </article>`;
     // 2.8.9 编辑站点时左侧出现把手，拖动或按 ↑ ↓ 调整站点顺序
     const siteGrip = (x) => `<button type="button" class="pa-key-grip pa-site-grip" data-a="sitegrip" aria-label="「${esc(x.name)}」：拖动或按上下方向键调整顺序" title="拖动调整顺序">${ICON_GRIP}</button>`;
@@ -1560,16 +1579,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         toast(models.length ? `已拉取 ${models.length} 个模型，点模型框的 ▾ 选择` : "站点未返回模型，可点模型框手动填写", models.length ? "success" : "warning");
       } catch (err) {
         toast("拉取失败：" + err.message, "error");
-      }
-      return render();
-    }
-    if (a === "keepmodel") {
-      const t = sites().find((x) => x.id === settings().activeSiteId);
-      const m = liveConnection().model;
-      if (t && m) {
-        siteKey(t).model = m;
-        saveSettings();
-        toast(`站点「${t.name}」的模型已改为 ${m}`, "success");
       }
       return render();
     }

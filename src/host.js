@@ -541,7 +541,14 @@ function setSelect(sel, value) {
   }
   el2.val(value).trigger("change");
 }
-async function applyConnection(site, { connect = true } = {}) {
+// 2.11.5 正在切换连接（换网址、密钥、模型）的次数：其间模型和网址可能对不上，站点模型不跟随
+var connApplying = 0;
+async function applyConnection(site, opts = {}) {
+  connApplying++;
+  try { return await applyConnectionNow(site, opts); }
+  finally { connApplying--; holdModelSync(1500); }
+}
+async function applyConnectionNow(site, { connect = true } = {}) {
   const src = SOURCES[site.source];
   if (!src) throw new Error("不支持的连接类型");
   if ($("#main_api").val() !== "openai") $("#main_api").val("openai").trigger("change");
@@ -599,6 +606,8 @@ function liveModelOptions() {
   return $(`${src.modelList || src.model} option`).map((_, o) => o.value).toArray().filter(Boolean);
 }
 function setLiveModel(model) {
+  // 2.11.5 本扩展换模型时由调用方同时改站点记录，这里先不跟随，等酒馆把新模型写进设置
+  holdModelSync(1500);
   const source = mods.openai?.oai_settings?.chat_completion_source;
   const src = SOURCES[source];
   if (!src || !model) return;

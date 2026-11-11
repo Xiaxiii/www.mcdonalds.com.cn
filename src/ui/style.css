@@ -898,7 +898,6 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 @keyframes pa-pulse { 50% { opacity: .25; } }
 #mcd-root .pa-spin svg { animation: pa-spin .8s linear infinite; }
 @keyframes pa-spin { to { transform: rotate(360deg); } }
-#mcd-root .pa-live-diff { margin: 6px 0 0; }
 /* 2.4.0 站点：按网址分组，每个一行，点名称编辑 */
 #mcd-root .pa-whyrow { display: flex; align-items: center; gap: 2px; }
 #mcd-root .pa-whyrow > p { margin: 0; }
