@@ -686,6 +686,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       </div>`;
   }
   function render() {
+    // 2.11.6 本浏览器里还有没存进酒馆密钥库的系统访问令牌：存进去，别的设备就能用
+    if (multiKeySupported() && sites().some((x) => x.acct && !x.acct.secretId && balAcctLocal(x))) balAcctUpload().then((n) => { if (n) render(); }).catch(() => {});
     const live = liveConnection();
     const s = settings();
     const active = sites().find((x) => x.id === s.activeSiteId);
@@ -1179,12 +1181,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   }
   // 2.11.4 账户余额查询：用户 ID + 系统访问令牌。令牌只存在本浏览器
   async function acctSheet(site) {
-    const had = !!balAcctToken(site);
+    const had = !!site.acct;
     const body = el(`<div class="pa-form">
       <p class="pa-hint">在「${esc(site.name || "站点")}」网页的「个人设置」中生成「系统访问令牌」，复制到下面；用户 ID 在同一页。查到的是整个账户的余额，不受密钥额度限制。</p>
       <label class="pa-field"><span>用户 ID</span><input class="pa-input pa-num" data-f="uid" value="${esc(site.acct?.uid || "")}" placeholder="例如：1024" inputmode="numeric" autocomplete="off"></label>
       <label class="pa-field"><span>系统访问令牌</span><input class="pa-input" data-f="token" type="password" value="" placeholder="${had ? "已保存；留空则不改" : "粘贴令牌"}" autocomplete="off" autocapitalize="off" spellcheck="false"></label>
-      <p class="pa-hint">令牌只保存在这个浏览器里，换设备、换浏览器需要重新填写。</p>
+      <p class="pa-hint">${multiKeySupported() ? "令牌存入酒馆密钥库，换设备、换浏览器也能用。" : "酒馆版本较旧，没有密钥库。令牌只保存在这个浏览器里，换设备、换浏览器需要重新填写。"}</p>
     </div>`);
     const v = await sheet({
       title: "查询账户余额",
@@ -1203,10 +1205,16 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       ]
     });
     if (!v) return false;
-    if (v === "off") { balSetAcct(site, "", ""); toast("已停用账户余额查询"); return true; }
-    const token = v.token.trim() || balAcctToken(site);
-    if (!balSetAcct(site, v.uid, token)) { toast("浏览器不允许保存令牌（可能是无痕模式）", "error"); return false; }
-    return true;
+    try {
+      if (v === "off") { await balSetAcct(site, "", ""); toast("已停用账户余额查询"); return true; }
+      // 令牌框留空：只改用户 ID
+      if (!v.token.trim()) { site.acct.uid = String(v.uid || "").trim(); return true; }
+      if (!await balSetAcct(site, v.uid, v.token)) { toast("浏览器不允许保存令牌（可能是无痕模式）", "error"); return false; }
+      return true;
+    } catch (e) {
+      toast("保存令牌失败：" + e.message, "error");
+      return false;
+    }
   }
   async function exportSites(btn) {
     const list = sites();

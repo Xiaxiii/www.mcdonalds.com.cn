@@ -20,27 +20,73 @@ function balIdent(live = liveConnection()) {
 function balOrigin(url) {
   try { return new URL(url).origin; } catch { return String(url || "").replace(/\/+$/, ""); }
 }
-// 2.11.4 账户余额：NewAPI / OneAPI 站点「个人设置」里生成的系统访问令牌（只存在本浏览器），加上用户 ID
+// 2.11.4 账户余额：NewAPI / OneAPI 站点「个人设置」里生成的系统访问令牌，加上用户 ID。
+// 2.11.6 令牌存进酒馆密钥库（与中转站密钥同类，标签注明「系统访问令牌」），站点上只记编号，换设备、换浏览器都能用。
+// 酒馆版本较旧、没有密钥库时，仍只存在本浏览器（acct.localId）
 function balAcctOf(live = liveConnection()) {
   if (live?.source !== "custom") return null;
   const site = balSiteOf(live);
-  return site?.acct && balAcctToken(site) ? site.acct : null;
+  return site?.acct && (site.acct.secretId || balAcctLocal(site)) ? site.acct : null;
 }
-function balAcctToken(site) {
+function balAcctLocal(site) {
   return site?.acct ? getLocalKey({ id: `${site.id}.acct`, localId: site.acct.localId || `${site.id}.acct` }) : null;
 }
-function balSetAcct(site, uid, token) {
-  const localId = `${site.id}.acct`;
+// { value } 拿到令牌全文；{ secretId } 只有密钥库编号（酒馆不让读回时，查询经酒馆后台转发，令牌不出酒馆）
+async function balAcctToken(site) {
+  const a = site?.acct;
+  if (!a) return {};
+  if (a.secretId) {
+    const got = await revealSecret("custom", a.secretId);
+    return got.value ? { value: got.value, secretId: a.secretId } : { secretId: a.secretId };
+  }
+  const v = balAcctLocal(site);
+  return v ? { value: v } : {};
+}
+const balAcctLabel = (site) => `麦当劳·${site.name || "站点"}·系统访问令牌`;
+// token 为空：停用（删掉令牌）
+async function balSetAcct(site, uid, token) {
+  const old = site.acct;
+  const localId = old?.localId || `${site.id}.acct`;
   uid = String(uid || "").trim();
   token = String(token || "").trim().replace(/^Bearer\s+/i, "");
   if (!token) {
+    if (old?.secretId) await dropKey("custom", old.secretId);
     setLocalKey(localId, null);
     delete site.acct;
+    return true;
+  }
+  if (multiKeySupported()) {
+    const secretId = await storeKey("custom", token, balAcctLabel(site));
+    if (old?.secretId && old.secretId !== secretId) await dropKey("custom", old.secretId);
+    setLocalKey(localId, null);
+    site.acct = { uid, secretId };
     return true;
   }
   if (!setLocalKey(localId, token)) return false;
   site.acct = { uid, localId };
   return true;
+}
+// 2.11.6 以前只存在本浏览器的令牌，存进酒馆密钥库，别的设备就能用。返回存进去的个数
+var balAcctUploading = null;
+function balAcctUpload() {
+  if (balAcctUploading) return balAcctUploading;
+  balAcctUploading = (async () => {
+    if (!multiKeySupported()) return 0;
+    let n = 0;
+    for (const site of settings().sites || []) {
+      if (!site.acct || site.acct.secretId) continue;
+      const token = balAcctLocal(site);
+      if (!token) continue;
+      try {
+        if (await balSetAcct(site, site.acct.uid, token)) n++;
+      } catch (e) {
+        console.warn("[麦当劳] 系统访问令牌存入密钥库失败", site.name, e);
+      }
+    }
+    if (n) saveSettings();
+    return n;
+  })().finally(() => { balAcctUploading = null; });
+  return balAcctUploading;
 }
 function balStoreKey(id) {
   return `mcdonalds:balance:${userHandle()}:${id}`;
@@ -235,11 +281,15 @@ async function balQueryRaw(live, key) {
 }
 // 2.11.4 账户余额：/api/user/self 给剩余额度 quota、已用额度 used_quota；/api/status 给换算单位（quota_per_unit，默认 500000 = $1）。
 // 令牌放在 Authorization，用户 ID 放在 New-Api-User（NewAPI 要求）。浏览器拦下（跨域）时经酒馆后台转发：这两项写进附加请求头，盖过酒馆自己的 Authorization
-async function balAccount(live, acct, token) {
+async function balAccount(live, acct, tok) {
   const origin = balOrigin(live.url);
-  const get = async (path, headers) => {
+  const uidHead = acct.uid ? { "New-Api-User": String(acct.uid) } : {};
+  const get = async (path, headers, viaHeaders = headers) => {
     let r = null;
-    try { r = await fetch(origin + path, { headers: { Accept: "application/json", ...headers }, cache: "no-store" }); } catch {}
+    // 读不回令牌全文时不直接请求，只经酒馆后台转发
+    if (!path.startsWith("/api/user/") || tok.value) {
+      try { r = await fetch(origin + path, { headers: { Accept: "application/json", ...headers }, cache: "no-store" }); } catch {}
+    }
     if (r) {
       if (r.status === 401 || r.status === 403) throw new Error("系统访问令牌或用户 ID 不对");
       if (!r.ok) throw new Error(`站点返回 ${r.status}`);
@@ -247,13 +297,15 @@ async function balAccount(live, acct, token) {
       if (!d) throw new Error("站点返回的不是账户数据");
       return d;
     }
-    const yaml = Object.entries(headers).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join("\n");
-    const via = await balViaST(origin + path, live, yaml || "{}");
+    // 经酒馆转发：令牌在密钥库里时由酒馆按编号取出放进 Authorization，只附加用户 ID；否则令牌写进附加请求头
+    const yaml = Object.entries(viaHeaders).map(([k, v]) => `${k}: ${JSON.stringify(v)}`).join("\n");
+    const via = await balViaST(origin + path, path.startsWith("/api/user/") && tok.secretId ? { ...live, secretId: tok.secretId } : live, yaml || "{}");
     if (via?.data) return via.data;
     throw new Error(via?.failed ? "站点拒绝了查询（经酒馆转发），请核对系统访问令牌和用户 ID" : "请求被浏览器拦截，经酒馆转发也未成功");
   };
-  const auth = { Authorization: `Bearer ${token}`, ...acct.uid ? { "New-Api-User": String(acct.uid) } : {} };
-  const self = await get("/api/user/self", auth);
+  if (!tok.value && !tok.secretId) throw new Error("没有系统访问令牌，请在「账户查询设置」中重新填写");
+  const auth = tok.value ? { Authorization: `Bearer ${tok.value}`, ...uidHead } : uidHead;
+  const self = await get("/api/user/self", auth, tok.secretId ? uidHead : auth);
   if (self?.success === false) throw new Error(self.message ? `站点：${self.message}` : "系统访问令牌或用户 ID 不对");
   const q = balNum(self?.data?.quota), u = balNum(self?.data?.used_quota);
   if (q == null) throw new Error("站点没有返回账户额度");
@@ -277,7 +329,7 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
   try {
     const acct = balAcctOf(live);
     let r;
-    if (acct) r = await balAccount(live, acct, balAcctToken(balSiteOf(live)));
+    if (acct) r = await balAccount(live, acct, await balAcctToken(balSiteOf(live)));
     else {
       const k = await balKey(live);
       // 中转站读不到密钥时改由酒馆后台查询；其他类型仍需密钥全文
@@ -396,6 +448,7 @@ function fmtMoney(v, cur = "$") {
 }
 // 生成结束后自动查（设置里打开时）；10 秒内不重复
 function bindBalanceWatch(on, et2) {
+  setTimeout(() => balAcctUpload().catch(() => {}), 3e3);
   on(et2.GENERATION_ENDED, () => {
     if (!settings().balanceAuto || !balShown()) return;
     if (Date.now() - (balRecords().at(-1)?.t || 0) < 1e4) return;
