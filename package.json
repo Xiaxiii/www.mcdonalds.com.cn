@@ -1,6 +1,6 @@
 {
   "name": "mcdonalds",
-  "version": "2.11.1",
+  "version": "2.11.2",
   "private": true,
   "description": "麦当劳：SillyTavern 预设整理、跨预设缝合、合并新版、思维链检查",
   "type": "module",

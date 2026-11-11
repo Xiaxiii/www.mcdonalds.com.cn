@@ -1164,16 +1164,17 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       { label: "不含密钥", sub: "仅名称、网址、模型、备注", value: "bare" }
     ], { anchor: btn });
     if (!how) return;
-    let missing = 0;
+    let missing = 0, blocked = 0;
     const out = [];
     for (const s of list) {
       const keys = [];
       for (const k of keysOfSite(s)) {
         const item = { name: k.name || "", model: k.model || "", models: k.models || [] };
         if (how === "keys" && savedKey(k)) {
-          const v = await keyTextOf(s, k);
-          if (v) item.key = v;
-          else missing++;
+          // 2.11.2 读不到时分清原因：酒馆不允许读回密钥（allowKeysExposure 为 false），还是这把密钥已不存在
+          const got = k.secretId ? await revealSecret(s.source, k.secretId) : { value: await keyTextOf(s, k) };
+          if (got.value) item.key = got.value;
+          else { missing++; if (got.blocked) blocked++; }
         }
         keys.push(item);
       }
@@ -1183,7 +1184,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const d = new Date(), two = (n) => String(n).padStart(2, "0");
     const stamp = `${d.getFullYear()}${two(d.getMonth() + 1)}${two(d.getDate())}-${two(d.getHours())}${two(d.getMinutes())}`;
     downloadBlob(new Blob([JSON.stringify({ format: SITE_FILE_FORMAT, version: 1, exported: d.toISOString(), sites: out }, null, 2)], { type: "application/json" }), `api-sites-${stamp}.json`);
-    toast(missing ? `已导出 ${out.length} 个站点；${missing} 个密钥读不到，未写入` : `已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, missing ? "warning" : "success");
+    if (!missing) return toast(`已导出 ${out.length} 个站点${how === "keys" ? "（含密钥）" : ""}`, "success");
+    toast(blocked
+      ? `已导出 ${out.length} 个站点；${missing} 个密钥未写入：酒馆不允许读回已保存的密钥。在酒馆 config.yaml 中将 allowKeysExposure 改为 true，重启酒馆后再导出`
+      : `已导出 ${out.length} 个站点；${missing} 个密钥读不到，未写入`, "warning");
   }
   // 同名、同网址的站点算同一个：更新它，不再新增
   const normUrl = (u) => String(u || "").trim().replace(/\/+$/, "").toLowerCase();

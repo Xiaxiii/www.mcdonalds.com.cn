@@ -110,6 +110,17 @@ try {
   assert.equal(tree.keys[0].key, undefined, "不含密钥");
   ok("导出带分类；选「不含密钥」时文件里没有密钥");
 
+  // 2.11.2 本浏览器没有留底、酒馆又不允许读回密钥（allowKeysExposure 为 false）：提示原因和改法
+  await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("mcdonalds:keycopy:")) localStorage.removeItem(k); });
+  await page.route("**/api/secrets/find", (r) => r.fulfill({ status: 403, body: "Forbidden" }));
+  await toasts();
+  if (await page.locator("[data-a=sitesedit]").count()) { await page.click("[data-a=sitesedit]"); await page.waitForTimeout(150); } await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
+  const [dl3] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=含密钥")]);
+  assert.ok(JSON.parse(fs.readFileSync(await dl3.path(), "utf8")).sites.every((x) => x.keys.every((k) => !k.key)));
+  assert.match((await toasts()).join("|"), /warning:.*密钥未写入：酒馆不允许读回已保存的密钥。在酒馆 config\.yaml 中将 allowKeysExposure 改为 true/);
+  await page.unroute("**/api/secrets/find");
+  ok("酒馆不允许读回密钥时：导出不含密钥，提示 allowKeysExposure 的改法");
+
   // 6) 不是 JSON、没有站点
   await importFile("bad.json", "not json");
   assert.match((await toasts()).join("|"), /error:不是 JSON 文件/);
