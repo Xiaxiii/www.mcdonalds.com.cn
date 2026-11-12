@@ -2032,8 +2032,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bal .pa-live-res { margin: 2px 0 0; }
 #mcd-root .pa-bal-acts { font-size: .88em; }
 #mcd-root .pa-bal-set { padding: 0; }
-#mcd-root .pa-bal-auto { display: inline-flex; align-items: center; gap: 6px; margin-left: auto; color: var(--pa-dim); cursor: pointer; }
-#mcd-root .pa-live-kv > dt.pa-bal-dt { align-self: start; line-height: 34px; }
+#mcd-root .pa-bal-auto { display: inline-flex; align-items: center; gap: 8px; margin-left: auto; color: var(--pa-dim); cursor: pointer; }
 /* 2.8.5 编辑条目：正文框随内容增高，整个窗口一起滚动 */
 #mcd-root .pa-sheet-edit .pa-sheet-body { display: block; }
 #mcd-root .pa-sheet-edit .pa-form { display: grid; gap: 10px; min-height: 0; }
@@ -2285,11 +2284,18 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 }
 #mcd-root .pa-mgrow:not(.open) { content-visibility: auto; contain-intrinsic-size: auto 46px; }
 #mcd-root .pa-sheet-merge .pa-sheet-body { scroll-padding-top: 11em; }
-/* 2.11.7 当前连接：流式开关，记录说明跟在开关后面 */
-#mcd-root .pa-kv .pa-stream-dt { align-self: center; }
-#mcd-root .pa-kv dd.pa-stream { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
-#mcd-root .pa-stream-note { color: var(--pa-dim); font-size: .84em; min-width: 0; overflow-wrap: anywhere; }
-#mcd-root .pa-stream .pa-link { font-size: .84em; padding: 2px 4px; }
+/* 2.11.8 当前连接：网址在名称下面，模型按钮占满一行，不再带左侧标签；余额、流式两行共用标签列，
+   标签对齐各行第一行；右边一条边上依次是余额的查询按钮、「每轮自动」开关、流式开关 */
+#mcd-root .pa-live > .pa-live-url { margin: 4px 0 0; font-size: .82em; line-height: 1.4; color: var(--pa-dim); }
+#mcd-root .pa-live > .pa-live-model { margin-top: 10px; }
+#mcd-root .pa-live > .pa-live-model > .pa-model-btn { width: 100%; min-height: 40px; font-size: .92em; }
+#mcd-root .pa-live .pa-live-kv { grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin-top: 12px; align-items: start; }
+#mcd-root .pa-live .pa-live-kv > dt { line-height: 34px; }
+#mcd-root .pa-bal-auto .pa-switch, #mcd-root .pa-stream .pa-switch { margin-left: 2px; }
+#mcd-root .pa-kv dd.pa-stream { display: flex; align-items: center; gap: 8px; min-height: 34px; min-width: 0; }
+#mcd-root .pa-stream-note { color: var(--pa-dim); font-size: .88em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+#mcd-root .pa-stream .pa-link { flex: none; font-size: .88em; padding: 0; }
+#mcd-root .pa-stream .pa-switch { margin-left: auto; }
 /* 2.11.7 预设页：选中的预设不是使用中的，名称右边出现「切换」 */
 #mcd-root .pa-picker .pa-use-preset { flex: none; white-space: nowrap; }
 #mcd-root .pa-picker .pa-use-preset[hidden] { display: none; }

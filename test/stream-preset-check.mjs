@@ -33,11 +33,13 @@ try {
   });
   const row = page.locator('.pa-live .pa-stream');
   await row.waitFor();
-  assert.match(await row.innerText(), /跟随预设「预设甲」/);
+  assert.match(await row.innerText(), /跟随预设/);
+  assert.match(await row.locator('.pa-stream-note').getAttribute('title'), /「预设甲」/);
   assert.equal(await row.locator('input').isChecked(), false);
   await row.locator('.pa-switch').click();
   assert.deepEqual(await live(), { preset: '预设甲', stream: true });
-  assert.match(await row.innerText(), /已记在「预设甲」\+「甲站」/);
+  assert.match(await row.innerText(), /已单独记录/);
+  assert.match(await row.locator('.pa-stream-note').getAttribute('title'), /已记在「预设甲」\+「甲站」/);
   ok('当前连接卡片上有流式开关，打开后记在「预设 + 站点」上');
 
   // 预设页：选中别的预设时出现「切换」，点了在酒馆中切换
@@ -63,9 +65,9 @@ try {
   await page.evaluate(() => window.__mcdonalds.open('conn'));
   await row.waitFor();
   await row.locator('[data-a=streamforget]').click();
-  assert.match(await row.innerText(), /跟随预设「预设甲」/);
+  assert.match(await row.innerText(), /跟随预设/);
   assert.deepEqual(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.streamRules), {});
-  ok('「不再记录」后跟随预设');
+  ok('「改回跟随」后跟随预设');
   assert.deepEqual(errors, []);
   console.log('流式与切换预设检查通过');
 } finally {
