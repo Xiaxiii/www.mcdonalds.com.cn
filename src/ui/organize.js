@@ -151,7 +151,7 @@ function mountOrganize(page) {
     st.selected.clear();
     st.mode = null;
     setFocusPreset(name);
-  });
+  }, { use: true });
   const draft = () => getDraft(focusPreset());
   // 2.6.8 分组折叠记住最后一次的状态：按「预设名 + 分组名（同名第几个）」存在设置里（fold.org），没动过的组按预设里存的状态。
   // 以前只在内存里记、按分组编号记：重新加载或切换预设后回到预设里存的状态，编号变了也对不上，合上的组又展开

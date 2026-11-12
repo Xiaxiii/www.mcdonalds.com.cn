@@ -685,6 +685,15 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         <div class="pa-bal-acts">${canSet ? `<button class="pa-link pa-bal-set" data-a="balset" type="button">${b.manual ? "改余额" : "填余额"}</button>` : ""}${acctBtn}<label class="pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}>每轮自动</label></div>
       </div>`;
   }
+  // 2.11.7 流式输出：开关按「预设 + 站点」记下，切换预设或连接后自动套用
+  function streamRow() {
+    const combo = streamCombo();
+    if (!combo) return "";
+    const rule = streamRule(combo);
+    const on = liveStream();
+    const note = rule === null ? `跟随预设「${combo.preset}」` : `已记在「${combo.preset}」+「${combo.label}」`;
+    return `<dt class="pa-stream-dt">流式</dt><dd class="pa-stream"><label class="pa-switch" title="流式输出（逐字显示）"><input type="checkbox" data-o="livestream" ${on ? "checked" : ""} aria-label="流式输出"><i></i></label><span class="pa-stream-note">${esc(note)}</span>${rule === null ? "" : '<button class="pa-link" data-a="streamforget" type="button">不再记录</button>'}</dd>`;
+  }
   function render() {
     // 2.11.6 本浏览器里还有没存进酒馆密钥库的系统访问令牌：存进去，别的设备就能用
     if (multiKeySupported() && sites().some((x) => x.acct && !x.acct.secretId && balAcctLocal(x))) balAcctUpload().then((n) => { if (n) render(); }).catch(() => {});
@@ -725,6 +734,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
               ${sub && sub !== src?.label ? `<dt>网址</dt><dd class="pa-live-url pa-mono" title="${esc(sub)}">${esc(sub)}</dd>` : ""}
               <dt>模型</dt><dd class="pa-live-model">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}</dd>
               ${bal ? `<dt class="pa-bal-dt">余额</dt><dd>${bal}</dd>` : ""}
+              ${streamRow()}
             </dl>
             ${liveTest && liveTest.model === usingModel(live) && liveTest.source === live.source && liveTest.url === (live.url || "") && liveTest.secretId === (live.secretId || null) ? `<p class="pa-live-res ${liveTest.ok ? "ok" : "bad"}"${liveTest.raw ? ` title="${esc(liveTest.raw)}" data-a="testraw" role="button" tabindex="0"` : ""}>${liveTest.ok ? RES_OK : RES_BAD}${esc(liveTest.text)}</p>` : ""}
         </article>`;
@@ -1381,6 +1391,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       render();
       if (e.target.checked && settings().balanceAuto) balanceQuery({ quiet: true });
     }
+    if (o === "livestream") {
+      const combo = streamCombo();
+      setLiveStream(e.target.checked);
+      setStreamRule(combo, e.target.checked);
+      if (combo) toast(`已记下：「${combo.preset}」配「${combo.label}」时${e.target.checked ? "流式" : "非流式"}输出`, "success");
+      render();
+    }
     if (o === "balauto") {
       settings().balanceAuto = e.target.checked;
       saveSettings();
@@ -1603,6 +1620,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       if (!balSetManual(site0, v)) return toast("余额格式不对，如 50、$50.5、¥300", "warning");
       // 记下此刻的用量作为起点，之后的用量从余额里扣
       if (site0.manualBalance) balanceQuery({ quiet: true });
+      return render();
+    }
+    if (a === "streamforget") {
+      setStreamRule(streamCombo(), null);
+      toast("已不再记录，流式开关跟随预设");
       return render();
     }
     if (a === "balacct") {

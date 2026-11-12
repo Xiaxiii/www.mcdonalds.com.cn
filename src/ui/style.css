@@ -2285,3 +2285,11 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 }
 #mcd-root .pa-mgrow:not(.open) { content-visibility: auto; contain-intrinsic-size: auto 46px; }
 #mcd-root .pa-sheet-merge .pa-sheet-body { scroll-padding-top: 11em; }
+/* 2.11.7 当前连接：流式开关，记录说明跟在开关后面 */
+#mcd-root .pa-kv .pa-stream-dt { align-self: center; }
+#mcd-root .pa-kv dd.pa-stream { display: flex; align-items: center; flex-wrap: wrap; gap: 4px 10px; min-width: 0; }
+#mcd-root .pa-stream-note { color: var(--pa-dim); font-size: .84em; min-width: 0; overflow-wrap: anywhere; }
+#mcd-root .pa-stream .pa-link { font-size: .84em; padding: 2px 4px; }
+/* 2.11.7 预设页：选中的预设不是使用中的，名称右边出现「切换」 */
+#mcd-root .pa-picker .pa-use-preset { flex: none; white-space: nowrap; }
+#mcd-root .pa-picker .pa-use-preset[hidden] { display: none; }

@@ -46,9 +46,11 @@ function nameBtnHtml(name, cls = "", placeholder = "请选择") {
   return `<button class="pa-namebtn ${cls}" type="button" title="${esc(name || "")}"><span>${esc(name || placeholder)}</span><i aria-hidden="true">▾</i></button>`;
 }
 
-function presetPicker(slot, onPick, { label = "预设" } = {}) {
-  slot.innerHTML = `<div class="pa-picker">${label ? `<span>${esc(label)}</span>` : ""}${nameBtnHtml("")}</div>`;
+// use：显示「切换」按钮，在酒馆中切换到选中的预设（2.11.7）
+function presetPicker(slot, onPick, { label = "预设", use = false } = {}) {
+  slot.innerHTML = `<div class="pa-picker">${label ? `<span>${esc(label)}</span>` : ""}${nameBtnHtml("")}${use ? '<button class="pa-btn pa-btn-s pa-use-preset" type="button" hidden>切换</button>' : ""}</div>`;
   const btn = slot.querySelector(".pa-namebtn");
+  const useBtn = slot.querySelector(".pa-use-preset");
   btn.setAttribute("aria-label", label || "预设");
   let current2 = null;
   const paintBtn = () => {
@@ -56,7 +58,28 @@ function presetPicker(slot, onPick, { label = "预设" } = {}) {
     btn.title = current2 || "";
     btn.querySelector("span").textContent = current2 || "请选择";
     btn.classList.toggle("pa-using", !!current2 && current2 === using);
+    if (useBtn) {
+      useBtn.hidden = !current2 || current2 === using;
+      useBtn.title = current2 ? `在酒馆中切换到「${current2}」` : "";
+      useBtn.setAttribute("aria-label", useBtn.title || "切换预设");
+    }
   };
+  useBtn?.addEventListener("click", async () => {
+    const name = current2;
+    if (!name || name === currentPresetName()) return;
+    useBtn.disabled = true;
+    try {
+      // 这个预设还有没存完的修改：先存，酒馆切换时读到的才是最新内容
+      if (drafts.get(name)?.dirty) await saveDraft(name, "切换前保存");
+      await selectPreset(name);
+      toast(`已切换到「${name}」`, "success");
+    } catch (e) {
+      toast("切换失败：" + e.message, "error");
+    } finally {
+      useBtn.disabled = false;
+      paintBtn();
+    }
+  });
   btn.addEventListener("click", async () => {
     const using = currentPresetName();
     const v = await pickName({ title: label ? `选择${label}` : "选择预设", current: current2, items: listPresets().map((n) => ({ value: n, sub: n === using ? "使用中" : "" })) });

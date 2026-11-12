@@ -545,8 +545,46 @@ function setSelect(sel, value) {
 var connApplying = 0;
 async function applyConnection(site, opts = {}) {
   connApplying++;
-  try { return await applyConnectionNow(site, opts); }
-  finally { connApplying--; holdModelSync(1500); }
+  try {
+    const r = await applyConnectionNow(site, opts);
+    try { applyStreamRule(); } catch {}
+    return r;
+  } finally { connApplying--; holdModelSync(1500); }
+}
+// 2.11.7 流式输出：酒馆把它存在预设里（stream_openai），同一个预设换了 API 也跟着预设走。
+// 这里按「预设 + 站点」记下开关，切换预设或连接后套用记下的值；没记过的组合照旧跟随预设
+function liveStream() {
+  return !!mods.openai?.oai_settings?.stream_openai;
+}
+function setLiveStream(on) {
+  const el = typeof $ === "function" ? $("#stream_toggle") : null;
+  if (el?.length) el.prop("checked", !!on).trigger("change");
+  else if (mods.openai?.oai_settings) mods.openai.oai_settings.stream_openai = !!on;
+}
+// 当前组合：{ key, preset, site }。连接对应不到站点时按类型 + 网址记
+function streamCombo(live = liveConnection()) {
+  const preset = currentPresetName();
+  if (!preset || !live?.source) return null;
+  const site = balSiteOf(live);
+  const conn = site ? `site:${site.id}` : `${live.source}\u0001${String(live.url || "").replace(/\/+$/, "")}`;
+  return { key: `${preset}\u0001${conn}`, preset, site, label: site?.name || (live.url || SOURCES[live.source]?.label || live.source) };
+}
+function streamRule(combo = streamCombo()) {
+  const v = combo ? settings().streamRules?.[combo.key] : undefined;
+  return typeof v === "boolean" ? v : null;
+}
+function setStreamRule(combo, on) {
+  if (!combo) return;
+  const s = settings();
+  if (!s.streamRules || typeof s.streamRules !== "object") s.streamRules = {};
+  if (on === null) delete s.streamRules[combo.key];
+  else s.streamRules[combo.key] = !!on;
+  saveSettings();
+}
+function applyStreamRule() {
+  const v = streamRule();
+  if (v !== null && v !== liveStream()) { setLiveStream(v); return true; }
+  return false;
 }
 async function applyConnectionNow(site, { connect = true } = {}) {
   const src = SOURCES[site.source];

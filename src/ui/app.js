@@ -875,7 +875,11 @@ function bindEvents() {
   on(et2.CHAT_CHANGED, () => onChatChanged());
   // 2.11.5 站点模型跟随当前模型；切换预设读入预设里的模型时暂停，切完再等 2 秒（方案套用的连接在这期间完成）
   on(et2.OAI_PRESET_CHANGED_BEFORE, () => holdModelSync(1e4));
-  on(et2.OAI_PRESET_CHANGED_AFTER, () => { modelSyncHold = Date.now() + 2e3; });
+  on(et2.OAI_PRESET_CHANGED_AFTER, () => {
+    modelSyncHold = Date.now() + 2e3;
+    // 2.11.7 酒馆读入预设里存的流式开关之后，按「预设 + 站点」记下的值改回；方案切换连接时在 applyConnection 末尾再套用一次
+    setTimeout(() => { try { applyStreamRule(); } catch {} }, 0);
+  });
   on(et2.CHATCOMPLETION_MODEL_CHANGED, () => { if (followLiveModel() && rootEl2 && !rootEl2.hidden && (current === "conn" || current === "schemes")) show(current); });
   bindReplyGuard(on, et2);
   bindVariableWatch(on, et2);
