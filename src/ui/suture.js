@@ -11,8 +11,7 @@ function sutureEnableTools() {
   return `<div class="pa-field-row pa-enablebar" data-enable-tools role="group" aria-label="本次缝合的开启状态">
     <span data-enable-count aria-live="polite"></span>
     <label class="pa-switch" title="向右全部开启，向左全部关闭；仍可逐条调整"><input type="checkbox" data-enable-toggle aria-label="本次缝后全部开启"><i></i></label>
-    <button type="button" class="pa-link" data-enable-source title="每条恢复成来源里的开关状态">按来源</button></div>
-    <p class="pa-hint">默认与来源一致：来源里开着的缝后开启，关着的缝后关闭。</p>`;
+    <button type="button" class="pa-link" data-enable-source title="每条恢复成来源里的开关状态">按来源</button></div>`;
 }
 function bindSutureEnableTools(body, items) {
   const tools = body.querySelector("[data-enable-tools]");
@@ -903,20 +902,18 @@ function mountSuture(page, app) {
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
                 ${single ? `<div><b>位置：${esc(placeText(d, marker))}</b></div>
-                ${grpRow}
-                <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `。位于 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 之内` : ""}</small>` : `<div><b>缝到 ${posCache.size} 个位置</b></div><small>按各条目在来源中的位置，分别放在目标中对应条目之后。每条的位置见条目详情。</small>`}
-                <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名称后加「（来自来源预设）」</label>
+                ${grpRow}` : `<div><b>缝到 ${posCache.size} 个位置</b></div><small>按来源中的位置分别放置，见各条详情</small>`}
+                <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 名称后注明来源</label>
                 <div class="pa-rv-sec" data-mode-sec>
-                <div class="pa-field-row pa-modebar"><span class="pa-modebar-n" aria-live="polite"></span>
-                <div class="pa-seg pa-seg-s" role="group" aria-label="本次缝合的写法"><button type="button" data-g="mode-raw" aria-pressed="false">全部原样</button><button type="button" data-g="mode-fix" aria-pressed="false">全部按目标写法</button></div></div>
-                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法时，角色和插入位置与目标一致</label>
-                <p class="pa-hint" data-mode-hint></p>
+                <div class="pa-modebar"><span class="pa-modebar-n" aria-live="polite"></span><button type="button" class="pa-btn pa-btn-s" data-g="mode-raw">全部原样</button><button type="button" class="pa-btn pa-btn-s" data-g="mode-fix">全部按目标写法</button></div>
+                <small data-mode-hint></small>
+                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法时，角色和位置也随目标</label>
                 ${analysisLines ? `<details class="pa-explain"><summary>两边写法的分析</summary><div class="pa-explain-body">${analysisLines}</div></details>` : ""}
                 </div>
                 <div class="pa-rv-sec">${sutureEnableTools()}</div>
                 <div class="pa-rv-sec">
                 <div class="pa-hookbar"><span class="pa-hookbar-n"></span><button class="pa-btn pa-btn-s" data-g="hook-all">全部接入</button><button class="pa-btn pa-btn-s" data-g="hook-rec">推荐接入</button><button class="pa-btn pa-btn-s" data-g="hook-none">全部不接入</button></div>
-                <small>接入思维链：让模型思考时专门想一下这条。每接入一条，思考就多一个问题，默认不接入。</small>
+                <small>每接入一条，思考多一个问题</small>
                 </div>
             </div>
             <div class="pa-items"></div>
@@ -1070,27 +1067,21 @@ function mountSuture(page, app) {
     };
     paintHookBar();
     // 写法批量切换：只算能选的条目；「全部按目标写法」不动已选多选一的条目
+    const modeTarget = single ? `目标：${t.summary}${tgtWr.length ? `，在 <${tgtWr.join("> / <")}> 内` : ""}` : "";
     const paintModeBar = () => {
       const sec = body.querySelector("[data-mode-sec]");
       const ch = items.filter((it) => it.choosable);
-      // 没有可选的条目时仍显示这一段，写明原因；只藏起切换按钮和只对按目标写法有用的勾选
+      // 没有可选的条目时仍显示这一段；只藏起按钮和只对按目标写法有用的勾选
       const none = !ch.length;
-      sec.querySelector(".pa-modebar .pa-seg").hidden = none;
+      sec.querySelectorAll(".pa-modebar .pa-btn").forEach((b) => { b.hidden = none; });
       sec.querySelector("[data-g=inj]").closest("label").hidden = none;
-      if (none) {
-        sec.querySelector(".pa-modebar-n").textContent = "写法：全部原样";
-        sec.querySelector("[data-mode-hint]").textContent = `这 ${items.length} 条与「${d.name}」写法相同，无需调整，原样缝入。`;
-        return;
-      }
       const fix = ch.filter((it) => it.mode !== "raw").length;
-      sec.querySelector(".pa-modebar-n").textContent = `写法：按目标写法 ${fix} / ${ch.length}`;
-      for (const [g, on] of [["mode-raw", fix === 0], ["mode-fix", fix === ch.length]]) {
-        const b = sec.querySelector(`[data-g=${g}]`);
-        b.classList.toggle("on", on);
-        b.setAttribute("aria-pressed", String(on));
-      }
+      sec.querySelector(".pa-modebar-n").textContent = none ? "写法：全部原样" : `写法：按目标写法 ${fix} / ${ch.length}`;
       const sameN = items.length - ch.length;
-      sec.querySelector("[data-mode-hint]").textContent = `原样缝合不改正文；按目标写法缝合照「${d.name}」的格式调整。${sameN ? `另有 ${sameN} 条两边写法相同，原样缝入。` : ""}展开条目可单独改。`;
+      const note = [modeTarget, none ? "两边写法相同" : sameN ? `${sameN} 条两边写法相同` : ""].filter(Boolean).join("；");
+      const hint = sec.querySelector("[data-mode-hint]");
+      hint.textContent = note;
+      hint.hidden = !note;
     };
     paintModeBar();
     body.querySelector(".pa-modebar").addEventListener("click", (e) => {
