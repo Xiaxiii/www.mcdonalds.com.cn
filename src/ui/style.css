@@ -2299,3 +2299,15 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 2.11.7 预设页：选中的预设不是使用中的，名称右边出现「切换」 */
 #mcd-root .pa-picker .pa-use-preset { flex: none; white-space: nowrap; }
 #mcd-root .pa-picker .pa-use-preset[hidden] { display: none; }
+/* 2.11.9 缝合预览顶部：名称、写法、缝后开启、思维链各成一段，段间细线；
+   写法一段可整批切换原样 / 按目标写法；分组下拉框与条目里的输入框同一字号 */
+#mcd-root .pa-target-card > .pa-grp-row { font-size: .9em; }
+#mcd-root .pa-target-card > .pa-inline-check { justify-self: start; }
+#mcd-root .pa-rv-sec { display: grid; gap: 6px; min-width: 0; margin-top: 4px; padding-top: 10px; border-top: 1px solid var(--pa-line); }
+#mcd-root .pa-rv-sec[hidden] { display: none; }
+#mcd-root .pa-rv-sec > .pa-inline-check { justify-self: start; }
+#mcd-root .pa-rv-sec > .pa-hint, #mcd-root .pa-rv-sec > .pa-enablebar, #mcd-root .pa-rv-sec > .pa-hookbar { margin: 0; }
+#mcd-root .pa-modebar { flex-wrap: wrap; gap: 6px; margin: 0; }
+#mcd-root .pa-modebar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }
+#mcd-root .pa-modebar .pa-seg { flex: none; }
+@media (pointer: coarse) { #mcd-root .pa-modebar .pa-seg button { min-height: 38px; } }

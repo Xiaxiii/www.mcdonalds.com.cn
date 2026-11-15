@@ -884,7 +884,7 @@ function mountSuture(page, app) {
       return acc;
     }, []));
     const grpDefault = groupKeys.length ? "keep" : "none";
-    const grpRow = gid || !single || spec ? "" : `<div class="pa-field-row"><span>分组</span>
+    const grpRow = gid || !single || spec ? "" : `<div class="pa-field-row pa-grp-row"><span>分组</span>
                 <select class="pa-select pa-select-s" data-g="grp">
                     ${groupKeys.length ? `<option value="keep">保留原分组（${esc(groupKeys.map((g) => g.name).join("、"))}）</option>` : ""}
                     <option value="none" ${grpDefault === "none" ? "selected" : ""}>不分组</option>
@@ -896,21 +896,28 @@ function mountSuture(page, app) {
       return f && f !== "粘贴" ? f : "";
     };
     const nameOf = (it) => it.customName ?? (settings().nameWithSource && fromLabel(it) ? `${it.src.name}（来自${fromLabel(it)}）` : it.src.name);
+    const analysisLines = [
+      tgtProf.lines.length ? `<b class="pa-sub">目标预设怎样让条目生效</b><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "",
+      ...[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<b class="pa-sub">来源「${esc(sd.name)}」怎样让条目生效</b><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "")
+    ].join("");
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
                 ${single ? `<div><b>位置：${esc(placeText(d, marker))}</b></div>
                 ${grpRow}
                 <small>附近条目的写法：${esc(t.summary)}${tgtWr.length ? `。位于 &lt;${tgtWr.map(esc).join("&gt; / &lt;")}&gt; 之内` : ""}</small>` : `<div><b>缝到 ${posCache.size} 个位置</b></div><small>按各条目在来源中的位置，分别放在目标中对应条目之后。每条的位置见条目详情。</small>`}
-                <details class="pa-explain"><summary>更多选项和两边写法的分析</summary>
-                <div class="pa-explain-body">
-                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法缝合时，角色和插入位置与目标一致</label>
                 <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 条目名称后加「（来自来源预设）」</label>
-                ${tgtProf.lines.length ? `<b class="pa-sub">目标预设怎样让条目生效</b><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : ""}
-                ${[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<b class="pa-sub">来源「${esc(sd.name)}」怎样让条目生效</b><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "").join("")}
-                </div></details>
-                ${sutureEnableTools()}
+                <div class="pa-rv-sec" data-mode-sec>
+                <div class="pa-field-row pa-modebar"><span class="pa-modebar-n" aria-live="polite"></span>
+                <div class="pa-seg pa-seg-s" role="group" aria-label="本次缝合的写法"><button type="button" data-g="mode-raw" aria-pressed="false">全部原样</button><button type="button" data-g="mode-fix" aria-pressed="false">全部按目标写法</button></div></div>
+                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法时，角色和插入位置与目标一致</label>
+                <p class="pa-hint" data-mode-hint></p>
+                ${analysisLines ? `<details class="pa-explain"><summary>两边写法的分析</summary><div class="pa-explain-body">${analysisLines}</div></details>` : ""}
+                </div>
+                <div class="pa-rv-sec">${sutureEnableTools()}</div>
+                <div class="pa-rv-sec">
                 <div class="pa-hookbar"><span class="pa-hookbar-n"></span><button class="pa-btn pa-btn-s" data-g="hook-all">全部接入</button><button class="pa-btn pa-btn-s" data-g="hook-rec">推荐接入</button><button class="pa-btn pa-btn-s" data-g="hook-none">全部不接入</button></div>
                 <small>接入思维链：让模型思考时专门想一下这条。每接入一条，思考就多一个问题，默认不接入。</small>
+                </div>
             </div>
             <div class="pa-items"></div>
         </div>`);
@@ -961,6 +968,8 @@ function mountSuture(page, app) {
       let mode = it.choice.mode || (same ? "raw" : "fix");
       if (mode === "slot" && !planSlot) mode = "fix";
       it.mode = mode;
+      // 两边写法相同、又没有多选一可加时，只有原样一种缝法，不参与顶部的批量切换
+      it.choosable = !(same && !planSlot);
       const chosen = mode === "raw" ? { content: rawContent, label: planFix.label, want: { shape: "plain" }, slotAllowed: false } : mode === "slot" ? planSlot : planFix;
       it.plan = chosen;
       const taken = new Set(items.filter((o) => o !== it && o.hookOn && o.hook?.varName).map((o) => o.hook.varName));
@@ -1060,6 +1069,37 @@ function mountSuture(page, app) {
       warn.textContent = rec > 10 ? `推荐的 ${rec} 条在来源中已被思维链读取。全部接入将增加 ${rec} 个思考问题，思考变长、易爆思维链。整套缝合时，只接入需重点落实的几条。` : "";
     };
     paintHookBar();
+    // 写法批量切换：只算能选的条目；「全部按目标写法」不动已选多选一的条目
+    const paintModeBar = () => {
+      const sec = body.querySelector("[data-mode-sec]");
+      const ch = items.filter((it) => it.choosable);
+      sec.hidden = !ch.length;
+      if (!ch.length) return;
+      const fix = ch.filter((it) => it.mode !== "raw").length;
+      sec.querySelector(".pa-modebar-n").textContent = `写法：按目标写法 ${fix} / ${ch.length}`;
+      for (const [g, on] of [["mode-raw", fix === 0], ["mode-fix", fix === ch.length]]) {
+        const b = sec.querySelector(`[data-g=${g}]`);
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-pressed", String(on));
+      }
+      const sameN = items.length - ch.length;
+      sec.querySelector("[data-mode-hint]").textContent = `原样缝合不改正文；按目标写法缝合照「${d.name}」的格式调整。${sameN ? `另有 ${sameN} 条两边写法相同，原样缝入。` : ""}展开条目可单独改。`;
+    };
+    paintModeBar();
+    body.querySelector(".pa-modebar").addEventListener("click", (e) => {
+      const g = e.target.closest("[data-g]")?.dataset.g;
+      if (!g) return;
+      for (const it of items) {
+        if (!it.choosable) continue;
+        const next = g === "mode-raw" ? "raw" : it.mode === "raw" ? "fix" : it.mode;
+        if (next === it.mode) continue;
+        it.choice.mode = next;
+        it.manual = null;
+      }
+      box.innerHTML = renderItems();
+      paintHookBar();
+      paintModeBar();
+    });
     body.querySelector(".pa-hookbar").addEventListener("click", (e) => {
       const g = e.target.closest("[data-g]")?.dataset.g;
       if (!g) return;
@@ -1121,6 +1161,7 @@ function mountSuture(page, app) {
       it.manual = null;
       rerender(art, it);
       paintHookBar();
+      if (c2 === "mode") paintModeBar();
     });
     box.addEventListener("click", (e) => {
       const head = e.target.closest("[data-c=toggle]");
