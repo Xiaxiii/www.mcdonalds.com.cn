@@ -2311,3 +2311,5 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-modebar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }
 #mcd-root .pa-modebar .pa-seg { flex: none; }
 @media (pointer: coarse) { #mcd-root .pa-modebar .pa-seg button { min-height: 38px; } }
+/* 2.11.10 写法一段没有可选条目时，藏起切换按钮和勾选 */
+#mcd-root .pa-modebar .pa-seg[hidden], #mcd-root .pa-rv-sec > .pa-inline-check[hidden] { display: none; }

@@ -1073,8 +1073,15 @@ function mountSuture(page, app) {
     const paintModeBar = () => {
       const sec = body.querySelector("[data-mode-sec]");
       const ch = items.filter((it) => it.choosable);
-      sec.hidden = !ch.length;
-      if (!ch.length) return;
+      // 没有可选的条目时仍显示这一段，写明原因；只藏起切换按钮和只对按目标写法有用的勾选
+      const none = !ch.length;
+      sec.querySelector(".pa-modebar .pa-seg").hidden = none;
+      sec.querySelector("[data-g=inj]").closest("label").hidden = none;
+      if (none) {
+        sec.querySelector(".pa-modebar-n").textContent = "写法：全部原样";
+        sec.querySelector("[data-mode-hint]").textContent = `这 ${items.length} 条与「${d.name}」写法相同，无需调整，原样缝入。`;
+        return;
+      }
       const fix = ch.filter((it) => it.mode !== "raw").length;
       sec.querySelector(".pa-modebar-n").textContent = `写法：按目标写法 ${fix} / ${ch.length}`;
       for (const [g, on] of [["mode-raw", fix === 0], ["mode-fix", fix === ch.length]]) {

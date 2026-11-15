@@ -45,6 +45,13 @@ await art.locator(".pa-item-head").click(); await page.waitForTimeout(200);
 await art.locator('[data-c=mode][value=raw]').check({ force: true }); await page.waitForTimeout(300);
 const s3 = await state();
 check(s3.fix === "false" && s3.raw === "false", "逐条改一条后两段都不高亮：" + s3.n);
+// 只剩写法相同的条目：这一段仍显示，写明全部原样，切换按钮和勾选藏起
+await page.locator(".pa-sheet-actions .pa-btn", { hasText: "取消" }).click(); await page.waitForTimeout(400);
+for (const id of ["m-c", "m-d"]) await page.locator(`.pa-src-list [data-id="${id}"] .pa-name`).click();
+await page.click('[data-st="go"]'); await page.waitForTimeout(800);
+const s4 = await page.evaluate(() => { const sec = document.querySelector(".pa-sheet [data-mode-sec]"); const vis = (x) => !!x && x.offsetParent !== null; return { sec: vis(sec), n: sec.querySelector(".pa-modebar-n").textContent, seg: vis(sec.querySelector(".pa-seg")), inj: vis(sec.querySelector("[data-g=inj]")), hint: sec.querySelector("[data-mode-hint]").textContent, items: document.querySelectorAll(".pa-sheet .pa-item").length }; });
+check(s4.items === 2 && s4.sec && s4.n === "写法：全部原样" && !s4.seg && !s4.inj && /写法相同/.test(s4.hint), "没有可选写法时仍显示这一段：" + JSON.stringify(s4));
+await page.locator(".pa-sheet .pa-target-card").screenshot({ path: "test/shots/suture-mode-2.png" });
 check(!errs.length, "无页面错误 " + errs.join(" | "));
 await browser.close();
 if (fail.length) process.exit(1);
