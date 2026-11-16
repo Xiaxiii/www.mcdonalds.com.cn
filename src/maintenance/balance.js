@@ -1,7 +1,8 @@
 // 2.8.0 余额记录：查询当前连接的余额，每次结果记在本浏览器（localStorage），据此算上一轮、近 24 / 48 小时用量。
 // 支持：中转站（OneAPI / NewAPI 的 /dashboard/billing 接口）、OpenRouter、DeepSeek。
 // 用量按相邻两次记录相减：有累计用量的用累计用量，只有余额的取余额下降部分，充值不计入。
-var BAL = { busy: false, err: "", listeners: new Set() };
+// 2.11.12 all：正在「查全部站点」时，还没查完的连接（balIdent）；siteErr：查全部站点时失败的连接及原因
+var BAL = { busy: false, err: "", listeners: new Set(), all: null, siteErr: new Map() };
 const BAL_KEEP = 7 * 864e5;
 const BAL_MAX = 400;
 // 2.9.1 余额显示可关：关掉后连接页不显示余额、不自动查询
@@ -144,20 +145,21 @@ function onBalance(fn) {
   BAL.listeners.add(fn);
   return () => BAL.listeners.delete(fn);
 }
-function balEmit() {
+function balEmit(kind) {
   for (const fn of BAL.listeners) {
-    try { fn(); } catch {}
+    try { fn(kind); } catch {}
   }
+}
+// 站点某个密钥只存在本浏览器里时的全文（旧版酒馆没有密钥库）
+function balLocalKey(site, k = siteKey(site)) {
+  return k && (k.localKey || k.legacyKey) ? getLocalKey({ id: site.id, localId: k.localId, legacyKey: k.legacyKey }) : null;
 }
 // 当前连接的密钥全文：使用中的站点记在本浏览器的优先，其次酒馆密钥库
 async function balKey(live) {
   const active = settings().sites.find((x) => x.id === settings().activeSiteId);
   if (active && active.source === live.source && (live.source !== "custom" || (active.url || "") === (live.url || ""))) {
-    const k = siteKey(active);
-    if (k.localKey || k.legacyKey) {
-      const v = getLocalKey({ id: active.id, localId: k.localId, legacyKey: k.legacyKey });
-      if (v) return { value: v };
-    }
+    const v = balLocalKey(active);
+    if (v) return { value: v };
   }
   if (!live.secretId) return {};
   return revealSecret(live.source, live.secretId);
@@ -166,6 +168,8 @@ async function balKey(live) {
 // 网址末尾加「#」，酒馆拼上的「/models」落在 # 之后不发出，请求的就是余额接口本身；secret_id 指定用当前连接的密钥。
 // 酒馆收到站点的非 2xx 时只回 { error: true }，看不到状态码，按「站点返回错误」处理。返回 null 表示这条路走不通
 async function balViaST(url, live, headers = null) {
+  // 2.11.12 查的不是当前连接（live.site）又没有密钥库编号时，酒馆会用当前连接的密钥，不能发给别的站点；附加请求头自带令牌时除外
+  if (live.site && !live.secretId && !/^Authorization:/im.test(headers || "")) return null;
   let r;
   try {
     const s = headers ? { custom_include_headers: headers } : mods.openai?.oai_settings || {};
@@ -189,7 +193,7 @@ async function balFetch(url, key, live = null) {
   if (!key) {
     const via = live?.source === "custom" ? await balViaST(url, live) : null;
     if (via?.data) return via.data;
-    throw new Error(via?.failed ? "站点返回错误（经酒馆转发）" : "取不到当前连接的密钥");
+    throw new Error(via?.failed ? "站点返回错误（经酒馆转发）" : live?.site ? "取不到这个站点的密钥" : "取不到当前连接的密钥");
   }
   const opt = { headers: { Authorization: `Bearer ${key}`, Accept: "application/json" }, cache: "no-store" };
   let r;
@@ -274,7 +278,7 @@ async function balQueryRaw(live, key) {
     return { bal, used: null, cur: info.currency === "USD" ? "$" : "¥" };
   }
   if (live.source === "custom") {
-    if (!live.url) throw new Error("当前连接没有网址");
+    if (!live.url) throw new Error(live.site ? "站点没有网址" : "当前连接没有网址");
     return balRelay(live.url, key, live);
   }
   throw new Error("此连接类型没有余额接口");
@@ -317,6 +321,28 @@ async function balAccount(live, acct, tok) {
   const n = (v) => Math.round(v / per * k * 1e6) / 1e6;
   return { bal: n(q), used: u != null ? n(u) : null, cur: rate ? "¥" : "$", acct: true };
 }
+// 查一条连接并记下，失败时抛出。getKey：取密钥全文，返回 { value } / { blocked } / {}
+async function balRun(live, getKey, gen = false) {
+  const acct = balAcctOf(live);
+  let r;
+  if (acct) r = await balAccount(live, acct, await balAcctToken(balSiteOf(live)));
+  else {
+    const k = await getKey();
+    // 中转站读不到密钥时改由酒馆后台查询；其他类型仍需密钥全文
+    if (live.source !== "custom" || live.site && !live.secretId) {
+      if (k.blocked) throw new Error("酒馆不允许读取密钥（config.yaml 中 allowKeysExposure 为 false）");
+      if (!k.value) throw new Error(!live.site ? "取不到当前连接的密钥" : live.secretId ? "取不到这个站点的密钥" : "没有保存密钥，点站点名填写");
+    }
+    r = await balQueryRaw(live, k.value || null);
+  }
+  const list = balRecords(live);
+  const rec = { t: Date.now(), bal: r.bal, used: r.used, cur: r.cur, gen: gen || undefined, unl: r.unlimited || undefined, acct: r.acct || undefined };
+  list.push(rec);
+  balSave(live, list);
+  balDeductManual(live, list[list.length - 2], rec);
+  BAL.siteErr.delete(balIdent(live));
+  return r;
+}
 // 查一次并记下。gen：生成结束后自动查的（用于「上一轮」）
 async function balanceQuery({ gen = false, quiet = false } = {}) {
   const live = liveConnection();
@@ -327,24 +353,7 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
   BAL.errFor = balIdent(live);
   balEmit();
   try {
-    const acct = balAcctOf(live);
-    let r;
-    if (acct) r = await balAccount(live, acct, await balAcctToken(balSiteOf(live)));
-    else {
-      const k = await balKey(live);
-      // 中转站读不到密钥时改由酒馆后台查询；其他类型仍需密钥全文
-      if (live.source !== "custom") {
-        if (k.blocked) throw new Error("酒馆不允许读取密钥（config.yaml 中 allowKeysExposure 为 false）");
-        if (!k.value) throw new Error("取不到当前连接的密钥");
-      }
-      r = await balQueryRaw(live, k.value || null);
-    }
-    const list = balRecords(live);
-    const rec = { t: Date.now(), bal: r.bal, used: r.used, cur: r.cur, gen: gen || undefined, unl: r.unlimited || undefined, acct: r.acct || undefined };
-    list.push(rec);
-    balSave(live, list);
-    balDeductManual(live, list[list.length - 2], rec);
-    return r;
+    return await balRun(live, () => balKey(live), gen);
   } catch (e) {
     BAL.err = e.message || String(e);
     if (!quiet) console.warn("[麦当劳] 查询余额失败", e);
@@ -353,6 +362,68 @@ async function balanceQuery({ gen = false, quiet = false } = {}) {
     BAL.busy = false;
     balEmit();
   }
+}
+// 2.11.12 一键查询全部站点：每个站点（多密钥站点的每个分组）当作一条连接来查，不必先切换过去。
+// 填了系统访问令牌的站点查一次账户余额，各分组共用。结果照常记下，站点列表、当前连接的余额跟着更新
+function balLiveOf(site, k = siteKey(site)) {
+  return { source: site.source, url: site.url || "", secretId: k?.secretId || null, site: true };
+}
+function balTargets(sites = settings().sites || []) {
+  const out = [], seen = new Set();
+  for (const site of sites) {
+    if (!balSupported(site.source)) continue;
+    for (const k of siteMulti(site) ? site.keys : [site]) {
+      const live = balLiveOf(site, k);
+      const id = balIdent(live);
+      if (seen.has(id)) continue;
+      seen.add(id);
+      out.push({ site, k, live, id, name: siteMulti(site) && !balAcctOf(live) ? `${site.name}·${keyName(site, k)}` : site.name });
+    }
+  }
+  return out;
+}
+// 站点某个密钥在「查全部站点」中的状态：{ busy, err }
+function balSiteState(site, k = siteKey(site)) {
+  const id = balIdent(balLiveOf(site, k));
+  return { busy: !!BAL.all?.has(id), err: BAL.siteErr.get(id) || "" };
+}
+// 同时查 3 个。返回 { sites: 站点数, ok: 查到的连接数, bad: [{ name, why }] }；已在查询中时返回 null
+async function balQueryAll() {
+  if (BAL.all) return null;
+  const list = balTargets();
+  const bad = [];
+  let ok = 0, i = 0;
+  BAL.all = new Set(list.map((x) => x.id));
+  BAL.siteErr = new Map();
+  balEmit("all");
+  const cur = balIdent();
+  const worker = async () => {
+    while (i < list.length) {
+      const t = list[i++];
+      try {
+        await balRun(t.live, async () => {
+          const v = balLocalKey(t.site, t.k);
+          return v ? { value: v } : t.k.secretId ? revealSecret(t.site.source, t.k.secretId) : {};
+        });
+        ok++;
+        if (t.id === cur && BAL.errFor === cur) BAL.err = "";
+      } catch (e) {
+        const why = e.message || String(e);
+        BAL.siteErr.set(t.id, why);
+        bad.push({ name: t.name, why });
+      } finally {
+        BAL.all.delete(t.id);
+        balEmit("all");
+      }
+    }
+  };
+  try {
+    await Promise.all(Array.from({ length: Math.min(3, list.length) }, worker));
+  } finally {
+    BAL.all = null;
+    balEmit("all");
+  }
+  return { sites: new Set(list.map((x) => x.site.id)).size, ok, bad };
 }
 // 2.8.5 手填余额：接口查不到账户余额（如不限额度的令牌）时，在站点上记下余额；
 // 之后每次查询到的用量从中扣除（同一站点的各个密钥共用这份余额）。只扣填写之后的用量
@@ -385,10 +456,9 @@ function balSetManual(site, text) {
   balEmit();
   return true;
 }
-// 站点列表里显示的余额：手填的优先，其次这个站点（当前密钥）最近一次查到的余额
-function balSiteText(site) {
-  const k = siteKey(site);
-  const rec = balRecords({ source: site.source, url: site.url, secretId: k?.secretId || null }).at(-1);
+// 站点列表里显示的余额：手填的优先，其次这个站点（当前密钥，或传入的分组 k）最近一次查到的余额
+function balSiteText(site, k = siteKey(site)) {
+  const rec = balRecords(balLiveOf(site, k)).at(-1);
   // 2.11.4 查得到账户余额时，以查到的为准
   if (rec?.acct && rec.bal != null) return fmtMoney(rec.bal, rec.cur);
   const mb = site.manualBalance;

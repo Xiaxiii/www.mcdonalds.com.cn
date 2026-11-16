@@ -746,10 +746,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const used = usedBy(x.id);
       const on = x.id === s.activeSiteId;
       if (siteMulti(x)) return multiRow(x, on, used);
+      const st = balShown() ? balSiteState(x) : {};
       const bal = balSiteText(x);
-      const sub = balShown() ? bal ? `余额 ${bal}` : "余额未知" : x.model ? splitModelName(x.model).name : "未选模型";
+      const sub = !balShown() ? x.model ? splitModelName(x.model).name : "未选模型" : st.busy ? "正在查询…" : st.err ? `查询失败：${st.err}` : bal ? `余额 ${bal}` : "余额未知";
       return `<div class="pa-sgroup pa-sitecard pa-site${on ? " pa-srow-on" : ""}" data-id="${esc(x.id)}">
-            ${sitesEditing ? siteGrip(x) : ""}<div class="pa-srow-main pa-site-name" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」" title="${esc([x.model || "未选模型", used.length ? `用于 ${used.join("、")}` : ""].filter(Boolean).join(" · "))}"><b>${esc(x.name)}</b><small class="pa-site-model pa-num">${esc(sub)}</small></div>
+            ${sitesEditing ? siteGrip(x) : ""}<div class="pa-srow-main pa-site-name" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」" title="${esc([x.model || "未选模型", used.length ? `用于 ${used.join("、")}` : "", st.err ? `余额查询失败：${st.err}` : ""].filter(Boolean).join(" · "))}"><b>${esc(x.name)}</b><small class="pa-site-model pa-num${st.err && !st.busy ? " pa-site-bad" : ""}">${esc(sub)}</small></div>
             ${sitesEditing ? `<button class="pa-icon-btn pa-site-del" data-a="del" type="button" aria-label="删除「${esc(x.name)}」" title="删除">${ICON.trash}</button>` : on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
     };
     // 2.5.0 多密钥站点：左边小三角，点开每个分组一行，各有「切换」；折起时小字是当前分组和模型
@@ -757,15 +758,26 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       const open = foldGet("sites", x.id);
       const k = siteKey(x);
       const bal = balSiteText(x);
-      const info = [on ? keyName(x, k) : "", balShown() ? bal ? `余额 ${bal}` : "余额未知" : ""].filter(Boolean).join(" · ");
-      const lines = open ? `<div class="pa-klines">${x.keys.map((y) => {
+      // 2.11.12 查全部站点时各分组分别查：折起时写查询中、失败几组；展开后每个分组写自己的余额。
+      // 账户余额只查一次、手填余额各分组共用，都只写在上面
+      const sts = balShown() ? x.keys.map((y) => balSiteState(x, y)) : [];
+      const acct = !!balAcctOf(balLiveOf(x, k));
+      const allBusy = sts.some((y) => y.busy);
+      const nBad = allBusy ? 0 : sts.filter((y) => y.err).length;
+      const balInfo = !balShown() ? "" : allBusy ? "正在查询…" : bal ? `余额 ${bal}` : "余额未知";
+      const bad = nBad ? `<span class="pa-site-bad">${acct ? "查询失败" : `${nBad} 组查询失败`}</span>` : "";
+      const info = [on ? esc(keyName(x, k)) : "", balInfo && esc(balInfo), bad].filter(Boolean).join(" · ");
+      const lines = open ? `<div class="pa-klines">${x.keys.map((y, i) => {
         const cur = on && y.id === k.id;
-        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}" data-a="edit"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small>${esc(y.model || "未选模型")}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
+        const ys = !acct && sts[i] || {};
+        const yt = !ys.busy && !ys.err && balShown() && !acct && !x.manualBalance ? balSiteText(x, y) : "";
+        const yb = ys.busy ? "正在查询…" : ys.err ? `<span class="pa-site-bad">查询失败：${esc(ys.err)}</span>` : yt ? `余额 ${esc(yt)}` : "";
+        return `<div class="pa-kline${cur ? " pa-srow-on" : ""}" data-k="${esc(y.id)}" data-a="edit"><div class="pa-srow-main"><b>${esc(keyName(x, y))}</b><small class="pa-num"${ys.err ? ` title="${esc(ys.err)}"` : ""}>${[esc(y.model || "未选模型"), yb].filter(Boolean).join(" · ")}</small></div>${cur ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : '<button class="pa-swpill" data-a="use" type="button">切换</button>'}</div>`;
       }).join("")}</div>` : "";
       // 和单密钥站点一样：点「切换」切换，点右边「N 组」展开、收起，点其他地方打开编辑窗口
       return `<div class="pa-sgroup pa-sitecard pa-site pa-site-multi${on ? " pa-srow-on" : ""}${open ? " open" : ""}" data-id="${esc(x.id)}">
             <div class="pa-site-mhead" data-a="edit" role="button" tabindex="0" aria-label="编辑「${esc(x.name)}」">
-            ${sitesEditing ? siteGrip(x) : ""}<div class="pa-srow-main"><b>${esc(x.name)}</b>${info ? `<small class="pa-site-model">${esc(info)}</small>` : ""}</div>
+            ${sitesEditing ? siteGrip(x) : ""}<div class="pa-srow-main"><b>${esc(x.name)}</b>${info ? `<small class="pa-site-model pa-num">${info}</small>` : ""}</div>
             ${sitesEditing ? `<button class="pa-icon-btn pa-site-del" data-a="del" type="button" aria-label="删除「${esc(x.name)}」" title="删除">${ICON.trash}</button>` : on ? '<span class="pa-chip pa-site-on-chip">使用中</span>' : ""}<button class="pa-swpill pa-fold-pill" data-a="sitefold" type="button" aria-expanded="${open}" aria-label="${x.keys.length} 个分组，${open ? "收起" : "展开"}">${x.keys.length} 组 ${open ? "▾" : "▸"}</button></div>${lines}</div>`;
     };
     const info = (t, d) => `<div class="pa-srow"><div class="pa-srow-main"><b>${t}</b><small>${d}</small></div></div>`;
@@ -779,12 +791,16 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const n = sites().length;
     if (!n) sitesEditing = false;
     const fileIn = (cls, label) => `<label class="${cls} pa-file" role="button" tabindex="0" title="从 JSON 文件导入站点和密钥">${label}<input type="file" accept=".json,application/json,text/plain" data-import-sites hidden></label>`;
+    // 2.11.12 站点里有能查余额的（中转站、OpenRouter、DeepSeek）时，铅笔左边是「余额」：一键查询全部站点
+    const balAll = balShown() && sites().some((x) => balSupported(x.source));
+    const allBusy = !!BAL.all;
+    const balAllBtn = balAll ? `<button class="pa-head-ico pa-head-wide pa-balall${allBusy ? " pa-spin" : ""}" data-a="balall" type="button" aria-label="${allBusy ? "正在查询全部站点的余额" : "查询全部站点的余额"}" title="查询全部站点的余额"${allBusy ? " disabled" : ""}>${ICON.refresh}<span>余额</span></button>` : "";
     const headBtns = sitesEditing
       ? `${fileIn("pa-swpill", "导入")}<button class="pa-swpill" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">导出</button><button class="pa-swpill pa-done-pill" data-a="sitesdone" type="button">完成</button>`
-      : `${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：删除、导入、导出" title="编辑：删除、导入、导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
+      : `${balAllBtn}${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：删除、导入、导出" title="编辑：删除、导入、导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
     sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点${n ? whyBtn("sites") : ""}</h3><div class="pa-head-btns">${headBtns}</div></div>
-        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。导出的文件可在重装、换设备后导入。" : "点站点名修改详情、填余额。点铅笔可删除站点、导入或导出站点文件。")}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
+        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。导出的文件可在重装、换设备后导入。" : `点站点名修改详情、填余额。${balAll ? "点「余额」查询全部站点的余额。" : ""}点铅笔可删除站点、导入或导出站点文件。`)}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
@@ -1665,6 +1681,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     }
     if (a === "testmodel") return testModel(btn);
     if (a === "balq") return balanceQuery();
+    if (a === "balall") {
+      const r = await balQueryAll();
+      if (!r) return;
+      if (!r.bad.length) return toast(`已查询 ${r.sites} 个站点的余额`, "success");
+      const why = r.bad.slice(0, 3).map((x) => `「${x.name}」${x.why}`).join("；") + (r.bad.length > 3 ? `；另有 ${r.bad.length - 3} 个` : "");
+      return toast(`${r.ok ? `查到 ${r.ok} 个，` : ""}${r.bad.length} 个查询失败：${why}`, r.ok ? "warning" : "error");
+    }
     if (a === "testraw") return liveTest?.raw && toast(`原文：${liveTest.raw.length > 300 ? liveTest.raw.slice(0, 300) + "…" : liveTest.raw}`, "info");
     if (a === "use" || a === "reconnect") {
       const target = a === "use" ? site : sites().find((x) => x.id === settings().activeSiteId);
@@ -1710,7 +1733,9 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     if (how.keyboard) sitesBox.querySelectorAll(".pa-site-grip")[to]?.focus();
   } });
   // 余额查询前后只换余额这一块
-  onBalance(() => {
+  onBalance((kind) => {
+    // 2.11.12 查全部站点：每查完一个整页重画，站点列表逐个更新
+    if (kind === "all") return sitesBox.isConnected && render();
     // 查完（手填余额可能已扣减）整页重画，站点列表的余额跟着变；查询中只换余额这一块
     if (!BAL.busy && liveBox.isConnected && liveBox.querySelector(".pa-bal")) return render();
     const old = liveBox.querySelector(".pa-bal");

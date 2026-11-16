@@ -2310,3 +2310,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-modebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 #mcd-root .pa-modebar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }
 #mcd-root .pa-rv-sec [data-enable-count] { font-weight: 600; font-size: .9em; color: var(--pa-text); }
+/* 2.11.12 站点标题右边的「余额」：一键查询全部站点，与铅笔、＋同款，带文字；查询失败的站点小字标红 */
+#mcd-root .pa-head-ico.pa-head-wide { width: auto; gap: 4px; padding: 0 11px 0 9px; font-size: .8em; font-weight: 500; line-height: 1; white-space: nowrap; }
+#mcd-root .pa-head-ico.pa-head-wide svg { width: 15px; height: 15px; }
+#mcd-root .pa-head-ico:disabled { cursor: default; transform: none; }
+@media (hover: hover) { #mcd-root .pa-head-ico:disabled:hover { border-color: var(--pa-line); background: var(--pa-card); color: var(--pa-em); } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-balall.pa-spin svg { animation: pa-pulse 1.6s ease-in-out infinite; } }
+#mcd-root .pa-site small.pa-site-bad, #mcd-root .pa-site .pa-site-bad { color: #cf3434; color: color-mix(in srgb, #dc2626 78%, var(--pa-text)); }
