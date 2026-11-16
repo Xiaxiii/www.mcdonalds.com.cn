@@ -1,4 +1,4 @@
-// 2.11.12 一键查询全部站点的余额：站点标题右边点「余额」，每个站点（多密钥站点的每个分组）用自己的密钥查，不切换当前连接。
+// 2.11.12 一键查询全部站点的余额：站点标题右边点小猪图标，每个站点（多密钥站点的每个分组）用自己的密钥查，不切换当前连接。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/balance-all-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -61,9 +61,10 @@ try {
   const row = (name) => page.locator('.pa-plan-sites .pa-site', { hasText: name }).first();
   const btn = page.locator('.pa-plan-sites [data-a=balall]');
   await btn.waitFor();
-  assert.equal(await btn.innerText(), '余额');
+  assert.equal(await btn.getAttribute('aria-label'), '查询全部站点的余额');
+  assert.equal((await btn.innerText()).trim(), '', '与铅笔、＋ 同款，只有图标');
   assert.match(await row('月栖').innerText(), /余额未知/);
-  ok('站点标题右边有「余额」按钮');
+  ok('站点标题右边有小猪图标按钮');
 
   await btn.click();
   await page.waitForFunction(() => !document.querySelector('.pa-plan-sites [data-a=balall]')?.disabled && /查询失败/.test(document.querySelector('.pa-plan-sites')?.textContent || ''));
@@ -104,7 +105,7 @@ try {
   // 关掉「显示余额」后按钮不出现
   await page.locator('[data-o=balshow]').click();
   await page.waitForFunction(() => !document.querySelector('.pa-plan-sites [data-a=balall]'));
-  ok('关掉「显示余额」后不显示「余额」按钮');
+  ok('关掉「显示余额」后不显示小猪按钮');
   assert.deepEqual(errors, []);
   console.log('一键查询全部余额检查通过');
 } finally {

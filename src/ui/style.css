@@ -2310,26 +2310,12 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-modebar { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
 #mcd-root .pa-modebar-n { flex: 1 1 100%; font-weight: 600; font-size: .9em; }
 #mcd-root .pa-rv-sec [data-enable-count] { font-weight: 600; font-size: .9em; color: var(--pa-text); }
-/* 2.11.12 站点标题右边的「余额」：一键查询全部站点，与铅笔、＋同款，带文字；查询失败的站点小字标红 */
-#mcd-root .pa-head-ico.pa-head-wide { width: auto; gap: 3px; padding: 0 11px 0 7px; font-size: .8em; font-weight: 500; line-height: 1; white-space: nowrap; }
+/* 2.11.12 站点标题右边的小猪：一键查询全部站点，与铅笔、＋ 同款；查询失败的站点小字标红。
+   2.11.14 查询时小猪左右摇晃，像在摇存钱罐 */
+#mcd-root .pa-head-ico.pa-balall svg { width: 17px; height: 17px; }
 #mcd-root .pa-head-ico:disabled { cursor: default; transform: none; }
 @media (hover: hover) { #mcd-root .pa-head-ico:disabled:hover { border-color: var(--pa-line); background: var(--pa-card); color: var(--pa-em); } }
-/* 2.11.13 小猪存钱罐：粉脸、亮眼睛、腮红，硬币半插在头顶。描边跟随文字色，填色固定，深色主题下像一张贴纸。
-   查询时硬币从上方落下、没入头顶（猪脸画在硬币上面，挡住落进去的部分），落下时小猪轻轻一蹦 */
-#mcd-root .pa-head-ico.pa-head-wide svg.pa-pig { width: 21px; height: 21px; margin: -2px 0; stroke-width: 1.6; overflow: visible; }
-#mcd-root .pa-pig .pa-pig-skin { fill: #f9c6d2; }
-#mcd-root .pa-pig .pa-pig-snout { fill: #f29db2; stroke: none; }
-#mcd-root .pa-pig .pa-pig-nose { fill: #8a3a50; stroke: none; }
-#mcd-root .pa-pig .pa-pig-eye { fill: #3b2a2f; stroke: none; }
-#mcd-root .pa-pig .pa-pig-shine { fill: #fff; stroke: none; }
-#mcd-root .pa-pig .pa-pig-cheek { fill: #f27f9c; stroke: none; opacity: .85; }
-#mcd-root .pa-pig .pa-pig-coin { fill: #f5c451; }
-#mcd-root .pa-pig-busy svg.pa-pig { animation: pa-pig-hop 1.1s ease-in-out infinite; }
-#mcd-root .pa-pig-busy .pa-pig-coin { animation: pa-pig-coin 1.1s cubic-bezier(.55, 0, .8, .4) infinite; }
-@keyframes pa-pig-coin { 0% { transform: translateY(-4px); opacity: 0; } 15% { opacity: 1; } 65%, 100% { transform: translateY(5.4px); opacity: 1; } }
-@keyframes pa-pig-hop { 0%, 60%, 100% { transform: none; } 72% { transform: translateY(-1.5px); } 84% { transform: translateY(.3px); } }
-@media (prefers-reduced-motion: reduce) {
-    #mcd-root .pa-pig-busy svg.pa-pig { animation: none; }
-    #mcd-root .pa-pig-busy .pa-pig-coin { animation: pa-pulse 1.6s ease-in-out infinite; }
-}
+#mcd-root .pa-pig-busy svg { transform-origin: 50% 85%; animation: pa-pig-shake 1.2s ease-in-out infinite; }
+@keyframes pa-pig-shake { 0%, 70%, 100% { transform: none; } 12% { transform: rotate(-14deg); } 26% { transform: rotate(11deg); } 40% { transform: rotate(-7deg); } 54% { transform: rotate(3deg); } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-pig-busy svg { animation: pa-pulse 1.6s ease-in-out infinite; } }
 #mcd-root .pa-site small.pa-site-bad, #mcd-root .pa-site .pa-site-bad { color: #cf3434; color: color-mix(in srgb, #dc2626 78%, var(--pa-text)); }

@@ -18,15 +18,8 @@ var ICON = {
   link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>',
   needle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4 7 17"/><path d="M17 4h3v3"/><path d="M7 17c-2 2-4 2-4 2s0-2 2-4"/></svg>',
-  // 2.11.13 站点标题右边的「余额」：小猪存钱罐，硬币半插在头顶；查询时硬币一下下掉进去（.pa-pig-coin 的动画）。
-  // 颜色写在 style.css（.pa-pig-*），眼睛、鼻孔用固定深色，深色主题下也看得清
-  piggy: '<svg class="pa-pig" viewBox="0 0 24 24" aria-hidden="true"><g class="pa-pig-coin"><circle cx="12" cy="5.4" r="2.7"/><path d="M12 4.2v2.4" stroke-width="1.2"/></g>'
-    + '<path class="pa-pig-skin" d="M6.7 9.4C5.4 8.5 4.7 6.9 4.9 5.2c1.7 0 3.3.8 4.2 2"/><path class="pa-pig-skin" d="M17.3 9.4c1.3-.9 2-2.5 1.8-4.2-1.7 0-3.3.8-4.2 2"/>'
-    + '<ellipse class="pa-pig-skin" cx="12" cy="14.3" rx="8" ry="6.6"/><ellipse class="pa-pig-snout" cx="12" cy="16" rx="2.9" ry="2"/>'
-    + '<circle class="pa-pig-nose" cx="11" cy="16" r=".62"/><circle class="pa-pig-nose" cx="13" cy="16" r=".62"/>'
-    + '<circle class="pa-pig-eye" cx="8.5" cy="12.7" r="1.15"/><circle class="pa-pig-eye" cx="15.5" cy="12.7" r="1.15"/>'
-    + '<circle class="pa-pig-shine" cx="8.85" cy="12.3" r=".38"/><circle class="pa-pig-shine" cx="15.85" cy="12.3" r=".38"/>'
-    + '<circle class="pa-pig-cheek" cx="6.4" cy="15.7" r="1.15"/><circle class="pa-pig-cheek" cx="17.6" cy="15.7" r="1.15"/></svg>'
+  // 2.11.14 查全部站点的余额：小猪存钱罐，与铅笔、＋ 同为线条图标（描边跟随文字色）；圆身子、卷尾巴、投币口、豆豆眼
+  piggy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6C5 9.2 8.1 6.6 12 6.6c1.2 0 2.3.2 3.3.6l1.7-1.9c.4-.4 1-.2 1 .3l.1 2.6c.7.7 1.3 1.5 1.6 2.5h.7a1 1 0 0 1 1 1v1.8a1 1 0 0 1-1 1h-.9c-.5 1.3-1.4 2.4-2.6 3.1V20h-2.4v-1.5c-.6.1-1.3.2-2 .2s-1.4-.1-2-.2V20H7.6v-2.6C6 16.3 5 14.6 5 12.6z"/><path d="M5.1 11.2c-1.2-.1-2-.9-2-2"/><path d="M10.2 9.7h2.6"/><circle cx="15.7" cy="11.5" r="1.15" fill="currentColor" stroke="none"/></svg>'
 };
 /**
  * 列表渲染。o.place 为 true 时是"选位置"：
