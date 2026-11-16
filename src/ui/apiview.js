@@ -863,7 +863,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             <div class="pa-field"><span class="pa-keyhead">密钥<button class="pa-icon-btn pa-key-add" data-f="keyadd" type="button" aria-label="加一个密钥" title="加一个密钥（同一站点的其他分组）">＋</button></span><div class="pa-keys" data-f="keys"></div></div>
             <div class="pa-field"><span>模型</span>${modelBtn(s.model, 'data-f="modelbtn" type="button"')}<input type="hidden" data-f="model" value="${esc(s.model || "")}"></div>
             <button class="pa-btn pa-btn-soft" data-f="fetch" type="button" data-show="custom">获取模型列表</button>
-            <label class="pa-field"${balShown() ? "" : " hidden"}><span>账户余额</span><input class="pa-input pa-num" data-f="bal" value="${esc(s.manualBalance ? fmtMoney(s.manualBalance.amount, s.manualBalance.cur) : "")}" placeholder="接口查不到余额时填，如 50、¥300" inputmode="decimal" autocomplete="off"><small class="pa-hint">按每次查到的用量自动扣减；充值后改成新的余额。</small></label>
+            ${balShown() ? `<div class="pa-field pa-acct" data-show="custom"><span class="pa-keyhead">账户余额查询${s.acct ? '<button class="pa-link pa-acct-off" data-f="acctoff" type="button">停用</button>' : ""}</span>
+              <div class="pa-acct-row"><input class="pa-input pa-num pa-acct-uid" data-f="uid" value="${esc(s.acct?.uid || "")}" placeholder="用户 ID" aria-label="用户 ID" inputmode="numeric" autocomplete="off"><input class="pa-input pa-acct-tok" data-f="token" type="password" style="${KEY_INPUT_STYLE}" placeholder="${s.acct ? "系统访问令牌已保存，留空不改" : "系统访问令牌"}" aria-label="系统访问令牌" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false"></div>
+              <small class="pa-hint" data-f="accthint">${s.acct ? "已开启：查的是整个账户的余额，各个密钥共用。" : "NewAPI、OneAPI 类中转站：在站点网页「个人设置」生成系统访问令牌，用户 ID 在同一页。填好后查整个账户的余额，密钥不限额度时也能查到。"}</small></div>` : ""}
+            <label class="pa-field"${balShown() ? "" : " hidden"}><span>手填余额</span><input class="pa-input pa-num" data-f="bal" value="${esc(s.manualBalance ? fmtMoney(s.manualBalance.amount, s.manualBalance.cur) : "")}" placeholder="接口查不到余额时填，如 50、¥300" inputmode="decimal" autocomplete="off"><small class="pa-hint">按每次查到的用量自动扣减；充值后改成新的余额。</small></label>
             <label class="pa-field"><span>备注</span><textarea class="pa-input pa-note" data-f="note" rows="1" placeholder="例如：月卡至 11 月">${esc(s.note || "")}</textarea></label>
             <p class="pa-hint">${multiKeySupported() ? "密钥存入酒馆密钥库，本扩展只记录编号。" : "酒馆版本较旧，没有密钥库。密钥只保存在这个浏览器里，不写进酒馆设置文件；换设备、换浏览器需要重新填写。"}</p>
         </div>`);
@@ -930,9 +933,14 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         url: w.querySelector("[data-f=url]").value.trim(),
         model: readModel(w),
         note: w.querySelector("[data-f=note]").value.trim(),
-        bal: w.querySelector("[data-f=bal]").value.trim()
+        bal: w.querySelector("[data-f=bal]").value.trim(),
+        uid: w.querySelector("[data-f=uid]")?.value.trim() || "",
+        token: w.querySelector("[data-f=token]")?.value.trim().replace(/^Bearer\s+/i, "") || "",
+        acctOff
       };
     };
+    // 2.11.15 账户余额查询的「停用」：保存时才删令牌
+    let acctOff = false;
     // 这个对话框里存进密钥库的新密钥。取消时删掉；同一个对话框里换过、删掉的，旧的也删掉
     const madeKeys = [];
     const madeLocal = [];
@@ -973,6 +981,12 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         sync(w);
         setModel(w, (ks.find((x) => x.id === curKey) || ks[0]).model || "");
         w.querySelector("[data-f=source]").addEventListener("change", () => sync(w));
+        w.querySelector("[data-f=acctoff]")?.addEventListener("click", (e) => {
+          acctOff = !acctOff;
+          e.currentTarget.textContent = acctOff ? "不停用" : "停用";
+          w.querySelector("[data-f=accthint]").textContent = acctOff ? "保存后停用，删除保存的令牌；改回按密钥查余额。" : "已开启：查的是整个账户的余额，各个密钥共用。";
+          w.querySelector("[data-f=uid]").disabled = w.querySelector("[data-f=token]").disabled = acctOff;
+        });
         w.querySelector("[data-f=keyadd]").addEventListener("click", () => {
           syncTyped();
           ks.push(blankKey());
@@ -1131,6 +1145,11 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
             toast("自定义类型需填写网址");
             return false;
           }
+          if (v.source === "custom" && v.uid && !v.token && !s.acct && !v.acctOff) {
+            toast("请粘贴系统访问令牌，或清空用户 ID", "warning");
+            w.querySelector("[data-f=token]")?.focus();
+            return false;
+          }
           if (v.bal && !balParseAmount(v.bal)) {
             toast("余额格式不对，如 50、$50.5、¥300");
             return false;
@@ -1156,6 +1175,20 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const keep = new Set(final.map((k) => k.secretId).filter(Boolean));
     for (const k of madeKeys) if (!keep.has(k.id)) await dropKey(k.source, k.id);
     Object.assign(s, { name: r.name, source: r.source, url: r.source === "custom" ? r.url : "", note: r.note });
+    // 2.11.15 账户余额查询：令牌存进酒馆密钥库（标签用保存后的站点名）；只改了用户 ID 时只改编号
+    let acctNew = false;
+    try {
+      if (r.acctOff && s.acct) await balSetAcct(s, "", "");
+      else if (r.source === "custom" && r.token) {
+        if (await balSetAcct(s, r.uid, r.token)) acctNew = true;
+        else toast("浏览器不允许保存令牌（可能是无痕模式），账户余额查询未开启", "error");
+      } else if (s.acct && r.uid !== (s.acct.uid || "")) {
+        s.acct.uid = r.uid;
+        acctNew = true;
+      }
+    } catch (e) {
+      toast("令牌保存失败，账户余额查询未开启：" + e.message, "error");
+    }
     // 余额框没改（仍是当前余额）时不重设起点
     const balWas = s.manualBalance ? fmtMoney(s.manualBalance.amount, s.manualBalance.cur) : "";
     const balNew = r.bal !== balWas;
@@ -1185,6 +1218,14 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     saveSettings();
     render();
     if (balNew && s.manualBalance && settings().activeSiteId === s.id) balanceQuery({ quiet: true });
+    // 填好账户余额查询就查一次这个站点，不必先切换过去
+    if (acctNew && balShown()) {
+      balQuerySite(s).then((q) => {
+        const bad = q?.bad?.[0];
+        if (bad) toast(`已保存；「${s.name}」账户余额没查到：${bad.why}`, "warning");
+        else if (q?.ok) toast(`已保存；「${s.name}」账户余额 ${balSiteText(s)}`, "success");
+      });
+    }
     // 2.6.7 改的是当前连接的站点、又存了新密钥：storeKey 为了不打断当前连接会切回原来的密钥，
     // 当前连接就一直用旧密钥（测试报 401，「获取模型列表」临时换新密钥所以能拉到）。这里换上新密钥并重新连接
     if (settings().activeSiteId === s.id && (madeKeys.some((m) => keep.has(m.id)) || madeLocal.length)) {

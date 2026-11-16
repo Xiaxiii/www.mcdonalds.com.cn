@@ -387,14 +387,14 @@ function balSiteState(site, k = siteKey(site)) {
   const id = balIdent(balLiveOf(site, k));
   return { busy: !!BAL.all?.has(id), err: BAL.siteErr.get(id) || "" };
 }
-// 同时查 3 个。返回 { sites: 站点数, ok: 查到的连接数, bad: [{ name, why }] }；已在查询中时返回 null
-async function balQueryAll() {
-  if (BAL.all) return null;
-  const list = balTargets();
+// 同时查 3 个。返回 { sites: 站点数, ok: 查到的连接数, bad: [{ name, why }] }。
+// 2.11.15 BAL.all 记着正在查的连接：查全部站点时已在查询中返回 null；查单个站点（编辑窗口保存后）时跳过已在查的
+async function balQueryTargets(list) {
+  list = list.filter((t) => !BAL.all?.has(t.id));
   const bad = [];
   let ok = 0, i = 0;
-  BAL.all = new Set(list.map((x) => x.id));
-  BAL.siteErr = new Map();
+  if (!BAL.all) BAL.all = new Set();
+  for (const t of list) { BAL.all.add(t.id); BAL.siteErr.delete(t.id); }
   balEmit("all");
   const cur = balIdent();
   const worker = async () => {
@@ -412,7 +412,8 @@ async function balQueryAll() {
         BAL.siteErr.set(t.id, why);
         bad.push({ name: t.name, why });
       } finally {
-        BAL.all.delete(t.id);
+        BAL.all?.delete(t.id);
+        if (!BAL.all?.size) BAL.all = null;
         balEmit("all");
       }
     }
@@ -420,10 +421,18 @@ async function balQueryAll() {
   try {
     await Promise.all(Array.from({ length: Math.min(3, list.length) }, worker));
   } finally {
-    BAL.all = null;
+    if (!BAL.all?.size) BAL.all = null;
     balEmit("all");
   }
   return { sites: new Set(list.map((x) => x.site.id)).size, ok, bad };
+}
+async function balQueryAll() {
+  if (BAL.all) return null;
+  BAL.siteErr = new Map();
+  return balQueryTargets(balTargets());
+}
+function balQuerySite(site) {
+  return balQueryTargets(balTargets([site]));
 }
 // 2.8.5 手填余额：接口查不到账户余额（如不限额度的令牌）时，在站点上记下余额；
 // 之后每次查询到的用量从中扣除（同一站点的各个密钥共用这份余额）。只扣填写之后的用量

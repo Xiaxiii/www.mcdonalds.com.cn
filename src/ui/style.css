@@ -2319,3 +2319,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 @keyframes pa-pig-shake { 0%, 70%, 100% { transform: none; } 12% { transform: rotate(-14deg); } 26% { transform: rotate(11deg); } 40% { transform: rotate(-7deg); } 54% { transform: rotate(3deg); } }
 @media (prefers-reduced-motion: reduce) { #mcd-root .pa-pig-busy svg { animation: pa-pulse 1.6s ease-in-out infinite; } }
 #mcd-root .pa-site small.pa-site-bad, #mcd-root .pa-site .pa-site-bad { color: #cf3434; color: color-mix(in srgb, #dc2626 78%, var(--pa-text)); }
+/* 2.11.15 站点编辑窗口：账户余额查询（用户 ID + 系统访问令牌）一行两框，用户 ID 窄、令牌占满；停用在标题右边 */
+#mcd-root .pa-acct-row { display: flex; gap: 6px; min-width: 0; }
+#mcd-root .pa-acct-row .pa-acct-uid { flex: 0 0 7.5em; min-width: 0; }
+#mcd-root .pa-acct-row .pa-acct-tok { flex: 1 1 auto; min-width: 0; }
+#mcd-root .pa-acct-row .pa-input:disabled { opacity: .5; }
+#mcd-root .pa-acct .pa-keyhead { justify-content: space-between; }
+#mcd-root .pa-acct .pa-hint { margin: 0; }
