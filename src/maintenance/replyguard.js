@@ -4,6 +4,19 @@ function replyGuardConfig(name = currentPresetName()) {
   const saved = settings().replyGuard;
   return saved && Object.hasOwn(saved, name) ? saved[name] : {};
 }
+// 酒馆「推理内容格式化」的前缀，如 <ECoT>：预设用它包思考，检查时当作思考标签
+function stReasoningTag(c = ctx()) {
+  const r = c.powerUserSettings?.reasoning;
+  const m = /^<\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})\s*>$/u.exec(String(r?.prefix || "").trim());
+  return m ? { tag: m[1], autoParse: !!r.auto_parse } : null;
+}
+// 2.11.9 酒馆开着自动解析、前后缀是一对标签（如 <blend>…</blend>）时返回标签名，用来查思考块前多了字、没被解析的回复
+function replyParseTag(c = ctx()) {
+  const st = stReasoningTag(c);
+  if (!st?.autoParse) return null;
+  const suffix = String(c.powerUserSettings?.reasoning?.suffix || "").trim();
+  return new RegExp(`^<\\s*/\\s*${st.tag}\\s*>$`, "u").test(suffix) ? st.tag : null;
+}
 function replyGuardAvailable(c = ctx()) {
   return typeof c.setExtensionPrompt === "function" && !!(c.eventTypes || c.event_types)?.GENERATION_AFTER_COMMANDS;
 }
@@ -221,9 +234,10 @@ function scheduleReplyAutoFix() {
         const reasoning = latest.message.extra?.reasoning;
         const layout = replyLayoutLazy(ctx().chat, latest.index, rules);
         const knownTags = replyKnownTagsLazy(currentPresetName(), rules.requiredTags);
-        const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout, knownTags });
+        const parseTag = replyParseTag();
+        const report = checkReplyFormat(latest.message.mes, rules, { reasoning, layout, knownTags, parseTag });
         if (!report.issues.length) return null;
-        const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, knownTags, noTailClose: true, strict: true });
+        const plan = planReplyFix(latest.message.mes, rules, { reasoning, layout, knownTags, parseTag, noTailClose: true, strict: true });
         return plan ? { latest, report, plan } : null;
       });
       if (!found) return;
@@ -268,7 +282,7 @@ function injectReplyGuard(c, config, latest) {
     // 按当前 mes 重算，编辑、删除、滑动后不会沿用旧问题。extra.reasoning 只在可见回复没有正文标签时本地查标签位置。
     const { rules } = replyRulesInUse(config);
     // 已自动修正过的回复，按修正前的问题提醒
-    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules), knownTags: replyKnownTagsLazy(currentPresetName(), rules.requiredTags) });
+    const report = replyAutoFixFor(latest.index)?.report || checkReplyFormat(latest.message.mes, rules, { reasoning: latest.message.extra?.reasoning, layout: replyLayoutLazy(c.chat, latest.index, rules), knownTags: replyKnownTagsLazy(currentPresetName(), rules.requiredTags), parseTag: replyParseTag(c) });
     const reminder = buildReplyReminder(report, rules);
     if (reminder) {
       c.setExtensionPrompt(REPLY_GUARD_KEY, reminder, 1, 0, false, 0);

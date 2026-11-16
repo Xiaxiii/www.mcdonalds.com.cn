@@ -162,6 +162,23 @@ function replyReasoningHasBody(reasoning, bodyTag) {
   return new RegExp(`<\\s*${name}(?:\\s+[^<>]*?)?\\s*>`, "iu").test(text);
 }
 
+// 2.11.9 酒馆自动解析思考只认开头就是前缀的回复（流式时看是否以前缀开头，收到后按「开头空白 + 前缀…后缀」匹配）。
+// 模型在 <前缀> 前先写了几个字（如思维链的开场白），整段思考就留在了正文里。
+// extra.parseTag：酒馆开着自动解析、前后缀是一对标签时的标签名。思考区已有内容（已解析或模型自带思考）时酒馆不再解析，这里也不算。
+// 前面只认没被标签包住的文字；思考块后面没有回复的（在末尾）不算
+function replyUnparsed(source, masked, rules, extra) {
+  const tag = typeof extra?.parseTag === "string" ? extra.parseTag : "";
+  if (!tag || String(extra.reasoning || "").trim() || tag.toLowerCase() === rules.bodyTag.toLowerCase()) return null;
+  const tokens = replyTagTokens(masked, new Set([tag.toLowerCase()])).filter((t) => !t.selfClosing);
+  const open = tokens[0] && !tokens[0].closing ? tokens[0] : null;
+  const close = open && tokens.find((t) => t.closing);
+  if (!close) return null;
+  const lead = source.slice(0, open.start);
+  if (!lead.trim() || replyTagTokens(masked.slice(0, open.start)).length) return null;
+  if (!masked.slice(close.end).replace(/<[^<>]*>/g, "").trim()) return null;
+  return { tag, open, close, count: lead.replace(/\s/gu, "").length, excerpt: lead.replace(/\s+/g, " ").trim().slice(0, 80) };
+}
+
 // 2.5.6 必需标签整个没出现、回复里却多了预设没用到的块：可能是模型把标签名写错了（如把 <card_status> 写成 <状态栏>）。
 // knownTags 是预设开着的条目和正则里出现过的标签名（小写）；没有就不判断。也可以是函数（用到时才去扫预设），只在确实缺了必需标签时才调用。
 // 2.5.7 看结构：knownTags.children 记着预设里这个必需标签内部的子标签，陌生块里也有其中的子标签才算确定（sure）。
@@ -273,6 +290,8 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     add("order", `「${open.tag}」开始标签没有闭合`, open.tag);
     if (open.key === bodyKey || thinking.has(open.key)) scopeRanges.push({ start: open.start, end: source.length, key: open.key });
   }
+  const unparsed = replyUnparsed(source, masked, rules, extra);
+  if (unparsed) add("unparsed", `<${unparsed.tag}> 前面多了 ${unparsed.count} 个字，酒馆只解析开头就是 <${unparsed.tag}> 的回复，这段思考留在了正文里`, unparsed.tag, unparsed.excerpt);
   const misnamed = replyMisnamed(source, rules, extra.knownTags, masked);
   const wrapped = replyWrapped(source, rules, extra.knownTags, masked);
   for (const w of wrapped) add("wrapped", `<${w.tag}> 外面多套了一层 <${w.block.name}>，预设、角色卡和世界书都没有用到 <${w.block.name}>`, w.tag);
@@ -303,7 +322,7 @@ function checkReplyFormat(text, inputRules, extra = {}) {
     for (const [key] of required) for (const range of stats.get(key).ranges) covered.push(range);
     const firstBody = Math.min(...body.ranges.map((range) => range.start), ...scopeRanges.filter((range) => range.key === bodyKey).map((range) => range.start));
     for (const part of replyLooseText(replyCheckMask(source, true), masked, covered)) {
-      if (part.letters < 20) continue;
+      if (part.letters < 20 || unparsed && part.end <= unparsed.open.start) continue;
       if (part.end <= firstBody) add("outside", `正文标签前有约 ${part.letters} 字没有被任何标签包住，可能是外泄的思考或分析（爆思维链）`, rules.bodyTag, part.excerpt);
       else add("outside", `正文结束后还有约 ${part.letters} 字没有被标签包住，可能是外泄的分析、总结或掉出正文的段落`, rules.bodyTag, part.excerpt);
     }
@@ -318,7 +337,8 @@ function checkReplyFormat(text, inputRules, extra = {}) {
   let offset = 0;
   for (const line of replyLines(masked)) {
     const first = offset + line.search(/\S|$/);
-    if (heading.test(line.trimEnd()) && !scopeRanges.some((range) => first >= range.start && first < range.end)) {
+    const inUnparsed = unparsed && first >= unparsed.open.start && first < unparsed.close.end;
+    if (heading.test(line.trimEnd()) && !inUnparsed && !scopeRanges.some((range) => first >= range.start && first < range.end)) {
       add("suspected", "正文标签外出现疑似思考或推理步骤标题，请人工确认是否泄露了内部分析");
     }
     offset += line.length;
@@ -338,6 +358,8 @@ function buildReplyReminder(report, inputRules) {
   // 按上一轮的具体问题加一句针对性要求，只说格式。不写「无需展示思考」之类的话：预设要求写思考时会互相打架，
   // 预填了思考开头的模型可能干脆不写思考、直接在思考区里写正文
   const extra = [];
+  const unparsed = report.issues.find((issue) => issue.kind === "unparsed");
+  if (unparsed) extra.push(`上一轮在 <${unparsed.tag}> 前面先写了文字：回复的第一个字就是 <${unparsed.tag}>，前面不写任何内容。`);
   if (kinds.has("swallowed") || kinds.has("reasoning") || kinds.has("stranded")) extra.push(`上一轮的输出被写进了思考区：思考标签必须在${report.layout?.head?.length ? "第一个输出块（正文或正文前的块）" : ` ${body} `}开始之前闭合。`);
   if (report.issues.some((issue) => issue.kind === "outside" && issue.text.startsWith("正文标签前"))) extra.push(`上一轮在 ${body} 之前直接输出了分析文字：正文标签外不要写任何分析、计划或说明。`);
   else if (kinds.has("outside")) extra.push(`上一轮在 </${rules.bodyTag}> 之后还有零散文字：正文结束后不追加说明或总结。`);
@@ -584,6 +606,16 @@ function planReplyFix(text, inputRules, extra = {}) {
   // 紧挨着正文的块：后面的完整块都算正文外的输出；前面的只认前几条回复里出现在正文外的，免得把思考里的步骤块搬出来
   const nearBody = (b, side) => b.key !== bodyKey && !thinking.has(b.key) && (side === "tail" || known.has(b.key));
   const bodyTokens = () => replyTagTokens(replyCheckMask(mes), new Set([bodyKey])).filter((t) => !t.selfClosing);
+  // 0a.（2.11.9）思考块前多了几个字、酒馆没解析：前面这段和思考块里的内容一起移进思考区，与酒馆解析的结果一样不带标签。
+  //     思考块里裹着正文的交给后面的步骤
+  {
+    const u = replyUnparsed(mes, replyCheckMask(mes), rules, { parseTag: extra.parseTag, reasoning });
+    if (u && !bodyTokens().some((t) => t.start > u.open.start && t.start < u.close.start)) {
+      reasoning = [mes.slice(0, u.open.start).trim(), mes.slice(u.open.end, u.close.start).trim()].filter(Boolean).join("\n");
+      mes = mes.slice(u.close.end).trimStart();
+      steps.push(`把 <${u.tag}> 前面的 ${u.count} 个字和 <${u.tag}> 里的思考一起移进思考区`);
+    }
+  }
   // 0. 思考外泄（爆思维链，2.4.1）：回复开头一段没被任何标签包住的文字，原样移进思考区。
   //    开头若是标签（如没闭合的 <thinking>）交给后面的步骤；只移到下一行开头的标签或注释为止，后面的锚定注释、标题等不动
   {
@@ -726,7 +758,7 @@ function planReplyFix(text, inputRules, extra = {}) {
     }
   }
   if (!steps.length) return null;
-  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "", layout, knownTags: extra.knownTags }) };
+  return { text: mes, reasoning, reasoningChanged: reasoning !== (typeof extra.reasoning === "string" ? extra.reasoning : null), steps, after: checkReplyFormat(mes, rules, { reasoning: reasoning || "", layout, knownTags: extra.knownTags, parseTag: extra.parseTag }) };
 }
 
 // 从预设开着的条目里猜正文标签：数各候选标签被写成 <标签> 的次数，取最多的。
