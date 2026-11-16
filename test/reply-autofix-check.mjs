@@ -118,6 +118,18 @@ try {
   assert.equal(m.mes, '<status>晨</status>\n<content>\n正文\n</content>\n<theater>这条小剧场</theater>');
   assert.equal(m.extra.reasoning, '想一想。');
   ok('留在思考区末尾的块照开场白放回正文前后');
+
+  // 2.11.9 推理前缀前多了一句、酒馆没解析：生成结束后这句和思考块一起移进思考区；酒馆没开自动解析时不动
+  const UNPARSED = '夜客，我在柜台后面听。 <blend>\n[听]\n夜客点出围裙。\n</blend>\n<content>\n正文\n</content>';
+  await generate(UNPARSED);
+  assert.equal((await chat()).mes, UNPARSED, '酒馆没开自动解析时不改');
+  await page.evaluate(() => { window.SillyTavern.getContext().powerUserSettings.reasoning = { auto_parse: true, prefix: '<blend>', suffix: '</blend>' }; });
+  await generate(UNPARSED);
+  m = await chat();
+  assert.equal(m.mes, '<content>\n正文\n</content>');
+  assert.equal(m.extra.reasoning, '夜客，我在柜台后面听。\n[听]\n夜客点出围裙。');
+  assert.match(await page.evaluate(() => window.__toasts.at(-1)), /^success:已自动修正这条回复：把 <blend> 前面的 11 个字/);
+  ok('推理前缀前多了一句时，自动把这句和思考块移进思考区');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

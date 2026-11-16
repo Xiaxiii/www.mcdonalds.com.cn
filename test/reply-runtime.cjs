@@ -122,4 +122,13 @@ test('invalid saved rules fail closed and clear a previous prompt', () => {
   f.state.replyGuard.A.bodyTag = '1broken';
   assert.doesNotThrow(() => f.generate()); assert.equal(f.prompt(), ''); assert.equal(f.warnings.length, 1);
 });
+test('reminds the model to start with the parsed thinking tag (2.11.9)', () => {
+  const f = fixture(); f.enable();
+  f.context.chat[f.context.chat.length - 1] = { is_user: false, mes: '夜客，我在柜台后面听。 <blend>\n[听]\n夜客点出围裙\n</blend>\n<content>正文</content>', extra: {} };
+  f.generate(); assert.equal(f.prompt(), '', '酒馆没开自动解析时不提醒');
+  f.context.powerUserSettings = { reasoning: { auto_parse: true, prefix: '<blend>\n', suffix: '\n</blend>' } };
+  f.generate(); assert.match(f.prompt(), /回复的第一个字就是 <blend>/);
+  f.context.powerUserSettings.reasoning.suffix = '</think>';
+  f.generate(); assert.equal(f.prompt(), '', '前后缀不是一对标签时不判断');
+});
 console.log(`${passed} reply-format runtime tests passed`);

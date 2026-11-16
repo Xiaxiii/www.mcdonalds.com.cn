@@ -411,4 +411,35 @@ test('reminder follows the sample order only when switched on', () => {
   assert.doesNotMatch(buildReplyReminder(checkReplyFormat('<content>正文</content>', off), off), /按这个顺序/);
   assert.deepEqual(replySampleSkeleton(SAMPLE, { bodyTag: '正文' }), ['正文', 'card_status']);
 });
+test('thinking block not parsed because of text before the prefix (2.11.9)', () => {
+  const rules = { bodyTag: 'content', thinkingTag: 'blend' };
+  const cot = '[听]\n夜客点出温别枝瞧见挂在旁边的围裙。\n[文风适配]\n1. 情事后的温存清理。';
+  const text = `夜客，我在柜台后面听。 <blend>\n${cot}\n</blend>\n<content>\n正文。\n</content>`;
+  // 酒馆没开自动解析（靠正则收起思考）时照旧不算问题
+  assert.deepEqual(checkReplyFormat(text, rules).issues, []);
+  const report = checkReplyFormat(text, rules, { reasoning: '', parseTag: 'blend' });
+  assert.deepEqual(report.issues.map((i) => i.kind), ['unparsed']);
+  assert.match(report.issues[0].text, /<blend> 前面多了 11 个字/);
+  assert.equal(report.issues[0].excerpt, '夜客，我在柜台后面听。');
+  assert.match(buildReplyReminder(report, rules), /回复的第一个字就是 <blend>，前面不写任何内容/);
+  const plan = planReplyFix(text, rules, { reasoning: '', parseTag: 'blend', noTailClose: true, strict: true });
+  assert.equal(plan.text, '<content>\n正文。\n</content>');
+  assert.equal(plan.reasoning, `夜客，我在柜台后面听。\n${cot}`);
+  assert(plan.reasoningChanged);
+  assert.deepEqual(plan.after.issues, []);
+  // 开头那段超过 20 字时一起搬，不只搬前面那句、把思考块留在正文里
+  const long = `我先把这一轮要写的内容理一理，再按文风落笔，不要遗漏细节。<blend>\n${cot}\n</blend>\n<content>正文。</content>`;
+  const both = planReplyFix(long, rules, { reasoning: '', parseTag: 'blend' });
+  assert.equal(both.text, '<content>正文。</content>');
+  assert.deepEqual(checkReplyFormat(long, rules, { reasoning: '', parseTag: 'blend' }).issues.map((i) => i.kind), ['unparsed']);
+  // 不算：思考区已有内容、开头就是前缀、前面有别的标签块、思考块在末尾、思考块没闭合
+  assert.deepEqual(checkReplyFormat(text, rules, { reasoning: '模型自带思考', parseTag: 'blend' }).issues, []);
+  assert.deepEqual(checkReplyFormat(`<blend>\n${cot}\n</blend>\n<content>正文。</content>`, rules, { parseTag: 'blend' }).issues, []);
+  assert.deepEqual(checkReplyFormat(`<status>夜</status>\n<blend>\n${cot}\n</blend>\n<content>正文。</content>`, rules, { parseTag: 'blend' }).issues, []);
+  assert.equal(planReplyFix(`她推开窗。\n<blend>\n${cot}\n</blend>`, rules, { parseTag: 'blend' }), null);
+  assert(!checkReplyFormat(`夜客。<blend>\n${cot}\n<content>正文。</content>`, rules, { parseTag: 'blend' }).issues.some((i) => i.kind === 'unparsed'));
+  // 思考块里裹着正文时不整块搬进思考区
+  const wrapped = planReplyFix(`夜客。<blend>\n${cot}\n<content>正文。</content>\n</blend>`, rules, { parseTag: 'blend' });
+  assert(!wrapped || wrapped.text.includes('<content>正文。</content>'));
+});
 console.log(`${passed} reply-format tests passed`);

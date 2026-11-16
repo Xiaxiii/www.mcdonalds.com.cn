@@ -13,12 +13,6 @@ function replyTagGuessOf(d) {
     return guessReplyTags(texts, regexTags);
   } catch { return null; }
 }
-// 酒馆「推理内容格式化」的前缀，如 <ECoT>：预设用它包思考，检查时当作思考标签
-function stReasoningTag(c = ctx()) {
-  const r = c.powerUserSettings?.reasoning;
-  const m = /^<\s*([A-Za-z_\u3400-\u9fff][A-Za-z0-9_\u3400-\u9fff-]{0,39})\s*>$/u.exec(String(r?.prefix || "").trim());
-  return m ? { tag: m[1], autoParse: !!r.auto_parse } : null;
-}
 // 模型自带思考（Gemini、Claude 等返回的推理）已经放进思考区时，酒馆不再自动解析 <ECoT>，它会留在正文里
 function nativeReasoningNote(message) {
   const st = stReasoningTag();
@@ -70,10 +64,11 @@ function replyForm(name, { onSaved } = {}) {
       <div data-r="semantic-result" aria-live="polite"></div>
     </details>
     <details class="pa-card pa-rscope"><summary>检测范围</summary><ul class="pa-notes">
-      <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、疑似推理标题。</li>
-      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签，不提其他标签。</li>
+      <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、思考标签前多了文字没被酒馆解析、疑似推理标题。</li>
+      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签（思考没被解析时还点名推理前缀），不提其他标签。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
       <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
+      <li>酒馆只解析开头就是推理前缀（如 &lt;think&gt;）的回复。前缀前面多一句话，整段思考就留在正文里；修正把这句话和前缀标签里的内容一起移进思考区，提醒要求回复以前缀开头。酒馆未开自动解析或思考区已有内容时不检查。</li>
       <li>必需标签只对用到它的对话生效：当前预设开着的条目、角色卡或当前对话生效的世界书里写着这个标签时，才检查、提醒、修正。几张卡的状态栏标签可以一起填，每张卡只按自己的标签检查。</li>
       <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;status&gt; 写成 &lt;状态&gt;）时，当作写错了名字：提醒只写正确的标签名，不写出错误的名字；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
       <li>必需标签外面多套了一层预设、角色卡、世界书和正则都没用到的标签（如 &lt;状态&gt;&lt;status&gt;…&lt;/status&gt;&lt;/状态&gt;），且外层里没有别的文字时，提醒直接输出必需标签，修正去掉外层标签。</li>
@@ -206,9 +201,10 @@ function replyForm(name, { onSaved } = {}) {
     const chat = ctx().chat;
     const layout = replyLayoutLazy(chat, latest ? latest.index : Array.isArray(chat) ? chat.length : 0, config);
     const knownTags = replyKnownTagsLazy(name, config.requiredTags);
-    const report = checkReplyFormat(text, config, { reasoning, layout, knownTags });
+    const parseTag = replyParseTag();
+    const report = checkReplyFormat(text, config, { reasoning, layout, knownTags, parseTag });
     const reminder = buildReplyReminder(report, config);
-    const plan = report.issues.length ? planReplyFix(text, config, { reasoning, layout, knownTags }) : null;
+    const plan = report.issues.length ? planReplyFix(text, config, { reasoning, layout, knownTags, parseTag }) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
     const left = plan ? plan.after.issues : [];
     const fix = plan ? `<div class="pa-card"><div class="pa-whyrow"><b>可修正的标签</b>${whyBtn("fixhow")}</div>${whyNote("fixhow", "只移动文字、补写标签，不增删文字。")}<ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>

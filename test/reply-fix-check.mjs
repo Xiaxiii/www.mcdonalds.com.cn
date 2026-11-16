@@ -98,6 +98,27 @@ try {
   await page.click('[data-r=latest]');
   assert.doesNotMatch(await result.innerText(), /留在了正文里/);
   ok('模型自带思考挤掉 <ECoT> 时说明原因和关法；推理前缀自动当作思考标签');
+
+  // 2.11.9 推理前缀前面多了一句，酒馆没解析：这句和思考块里的内容一起移进思考区，撤销后还原
+  await page.evaluate(() => {
+    const c = window.SillyTavern.getContext();
+    c.powerUserSettings.reasoning = { auto_parse: true, prefix: '<ECoT>\n', suffix: '\n</ECoT>' };
+    c.chat[2] = { is_user: false, mes: '夜客，我在柜台后面听。 <ECoT>\n[听]\n夜客点出围裙。\n</ECoT>\n<content>正文。</content>', extra: {} };
+  });
+  await page.click('[data-r=latest]');
+  assert.match(await result.innerText(), /<ECoT> 前面多了 11 个字/);
+  assert.match(await result.textContent(), /回复的第一个字就是 <ECoT>/, '下一轮提醒预览');
+  await page.click('[data-r=fix]');
+  await page.locator('[data-r=undo-fix]').waitFor();
+  const parsed = await page.evaluate(() => window.SillyTavern.getContext().chat[2]);
+  assert.equal(parsed.mes, '<content>正文。</content>');
+  assert.equal(parsed.extra.reasoning, '夜客，我在柜台后面听。\n[听]\n夜客点出围裙。');
+  await page.click('[data-r=undo-fix]');
+  await page.locator('[data-r=result] >> text=已撤销修正').waitFor();
+  const restored = await page.evaluate(() => window.SillyTavern.getContext().chat[2]);
+  assert.equal(restored.mes, '夜客，我在柜台后面听。 <ECoT>\n[听]\n夜客点出围裙。\n</ECoT>\n<content>正文。</content>');
+  assert.equal(restored.extra.reasoning, '');
+  ok('推理前缀前多了一句时指出原因，修正移进思考区，撤销还原');
   await page.fill('[data-r=sample]', '我需要先检查用户要求，再安排剧情，然后写出符合人设的对话内容。\n<content>故事。</content>');
   await page.click('[data-r=paste]');
   assert.match(await result.innerText(), /爆思维链/);
