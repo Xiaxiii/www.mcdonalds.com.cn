@@ -17,7 +17,16 @@ var ICON = {
   trash: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h16M9 7V4.5h6V7M6.5 7l1 13h9l1-13M10 11v5.5M14 11v5.5"/></svg>',
   link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>',
-  needle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4 7 17"/><path d="M17 4h3v3"/><path d="M7 17c-2 2-4 2-4 2s0-2 2-4"/></svg>'
+  needle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4 7 17"/><path d="M17 4h3v3"/><path d="M7 17c-2 2-4 2-4 2s0-2 2-4"/></svg>',
+  // 2.11.13 站点标题右边的「余额」：小猪存钱罐，硬币半插在头顶；查询时硬币一下下掉进去（.pa-pig-coin 的动画）。
+  // 颜色写在 style.css（.pa-pig-*），眼睛、鼻孔用固定深色，深色主题下也看得清
+  piggy: '<svg class="pa-pig" viewBox="0 0 24 24" aria-hidden="true"><g class="pa-pig-coin"><circle cx="12" cy="5.4" r="2.7"/><path d="M12 4.2v2.4" stroke-width="1.2"/></g>'
+    + '<path class="pa-pig-skin" d="M6.7 9.4C5.4 8.5 4.7 6.9 4.9 5.2c1.7 0 3.3.8 4.2 2"/><path class="pa-pig-skin" d="M17.3 9.4c1.3-.9 2-2.5 1.8-4.2-1.7 0-3.3.8-4.2 2"/>'
+    + '<ellipse class="pa-pig-skin" cx="12" cy="14.3" rx="8" ry="6.6"/><ellipse class="pa-pig-snout" cx="12" cy="16" rx="2.9" ry="2"/>'
+    + '<circle class="pa-pig-nose" cx="11" cy="16" r=".62"/><circle class="pa-pig-nose" cx="13" cy="16" r=".62"/>'
+    + '<circle class="pa-pig-eye" cx="8.5" cy="12.7" r="1.15"/><circle class="pa-pig-eye" cx="15.5" cy="12.7" r="1.15"/>'
+    + '<circle class="pa-pig-shine" cx="8.85" cy="12.3" r=".38"/><circle class="pa-pig-shine" cx="15.85" cy="12.3" r=".38"/>'
+    + '<circle class="pa-pig-cheek" cx="6.4" cy="15.7" r="1.15"/><circle class="pa-pig-cheek" cx="17.6" cy="15.7" r="1.15"/></svg>'
 };
 /**
  * 列表渲染。o.place 为 true 时是"选位置"：

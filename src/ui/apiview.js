@@ -794,7 +794,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     // 2.11.12 站点里有能查余额的（中转站、OpenRouter、DeepSeek）时，铅笔左边是「余额」：一键查询全部站点
     const balAll = balShown() && sites().some((x) => balSupported(x.source));
     const allBusy = !!BAL.all;
-    const balAllBtn = balAll ? `<button class="pa-head-ico pa-head-wide pa-balall${allBusy ? " pa-spin" : ""}" data-a="balall" type="button" aria-label="${allBusy ? "正在查询全部站点的余额" : "查询全部站点的余额"}" title="查询全部站点的余额"${allBusy ? " disabled" : ""}>${ICON.refresh}<span>余额</span></button>` : "";
+    const balAllBtn = balAll ? `<button class="pa-head-ico pa-head-wide pa-balall${allBusy ? " pa-pig-busy" : ""}" data-a="balall" type="button" aria-label="${allBusy ? "正在查询全部站点的余额" : "查询全部站点的余额"}" title="查询全部站点的余额"${allBusy ? " disabled" : ""}>${ICON.piggy}<span>余额</span></button>` : "";
     const headBtns = sitesEditing
       ? `${fileIn("pa-swpill", "导入")}<button class="pa-swpill" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">导出</button><button class="pa-swpill pa-done-pill" data-a="sitesdone" type="button">完成</button>`
       : `${balAllBtn}${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：删除、导入、导出" title="编辑：删除、导入、导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
