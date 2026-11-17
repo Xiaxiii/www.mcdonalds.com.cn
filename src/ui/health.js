@@ -153,7 +153,7 @@ function mountHealth(sec, { goClean } = {}) {
       <div class="pa-rank">${r.extData.filter((p) => p.size >= 1024).slice(0, 8).map((p) => `<div><span>${esc(p.key)}</span>${bar(p.size, maxE)}<em>${fmtSize(p.size)}</em></div>`).join("") || '<p class="pa-hint">均小于 1 KB。</p>'}</div>
       <h3 class="pa-h">这次测量覆盖不到的</h3>
       <ul class="pa-gaps">${r.gaps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
-      <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。检查和导出报告都只在本浏览器中进行，不上传任何数据。如仅在长时间未使用后首次打开较慢，可能是云服务器休眠后重新启动；这次测量无法区分。</p>
+      <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。如仅在长时间未使用后首次打开较慢，可能是云服务器休眠后重新启动；这次测量无法区分。</p>
       </details>`;
   }
   function showDetail() {

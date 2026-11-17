@@ -15,7 +15,7 @@ async function repairAllVariables(d, manual = {}) {
     try { plans.push(variableRepairPlan(work, key, manual)); }
     catch (e) { skipped.push({ key, reason: e.message }); }
   }
-  if (!keys.length && !normalized.length) return toast("未发现可自动补读的变量；这不代表所有变量都正常");
+  if (!keys.length && !normalized.length) return toast("未发现可自动补读的变量");
   const byAnchor = new Map();
   for (const plan of plans) {
     if (!byAnchor.has(plan.last)) byAnchor.set(plan.last, []);
@@ -28,7 +28,7 @@ async function repairAllVariables(d, manual = {}) {
     ${normalized.length ? `<h3 class="pa-h">整理外层包裹（${normalized.length}）</h3><ul class="pa-notes">${normalized.map((x) => `<li>「${nm(x.id)}」去掉没人读取的外层 {{setvar::${esc(x.outer.name)}}}，保留里面的写入</li>`).join("")}</ul>` : ""}
     ${byAnchor.size ? `<h3 class="pa-h">新增读取条目（${byAnchor.size}）</h3><ul class="pa-notes">${[...byAnchor].map(([last, list]) => `<li>在「${nm(last)}」之后新增「变量读取 · ${esc(list.map((p) => p.name).join("、"))}」，正文：${esc(list.map((p) => p.macro).join(" "))}</li>`).join("")}</ul>` : ""}
     ${skipped.length ? `<h3 class="pa-h">不自动修改，需人工核对（${skipped.length}）</h3>${skipped.map((x) => `<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join("")}` : ""}
-    <p class="pa-hint">仅补缺失的读取、整理可确认的多余包裹。计数、思维链片段、脚本/条件和执行顺序需人工核对。修改后可在底栏撤销。</p></div>`);
+    <p class="pa-hint">仅补缺失的读取、整理可确认的多余包裹。计数、思维链片段、脚本/条件和执行顺序需人工核对。修改后可在页头撤销。</p></div>`);
   const ok = await sheet({ title: "修复变量问题", body, wide: true, noFocus: true, actions: can ? [{ label: "取消", value: false }, { label: "修改", kind: "primary", value: true }] : [{ label: "知道了", kind: "primary", value: false }] });
   if (!ok) return;
   if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开修复方案", "warning");
@@ -154,7 +154,7 @@ function mountCot(page, app) {
         deadHtml += `<details class="pa-card pa-card-warn pa-dead"><summary><span class="pa-dead-main"><b class="pa-dead-name">${i.ids.map((id) => nm(id)).join("、")}</b><small class="pa-dead-var">变量「${vn}」</small></span><span class="pa-chip pa-chip-warn">${tag}</span></summary>
                     <p class="pa-hint">${why}</p>${other.length ? `<p class="pa-hint">${other.join("；")}，与本条不矛盾：本条指变量「${vn}」。</p>` : ""}
                     <div class="pa-card-act">${similar.length ? similar.map((k) => `<button class="pa-btn pa-btn-soft pa-btn-s" data-rename="${esc(i.varName)}" data-to="${esc((i.varName.startsWith("全局:") ? "全局:" : "") + k)}">改成「${esc(k)}」</button>`).join("") : ""}${offIds.length ? `<button class="pa-btn pa-btn-soft pa-btn-s" data-fix="${esc(offIds.join("|"))}">开启读取它的条目</button>` : ""}
-                    ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在整理页查看</button></div></details>`;
+                    ${forCot ? `<button class="pa-btn pa-btn-s" data-cotread="${esc(i.varName)}">加入思维链读取</button>` : `<button class="pa-btn pa-btn-s" data-repair="${esc(i.varName)}">查看修复方案</button>`}<button class="pa-link" data-goto="${esc(i.ids.join("|"))}">在预设页查看</button></div></details>`;
       }
     }
     // 2.5.0 标题和各项分开：标题一行不加框，每一项各自一个框
@@ -173,7 +173,7 @@ function mountCot(page, app) {
         </div>
         ${a.openers.length > 1 ? `<div class="pa-card pa-card-warn"><b>同时开着 ${a.openers.length} 套思维链开头</b>
             <p class="pa-hint">${a.openers.map((id) => `「${nm(id)}」`).join("")}均以思考标签开头，模型会连写多套思考，篇幅变长、易爆思维链。通常只开一套，以条目名称或作者说明为准。</p>
-            <div class="pa-card-act"><button class="pa-link" data-goto="${esc(a.openers.join("|"))}">在整理页查看</button></div></div>` : ""}`;
+            <div class="pa-card-act"><button class="pa-link" data-goto="${esc(a.openers.join("|"))}">在预设页查看</button></div></div>` : ""}`;
     html += `<div class="pa-row-head"><h3 class="pa-h">思维链读取的变量</h3><button class="pa-link" data-markpick="1">手动指定思维链</button></div>`;
     html += '<div class="pa-cards">';
     for (const c2 of a.cot) {
@@ -286,7 +286,7 @@ async function cotReadDialog(d, key, manual = {}) {
   let plan = cotReadPlan(d, key, null, null, manual);
   const name = (id) => esc(d.prompt(id)?.name || id);
   const body = el(`<div class="pa-form">
-    <p class="pa-p">在思维链中加入一行 <code>${esc(plan.macro)}</code>，模型思考时即可读到这段步骤。可在底栏撤销。</p>
+    <p class="pa-p">在思维链中加入一行 <code>${esc(plan.macro)}</code>，模型思考时即可读到这段步骤。可在页头撤销。</p>
     <label class="pa-field"><span>加到哪条思维链</span><select class="pa-input" data-k="cot">${plan.choices.map((id) => `<option value="${esc(id)}">${name(id)}</option>`).join("")}</select></label>
     <label class="pa-field"><span>放在哪一行之后</span><select class="pa-input" data-k="line"></select></label>
     <p class="pa-hint">默认位置：最后一个片段读取之后；没有则放在结束标签或最后一个分步标题之前。</p>

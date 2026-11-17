@@ -2,7 +2,7 @@
 function variableForm(d) {
   let snapshot = null;
   const body = el(`<div class="pa-form">
-    <div class="pa-toolbar pa-rcheck"><button class="pa-btn" data-vf="refresh">刷新顺序检查</button><button class="pa-btn" data-vf="snapshot">读取当前变量状态</button>${tip(`按「${esc(d.name)}」的预设列表顺序检查先读后写、清空后读取和未读即覆盖。这里只做风险检查，不移动条目、不执行宏。酒馆可能重排提示词；脚本、条件、深度插入、对象/数组键和其他扩展变量需另行核对。`)}</div>
+    <div class="pa-toolbar pa-rcheck"><button class="pa-btn" data-vf="refresh">刷新顺序检查</button><button class="pa-btn" data-vf="snapshot">读取当前变量状态</button>${tip(`按「${esc(d.name)}」的预设列表顺序检查先读后写、清空后读取和未读即覆盖。酒馆可能重排提示词；脚本、条件、深度插入、对象/数组键和其他扩展变量需另行核对。`)}</div>
     <div class="pa-rcheck"><label class="pa-field-row"><input type="checkbox" data-vf="watch" ${settings().variableWatch ? "checked" : ""}>记录生成前后变量变化</label>${tip("状态只包含变量名、是否为空及类型，不保存正文。生成前后对比仅保留在本页内存中，默认关闭；不是每一次宏调用的执行追踪。")}</div>
     <div data-vf="result" aria-live="polite"></div></div>`);
   const result = body.querySelector('[data-vf="result"]');

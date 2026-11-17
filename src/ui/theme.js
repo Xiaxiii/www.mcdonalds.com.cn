@@ -2,10 +2,9 @@
 // 1.3.9：「花田」「晴野」为油画感渐变背景，替换原来的豆沙粉、雾霾蓝（沿用原 id，已选的设置不受影响）。
 // 2.3.8：「芽体」「菌落」为清透油画底 + 毛玻璃面板（glass）；去掉「春芽」。
 // 自定义背景图存在本浏览器的 IndexedDB，不写进酒馆设置文件，不影响酒馆加载速度。
-// 2.7.1 「素」「墨」为改版后的默认配色：暖灰白底、近黑强调色；墨为其深色版
+// 2.7.1 「素」为改版后的默认配色：暖灰白底、近黑强调色。2.9.14 去掉「墨」，深色只留夜雾
 var THEMES = [
   { id: "su", name: "素", sub: "暖灰白底，默认", dots: ["#FFFFFF", "#EEEDE8", "#1B1A18"] },
-  { id: "mo", name: "墨", sub: "素的深色版", dots: ["#121211", "#272623", "#EDEBE6"] },
   { id: "follow", name: "跟随酒馆主题", sub: "使用酒馆的配色" },
   { id: "bean", fg: "#45343f", name: "花田", sub: "粉紫油画渐变", dots: ["#f6e6e6", "#b0607e", "#45343f"], paint: true },
   { id: "mist", fg: "#2f3a46", name: "晴野", sub: "蓝黄油画渐变", dots: ["#f6f2dc", "#4f74a3", "#2f3a46"], paint: true },
@@ -149,7 +148,7 @@ function guardRules() {
 }
 var bgUrl = null;
 // 2.5.8 「跟随系统」是配色标题右边的开关（followSystem），不再是一张配色卡：
-// 开着时，系统为深色：「素」换成「墨」，其他配色换成夜雾。系统切换时由 watchTheme 里的 prefers-color-scheme 监听重新上色。
+// 开着时，系统为深色时用夜雾。系统切换时由 watchTheme 里的 prefers-color-scheme 监听重新上色。
 // 2.3.7～2.5.7 存的是 theme: "system"，浅色配色记在 themeLight，这里换成新写法。
 function themePrefs() {
   const s = settings();
@@ -165,6 +164,11 @@ function themePrefs() {
     s.ui271 = true;
     if (typeof saveSettings === "function") saveSettings();
   }
+  // 2.9.14 去掉「墨」，选过的换成夜雾
+  if (s.theme === "mo") {
+    s.theme = "night";
+    if (typeof saveSettings === "function") saveSettings();
+  }
   // 1.4.0 去掉了薰衣草、海盐，2.3.8 去掉了春芽，选过的回到默认
   return { theme: valid(s.theme) ? s.theme : "su", followSystem: s.followSystem === true };
 }
@@ -174,7 +178,7 @@ function systemDark() {
 function effectiveTheme() {
   const { theme, followSystem } = themePrefs();
   if (!(followSystem && systemDark())) return theme;
-  return theme === "su" || theme === "mo" ? "mo" : "night";
+  return "night";
 }
 function applyTheme(root) {
   if (!root) return;
@@ -331,7 +335,7 @@ function themeCards() {
   const { theme: cur, followSystem } = themePrefs();
   const head = `<div class="pa-hrow"><h3 class="pa-h">配色</h3>
       <label class="pa-hswitch"><span>跟随系统</span><span class="pa-switch"><input type="checkbox" data-follow-system ${followSystem ? "checked" : ""}><i></i></span></label></div>
-    ${followSystem ? '<small class="pa-dim pa-look-note">深色时「素」换成「墨」，其他配色换成夜雾</small>' : ""}`;
+    ${followSystem ? '<small class="pa-dim pa-look-note">系统为深色时用夜雾</small>' : ""}`;
   return `${head}<div class="pa-themes">${THEMES.map((t) => {
     const dots = t.dots || ["var(--SmartThemeBlurTintColor, #333)", "var(--SmartThemeQuoteColor, #e0a24a)", "var(--SmartThemeBodyColor, #ddd)"];
     const style = t.dots && !t.paint ? `background:${t.dots[0]};color:${t.dots[2]};border-color:${t.dots[1]}55` : t.paint ? `color:${t.fg || t.dots[2]};border-color:${t.dots[1]}55` : "";

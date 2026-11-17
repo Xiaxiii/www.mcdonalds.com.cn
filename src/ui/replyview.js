@@ -41,7 +41,7 @@ function replyForm(name, { onSaved } = {}) {
     <div class="pa-rtags">
     <label class="pa-field"><span>正文标签${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="content" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
     <label class="pa-field pa-rtag-req"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，填卡里的原标签名，几张卡的可一起填" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small><small class="pa-hint" data-r="unused" hidden></small></label>
-    <label class="pa-field"><span>思考标签${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" placeholder="可选，已识别 think" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
+    <label class="pa-field"><span>自定义思考标签${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" placeholder="已识别 think、thinking" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
     </div>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
     ${guess?.suggest.length ? whyNote("required", `显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入这里。`) : ""}
@@ -58,14 +58,14 @@ function replyForm(name, { onSaved } = {}) {
     </div>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <details class="pa-card pa-rai"><summary>AI 语义审查</summary>
-      <p class="pa-hint">通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用；结果可能误判，仅供核对，不改动正文。</p>
+      <p class="pa-hint">通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用，不改动正文。</p>
       ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>'}
       <div class="pa-toolbar"><button class="pa-btn" data-r="ai-latest" ${semanticAvailable ? "" : "disabled"}>审查最近回复</button><button class="pa-btn" data-r="ai-paste" ${semanticAvailable ? "" : "disabled"}>审查粘贴文字</button><button class="pa-btn" data-r="ai-cancel" hidden>取消审查</button><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
       <div data-r="semantic-result" aria-live="polite"></div>
     </details>
     <details class="pa-card pa-rscope"><summary>检测范围</summary><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、思考标签前多了文字没被酒馆解析、疑似推理标题。</li>
-      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和下面填的必需标签（思考没被解析时还点名推理前缀），不提其他标签。</li>
+      <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和上面填的必需标签（思考没被解析时还点名推理前缀），不提其他标签。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
       <li>一键修正只改名、补齐或移动标签，正文前露出的思考原样移进思考区，不增删文字。提醒不保证模型遵守。</li>
       <li>酒馆只解析开头就是推理前缀（如 &lt;think&gt;）的回复。前缀前面多一句话，整段思考就留在正文里；修正把这句话和前缀标签里的内容一起移进思考区，提醒要求回复以前缀开头。酒馆未开自动解析或思考区已有内容时不检查。</li>
@@ -270,7 +270,7 @@ function replyForm(name, { onSaved } = {}) {
   });
   const semanticResult = body.querySelector('[data-r="semantic-result"]');
   const showSemantic = (report) => {
-    semanticResult.innerHTML = `<p class="pa-p">${report.verdict === "suspected" ? "模型标记了疑似内部分析，请人工确认" : "模型未标记疑似内部分析"}（模型自报置信度 ${Math.round(report.confidence * 100)}%，不是准确率）</p>${report.findings.map((f) => `<div class="pa-card"><pre class="pa-pre">${esc(f.excerpt)}</pre><p>${esc(f.reason)}</p></div>`).join("")}<p class="pa-hint">未改写聊天；未发现问题也不保证没有语义泄露。</p>`;
+    semanticResult.innerHTML = `<p class="pa-p">${report.verdict === "suspected" ? "模型标记了疑似内部分析，请人工确认" : "模型未标记疑似内部分析"}（模型自报置信度 ${Math.round(report.confidence * 100)}%）</p>${report.findings.map((f) => `<div class="pa-card"><pre class="pa-pre">${esc(f.excerpt)}</pre><p>${esc(f.reason)}</p></div>`).join("")}<p class="pa-hint">未改写聊天。</p>`;
   };
   body.addEventListener("click", async (e) => {
     if (e.target.closest('[data-r="ai-cancel"]')) { reviewCancel?.abort(); return; }

@@ -197,6 +197,8 @@ function updateSavebar() {
   const pending = !!d?.history.length;
   bar.hidden = !d || !pending && !err && !saveJobs.has(d.name);
   bar.classList.toggle("pa-save-err", !!(err || blocked));
+  // 2.9.14 保存中显示空心圆点，手机上只剩圆点时也能和「已自动保存」区分
+  bar.classList.toggle("pa-saving", !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty));
   const dirtyText = rootEl2.querySelector(".pa-dirty-text");
   dirtyText.textContent = blocked
     ? (blocked.kind === "conflict" ? "已暂停保存：预设在别处被改过" : "已暂停保存：备份失败")
@@ -373,7 +375,7 @@ async function close({ fromBack = false } = {}) {
     const r = await sheet({
       place: "center",
       title: "有未保存的修改",
-      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有还没存上的修改。</p><p class="pa-hint">「放弃」只丢掉还没存上的部分；之前已经自动保存的修改不会撤回${backupOn() ? "，需要时可在顶栏的备份里恢复到修改前" : ""}。</p>`,
+      body: `<p class="pa-p">${dirty.map((d) => `「${esc(d.name)}」`).join("")}有还没存上的修改。</p><p class="pa-hint">「放弃」只丢掉还没存上的部分；之前已经自动保存的修改不会撤回${backupOn() ? "，需要时可在页头的备份里恢复到修改前" : ""}。</p>`,
       actions: [{ label: "暂不处理（下次打开仍在）", value: "keep" }, { label: "放弃没存上的部分", kind: "danger", value: "drop" }, { label: "全部保存", kind: "primary", value: "save" }]
     });
     if (!r) return;
@@ -484,10 +486,10 @@ function addSettingsEntry() {
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">
-        <div class="pa-set-intro">整理分组、跨预设缝合、思维链检查、方案、加载体检、预设清理。</div>
+        <div class="pa-set-intro">整理预设、跨预设缝合、检查回复与思维链、连接与余额、方案、体检、预设清理。</div>
         <div class="pa-set-btns">
           <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开<span class="pa-appname">${esc(appName())}</span></span></div>
-          <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>加载体检</span></div>
+          <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>体检</span></div>
         </div>
         <div class="pa-set-card">
           <div class="pa-set-row pa-set-namerow">${nameRowHtml()}</div>
