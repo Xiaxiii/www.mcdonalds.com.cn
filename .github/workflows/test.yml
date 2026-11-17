@@ -2,7 +2,7 @@ name: test
 on: [push, pull_request]
 jobs:
   core:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -15,7 +15,7 @@ jobs:
       - name: 核心逻辑测试
         run: node test/run-core.cjs
   browser:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
