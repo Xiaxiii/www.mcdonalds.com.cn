@@ -195,7 +195,7 @@ async function resolveSaveProblem(name) {
     const v = await sheet({
       place: "center",
       title: "自动备份失败",
-      body: `<p class="pa-p">保存「${esc(name)}」之前要先备份修改前的版本，但备份没有成功：${esc(b.message)}</p><p class="pa-hint">常见原因是浏览器存储已满，或处于无痕模式。没有备份时，顶栏的备份按钮无法恢复到修改前。</p>`,
+      body: `<p class="pa-p">保存「${esc(name)}」之前要先备份修改前的版本，但备份没有成功：${esc(b.message)}</p><p class="pa-hint">常见原因是浏览器存储已满，或处于无痕模式。没有备份时，页头的备份按钮无法恢复到修改前。</p>`,
       actions: [
         { label: "暂不保存", value: null },
         { label: "不备份直接保存", value: "skip" },

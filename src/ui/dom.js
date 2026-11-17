@@ -3,7 +3,10 @@ function toast(msg, type = "info") {
   const t = globalThis.toastr;
   if (!t?.[type]) return console.log("[麦当劳]", msg);
   // 2.8.0 点按即关闭，与酒馆其他提示一致
-  const $t = t[type](msg, "", { timeOut: type === "error" ? 6e3 : 2600, preventDuplicates: true, tapToDismiss: true, closeOnHover: false });
+  // 2.11.17 停留时间按字数算（约每秒 8 字）：至少 3 秒、报错至少 6 秒，至多 8 秒
+  const len = String(msg).replace(/<[^>]*>/g, "").length;
+  const timeOut = Math.min(8e3, Math.max(type === "error" ? 6e3 : 3e3, 1200 + len * 125));
+  const $t = t[type](msg, "", { timeOut, preventDuplicates: true, tapToDismiss: true, closeOnHover: false });
   tapToClose(t, $t);
 }
 // 2.8.8 酒馆的提示默认「悬停时暂停」：iOS 上第一下点按只算悬停，提示既不关闭、也不再倒计时。

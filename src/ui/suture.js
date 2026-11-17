@@ -1455,7 +1455,7 @@ function mountSuture(page, app) {
   async function migrate() {
     if (st.srcType !== "preset" || !st.srcPreset) return;
     const neu = target();
-    if (st.srcPreset === neu.name) return toast("来源和目标是同一个预设。请在左边选旧版，右边选新版");
+    if (st.srcPreset === neu.name) return toast("来源和目标是同一个预设：来源选旧版，目标选新版");
     const old = getDraft(st.srcPreset);
     const rec = new Map((old.preset.extensions?.presetAtelier?.stitched || []).map((r) => [r.id, r]));
     const norm = (x) => String(x || "").replace(/\s+/g, "");

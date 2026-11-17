@@ -40,5 +40,19 @@ await page.emulateMedia({ colorScheme: "light" }); await page.waitForTimeout(300
 assert.equal((await st()).applied, "bean");
 ok("开关打开时换配色：浅色用新选的，深色仍是夜雾");
 
+// 2.11.17 去掉「墨」：选过墨的换成夜雾；「素」跟随系统时深色也用夜雾
+await page.evaluate(() => { window.__mcdonalds.destroy(); });
+await page.reload(); await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { theme: "mo", ui271: true, moreTab: "look" }; window.__mcdonalds.open("more"); });
+await page.waitForTimeout(400);
+s = await st();
+assert.deepEqual([s.theme, s.applied, s.pressed], ["night", "night", "night"]);
+assert.equal(await page.locator('[data-theme-id="mo"]').count(), 0, "没有「墨」卡片");
+await page.click('[data-theme-id="su"]'); await page.waitForTimeout(150);
+await page.click(".pa-hswitch .pa-switch"); await page.waitForTimeout(150);
+await page.emulateMedia({ colorScheme: "dark" }); await page.waitForTimeout(300);
+assert.deepEqual([(await st()).theme, (await st()).applied], ["su", "night"]);
+ok("选过「墨」的换成夜雾；「素」跟随系统时深色用夜雾");
+
 assert.deepEqual(errs, []);
 await browser.close();
