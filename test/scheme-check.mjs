@@ -4,6 +4,8 @@ import { chromium } from "playwright";
 import assert from "node:assert";
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, isMobile: true, hasTouch: true });
+// 2.11.25 贴着按钮的菜单没有 ✕：看得见 ✕ 就点，看不见（菜单）就按 Esc
+const closeSheet = async () => { const x = page.locator(".pa-sheet-x").first(); if (await x.isVisible()) await x.click(); else await page.keyboard.press("Escape"); };
 const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
@@ -54,7 +56,7 @@ await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300
 st = await S();
 assert.equal(st.schemes.find((x) => x.id === "old").charKey, "lin.png");
 assert.ok((await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent))).includes("林栖"));
-await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+await closeSheet(); await page.waitForTimeout(300);
 { const g = page.locator(".pa-sgroup", { hasText: "林栖" }); if (!(await g.evaluate((x) => x.classList.contains("open")))) { await g.locator(".pa-sghead").click(); await page.waitForTimeout(150); } }
 ok("✏️ 里改归属角色");
 
@@ -66,7 +68,7 @@ assert.equal((await S()).schemes.find((x) => x.id === "old").charKey, "", "取�
 assert.ok(await page.locator(".pa-pick-item >> text=改归属角色").isVisible(), "做完回到 ✏️ 菜单");
 await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTimeout(200);
 await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300);
-await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+await closeSheet(); await page.waitForTimeout(300);
 assert.equal(await page.locator(".pa-pick-item").count(), 0, "点 ✕ 才关掉");
 await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings.mcdonalds; st.sites = [{ id: "s1", name: "tree", source: "custom", url: "https://t/v1" }]; st.schemes.find((x) => x.id === "old").siteId = "s1"; });
 await page.click("[data-s=view]"); await page.waitForTimeout(200);
@@ -133,7 +135,7 @@ await page.click(".pa-head-btn[data-s=new]"); await page.waitForTimeout(200);
 assert.equal(await page.$eval(".pa-sheet [data-f=api]", (x) => x.value), "__live", "沿用上次的选择");
 assert.equal(await page.$eval(".pa-sheet [data-f=persona]", (x) => x.value), "__none");
 assert.match(await page.locator(".pa-sheet .pa-tip-fold > summary").evaluate((x) => getComputedStyle(x, "::before").content), /▸/, "保存范围前有小三角");
-await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+await closeSheet(); await page.waitForTimeout(300);
 ok("保存方案时 API 默认不记录，可选当前连接，下次沿用");
 
 await page.evaluate(() => { window.__mock.live.custom_model = "other-model"; });
@@ -152,7 +154,7 @@ await page.click(".pa-pick-item >> text=API 和模型"); await page.waitForTimeo
 await page.selectOption(".pa-sheet [data-f=api]", "__none");
 await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
 assert.equal((await S()).schemes.find((x) => x.name === "带API").conn, null);
-await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
+await closeSheet(); await page.waitForTimeout(300);
 ok("覆盖时人设、API 默认保留；✏️ 里改人设；「API 和模型」可改回不记录");
 
 assert.deepEqual(errs, []);
