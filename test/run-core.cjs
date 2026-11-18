@@ -542,6 +542,83 @@ test("诊断报告：去掉查询参数，角色、头像、聊天文件名换�
   assert.equal(rep.timing.chatInteractive, null);
   assert.ok(rep.gaps.some((x) => x.includes("聊天可操作")));
 });
+
+// ---- 2.11.19：用变量接入（思维链只靠文字提及、预设不用变量时，也能让条目逐条进思维链）
+const plainCotPreset = () => mk([
+  ["main", "主提示", "你是一位小说作者，按设定续写。"],
+  ["hunger", "饥饿", "<writing_style>\n饥饿感贯穿全文：角色对食物、体温、触碰的渴望写进动作和感官细节。\n</writing_style>"],
+  ["cot", "爱欲与食欲cot", "<thinking>\nstep0: where are we? identify current writing_style and erotic stage (pre-contact / early contact / foreplay / active)\n- 情节推进\n- 人物反应\n</thinking>"],
+]);
+test("用变量接入：文字提及的条目默认仍算已提及，不改原有接入", () => {
+  const d = plainCotPreset();
+  assert.equal(A.analyze(d).coverage.get("hunger").level, "mention");
+  const h = A.planHook(d, { after: "hunger" }, null, { content: d.prompt("hunger").content, name: "饥饿", selfId: "hunger" });
+  assert.equal(h.status, "mention");
+});
+test("用变量接入：不读变量的思维链，在提到 writing_style 的那一行后读取，问句点名条目自己，新建初始化条目", () => {
+  const d = plainCotPreset();
+  const item = { content: d.prompt("hunger").content, name: "饥饿", selfId: "hunger" };
+  const h = A.planHook(d, { after: "hunger" }, null, item, { viaVar: true, cotId: "cot" });
+  assert.equal(h.status, "hook"); assert.equal(h.mode, "own");
+  assert.equal(h.cotId, "cot"); assert.equal(h.varName, "饥饿"); assert.equal(h.line, 2);
+  assert.equal(h.question, "「饥饿」：本段如何落实？具体体现在哪里？");
+  assert.equal(h.createInit, true); assert.deepEqual(h.warns, []);
+  d.prompt("hunger").content = A.contentWithHook(d.prompt("hunger").content, h);
+  const r = A.applyHook(d, h);
+  assert.ok(r.initCreated && r.inited);
+  assert.ok(d.prompt("hunger").content.endsWith("\n{{setvar::饥饿::「饥饿」：本段如何落实？具体体现在哪里？}}"));
+  const lines = d.prompt("cot").content.split("\n");
+  assert.ok(/writing_style/.test(lines[1])); assert.equal(lines[2], "{{getvar::饥饿}}");
+  const initId = d.order[0].identifier;
+  assert.equal(d.prompt(initId).name, "变量初始化"); assert.equal(d.prompt(initId).content, "{{setvar::饥饿::}}");
+  assert.equal(A.findInitEntry(d), initId);
+  assert.equal(A.analyze(d).coverage.get("hunger").level, "var");
+});
+test("用变量接入：第二条沿用新建的初始化条目，变量名不撞，问句照已接入邻居的写法", () => {
+  const d = plainCotPreset();
+  const go = (id, opts) => {
+    const h = A.planHook(d, { after: id }, null, { content: d.prompt(id).content, name: d.prompt(id).name, selfId: id }, { viaVar: true, cotId: "cot", ...opts });
+    d.prompt(id).content = A.contentWithHook(d.prompt(id).content, h);
+    A.applyHook(d, h);
+    return h;
+  };
+  go("hunger");
+  d.insertPrompts([{ prompt: { identifier: "light", name: "饥饿", content: "<writing_style>\n清淡：少形容词，靠对白推进，情绪留白给读者自己体会。\n</writing_style>" }, enabled: true }], { after: "hunger" }, null);
+  const lineOf = (re) => d.prompt("cot").content.split("\n").findIndex((l) => re.test(l));
+  const h2 = go("light", { line: lineOf(/情节推进/) + 1 });
+  assert.equal(h2.varName, "饥饿2");
+  assert.equal(h2.question, "「饥饿」：本段如何落实？具体体现在哪里？", "照已接入邻居的问句写法");
+  assert.equal(d.preset.prompts.filter((p) => p.name === "变量初始化").length, 1);
+  assert.equal(d.prompt(A.findInitEntry(d)).content, "{{setvar::饥饿::}}\n{{setvar::饥饿2::}}");
+  assert.equal(d.prompt("cot").content.split("\n")[lineOf(/情节推进/) + 1], "{{getvar::饥饿2}}");
+});
+test("用变量接入：指定放在列表行之后，问句跟着用「- 」", () => {
+  const d = plainCotPreset();
+  const at = d.prompt("cot").content.split("\n").findIndex((l) => /情节推进/.test(l)) + 1;
+  const h = A.planHook(d, { after: "hunger" }, null, { content: d.prompt("hunger").content, name: "饥饿", selfId: "hunger" }, { viaVar: true, cotId: "cot", line: at });
+  assert.equal(h.line, at); assert.equal(h.question, "- 「饥饿」：本段如何落实？具体体现在哪里？");
+});
+test("用变量接入：条目排在思维链后面时提醒", () => {
+  const d = plainCotPreset();
+  d.move(["hunger"], { after: "cot" }, null);
+  const h = A.planHook(d, { after: "hunger" }, null, { content: d.prompt("hunger").content, name: "饥饿", selfId: "hunger" }, { viaVar: true, cotId: "cot" });
+  assert.ok((h.warns || []).some((w) => /之后/.test(w)));
+});
+test("用变量接入：思维链已用问句变量读邻居时，沿用邻居的读取位置和已有初始化条目", () => {
+  const d = mkQ();
+  d.insertPrompts([{ prompt: { identifier: "e4", name: "风格·丁", content: "丁风格。写作时注意节奏和细节，人物的言行要符合设定，场景描写要具体可感。" }, enabled: true }], { after: "e3" }, "g1");
+  const h = A.planHook(d, { after: "e4" }, "g1", { content: d.prompt("e4").content, name: "风格·丁", selfId: "e4" }, { viaVar: true, cotId: "cot" });
+  assert.equal(h.mode, "own"); assert.equal(h.anchorVar, "问丙"); assert.equal(h.createInit, false);
+  d.prompt("e4").content = A.contentWithHook(d.prompt("e4").content, h);
+  A.applyHook(d, h);
+  assert.ok(d.prompt("cot").content.includes(`{{getvar::问丙}}\n{{getvar::${h.varName}}}`));
+  assert.ok(d.prompt("init").content.includes(`{{setvar::${h.varName}::}}`));
+});
+test("初始化条目：名字带「初始化」、只清一个变量的也认；不带名字的仍要两个以上", () => {
+  assert.equal(A.findInitEntry(mk([["a", "变量初始化", "{{setvar::x::}}"], ["b", "正文", "内容"]])), "a");
+  assert.equal(A.findInitEntry(mk([["a", "清空", "{{setvar::x::}}"], ["b", "正文", "内容"]])), null);
+  assert.equal(A.findInitEntry(mk([["a", "变量初始化", "{{setvar::x::有值}}"]])), null);
+});
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
 require("./reply-core.cjs");
 require("./reply-runtime.cjs");

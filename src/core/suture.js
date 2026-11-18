@@ -171,7 +171,9 @@ function findInitEntry(draft) {
     if (outside.trim()) continue;
     const sets = tops.map((t) => parseVarMacro(t.inner)).filter((v) => v && v.op === "set");
     const blank = sets.filter((v) => isBlankValue(v.value)).length;
-    if (blank >= 2 && blank >= sets.length * 0.8 && blank > n) {
+    // 2.11.19 名字带「初始化」、正文全是清空的，只清一个变量也算（用变量接入时新建的就是这样）
+    const named = blank >= 1 && blank === sets.length && /初始化|init/i.test(draft.prompt(o.identifier)?.name || "");
+    if ((blank >= 2 && blank >= sets.length * 0.8 || named) && blank > n) {
       best = o.identifier;
       n = blank;
     }
@@ -419,10 +421,14 @@ function lineAround(text, needle) {
   let le = text.indexOf("\n", i);
   if (le < 0) le = text.length;
   const line = text.slice(ls, le);
+  return { ls, le, line, prefix: bulletPrefix(line) };
+}
+/** 这一行的列表写法：- / * / 缩进；编号换成「- 」（不跟着编号，免得和原有步骤重号）；标题下面用「- 」 */
+function bulletPrefix(line) {
   let prefix = (/^(\s*(?:[-*•·]|\d+[.、)]|[①-⑳])?\s*)/.exec(line) || ["", ""])[1];
   if (/\d|[①-⑳]/.test(prefix)) prefix = prefix.replace(/\S.*$/, "") + "- ";
   if (!prefix.trim() && /^#/.test(line.trim())) prefix = "- ";
-  return { ls, le, line, prefix };
+  return prefix;
 }
 /** 思维链里"下一步"的写法：## Phase 11. → ## Phase 12.；1. → 2.；- → - */
 function nextStep(text) {
@@ -438,9 +444,44 @@ function nextStep(text) {
   }
   return null;
 }
+/** 2.11.19 用变量接入时 getvar 放在思维链的哪一行之后：指定的行 → 邻居变量的读取之后 → 提到这一条的那一行之后
+ *  → 最后一行单独的读取之后 → 结尾的 </thinking> 之前。返回 { line: 插在第几行之前（0 起）, prev: 上一行原文 } */
+function hookLine(draft, pick, want, { tags = [], handles = [], secs = [] } = {}) {
+  const lines = String(draft.prompt(pick.cotId)?.content || "").split("\n");
+  const out = (k) => ({ line: k, prev: k > 0 ? lines[k - 1] : "" });
+  if (Number.isInteger(want) && want >= 0 && want <= lines.length) return out(want);
+  const lastIdx = (test) => {
+    for (let i = lines.length - 1; i >= 0; i--) if (test(lines[i])) return i;
+    return -1;
+  };
+  if (pick.anchorVar) {
+    const re = new RegExp(`\\{\\{get(?:global)?var::${pick.anchorVar.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}\\}\\}`);
+    const i = lastIdx((l) => re.test(l));
+    if (i >= 0) return out(i + 1);
+  }
+  const said = lines.findIndex((l) => {
+    const t = cotPlainText(l);
+    return tags.some((k) => mentionsTag(t, k)) || handles.some((h) => t.includes(h.needle)) || secs.some((x) => mentionsTag(t, x.key) || CJK.test(x.name) && t.includes(x.name));
+  });
+  if (said >= 0) return out(said + 1);
+  const read = lastIdx((l) => /^[ \t]*\{\{get(?:global)?var::[^{}]+\}\}[ \t]*$/.test(l));
+  if (read >= 0) return out(read + 1);
+  let k = lines.length;
+  while (k > 0 && !lines[k - 1].trim()) k--;
+  if (k > 0 && /^[ \t]*<\/[^>\n]+>[ \t]*$/.test(lines[k - 1])) k--;
+  return out(k);
+}
 function mainCotOf(draft, cotIds) {
   // 正文最长、不是"开始/结束"这种短壳子的那条
   return [...cotIds].sort((x, y) => String(draft.prompt(y)?.content || "").length - String(draft.prompt(x)?.content || "").length)[0];
+}
+/** 分隔、开关这类短条目和思维链片段本身不接入；可以接入时返回 null */
+function hookSkip(item) {
+  const content = String(item.content || "");
+  const bodyText = String(detectShape(content).body || content).replace(/\{\{[^{}]*\}\}/g, "");
+  if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容过短（分隔或开关条目），无需接入" };
+  if (COT_NAME.test(item.name || "") || COT_BODY.test(content)) return { status: "cot", on: false, text: "本身是思维链片段，无需接入" };
+  return null;
 }
 /**
  * 判断一条（将要）放在 where 的条目会不会被思维链读到；读不到就给出挂法。
@@ -450,19 +491,21 @@ function mainCotOf(draft, cotIds) {
  *   text   —— 目标思维链不读变量、靠文字点名，就在思维链里提到邻居的那一行后面加一行点名
  * @param item {content, label, name, selfId?}
  * @param opts.srcCot 来源预设里，这条是否被思维链读到/提到（决定默认要不要挂）
+ * @param opts.viaVar 2.11.19 用户点「用变量接入」：不看文字提及，一定用变量接入 opts.cotId 指定的思维链（可以是不读变量的思维链）；
+ *                    opts.line 是 getvar 放在思维链第几行之后（缺省时放在提到这一条的那一行后面）
  */
 function planHook(draft, where, gid, item, options = {}) {
   return draft.withReadIndex(() => planHookIndexed(draft, where, gid, item, options));
 }
-function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true, collector = null, analysis = null } = {}) {
+function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new Set(), varName: wantVar, question: wantQ, srcCot = null, allowSlot = true, collector = null, analysis = null, viaVar = false, cotId: wantCot = null, line: wantLine = null } = {}) {
   const content = String(item.content || "");
-  const bodyText = String(detectShape(content).body || content).replace(/\{\{[^{}]*\}\}/g, "");
-  if (bodyText.trim().length < 20) return { status: "skip", on: false, text: "内容过短（分隔或开关条目），无需接入" };
-  if (COT_NAME.test(item.name || "") || COT_BODY.test(content)) return { status: "cot", on: false, text: "本身是思维链片段，无需接入" };
+  const why0 = hookSkip(item);
+  if (why0) return why0;
   const a = analysis || analyze(draft);
   const cotSet = new Set(a.cotIds);
   const cotIds = a.cotIds.filter((id) => id !== item.selfId);
   if (!cotIds.length) return { status: "nocot", on: false, text: "目标中未识别到开启的思维链。如名称特殊，可在「思维链」页手动指定后再缝合" };
+  if (wantCot && !cotIds.includes(wantCot)) return { status: "nocot", on: false, text: "所选思维链未开启" };
   const varCots = cotIds.filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.op === "get" && m.name));
   const order = draft.order.map((o) => o.identifier);
   const idx = insertionIndex(draft, where);
@@ -486,23 +529,26 @@ function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new 
   const mentions = /* @__PURE__ */ new Map();
   for (const c2 of a.cot) mentions.set(c2.id, new Set(c2.mentions));
   const tags = [...exposedTags(content)].filter((t) => !IGNORE_TAGS.has(t));
-  for (const [cid] of mentions) {
-    if (cid === item.selfId) continue;
-    const hit = tags.find((t) => mentionsTag(cotPlainText(draft.prompt(cid)?.content), t));
-    if (hit) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」已提及 <${hit}>` };
-  }
   const myHandles = entryHandles({ name: item.name, content }).filter((h) => h.cjk);
-  for (const cid of cotIds) {
-    const t = cotPlainText(draft.prompt(cid)?.content);
-    const h = myHandles.find((x) => t.includes(x.needle));
-    if (h) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」已提及 ${h.ref}` };
-  }
   const outer = enclosingTagsAt(draft, idx, cotSet, item.selfId).filter((t) => !IGNORE_TAGS.has(t.key));
   const secLabel = (w) => w.comment ? `「${w.name}」分区` : `<${w.name}>`;
-  for (let i = outer.length - 1; i >= 0; i--) {
+  // 用变量接入时，已被文字提及也照样接入（文字提及就是这时要换掉的写法）
+  if (!viaVar) {
     for (const [cid] of mentions) {
       if (cid === item.selfId) continue;
-      if (mentionsTag(cotPlainText(draft.prompt(cid)?.content), outer[i].key) || CJK.test(outer[i].name) && cotPlainText(draft.prompt(cid)?.content).includes(outer[i].name)) return { status: "mention", on: false, text: `位于 ${secLabel(outer[i])} 之内，思维链「${draft.prompt(cid)?.name}」已提及此区段，无需接入` };
+      const hit = tags.find((t) => mentionsTag(cotPlainText(draft.prompt(cid)?.content), t));
+      if (hit) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」已提及 <${hit}>` };
+    }
+    for (const cid of cotIds) {
+      const t = cotPlainText(draft.prompt(cid)?.content);
+      const h = myHandles.find((x) => t.includes(x.needle));
+      if (h) return { status: "mention", on: false, text: `思维链「${draft.prompt(cid)?.name}」已提及 ${h.ref}` };
+    }
+    for (let i = outer.length - 1; i >= 0; i--) {
+      for (const [cid] of mentions) {
+        if (cid === item.selfId) continue;
+        if (mentionsTag(cotPlainText(draft.prompt(cid)?.content), outer[i].key) || CJK.test(outer[i].name) && cotPlainText(draft.prompt(cid)?.content).includes(outer[i].name)) return { status: "mention", on: false, text: `位于 ${secLabel(outer[i])} 之内，思维链「${draft.prompt(cid)?.name}」已提及此区段，无需接入` };
+      }
     }
   }
   // ---- 找挂的位置：离得最近、已经和思维链连上的邻居
@@ -513,13 +559,13 @@ function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new 
   for (const n of near) {
     for (const m of listVarMacros(draft.prompt(n)?.content || "")) {
       if (!m.name || !(m.op === "set" || m.op === "add") || isBlankValue(m.value)) continue;
-      const cots = (a.vars.get(VAR_KEY(m))?.readers || []).filter((r) => cotSet.has(r) && varCots.includes(r));
+      const cots = (a.vars.get(VAR_KEY(m))?.readers || []).filter((r) => cotSet.has(r) && varCots.includes(r) && (!wantCot || r === wantCot));
       if (cots.length) {
         pick = { kind: "var", cotId: cots[0], anchorVar: m.name, neighbor: n, op: m.op, scope: m.scope, lead: /^\s*/.exec(m.value || "")[0] };
         break;
       }
     }
-    if (pick) break;
+    if (pick || viaVar) break;
     for (const h of entryHandles(draft.prompt(n)).filter((x) => x.cjk)) {
       const cid = cotIds.find((c2) => cotPlainText(draft.prompt(c2)?.content).includes(h.needle));
       if (cid) {
@@ -555,7 +601,7 @@ function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new 
   const offHint = wantOn ? "" : collector ? `由「${collector}」统一发送，通常无需接入，默认不勾选` : "附近条目均未接入思维链，默认不勾选。需要模型重点考虑时再勾选";
   const common = { status: "hook", on: wantOn, neighborHooked, srcCot: !!srcCot, removeRange: reuse ? [reuse.start, reuse.end] : null, offHint };
   // ---- 目标思维链靠文字点名
-  if (pick?.kind === "text" || !pick && !varCots.length) {
+  if (!viaVar && (pick?.kind === "text" || !pick && !varCots.length)) {
     const cotId = pick?.cotId || mainCotOf(draft, cotIds);
     const cot = String(draft.prompt(cotId)?.content || "");
     const cotName = draft.prompt(cotId)?.name || cotId;
@@ -580,9 +626,16 @@ function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new 
   // ---- 目标思维链读变量
   if (!pick) {
     const count = (id) => listVarMacros(draft.prompt(id)?.content || "").filter((m) => m.op === "get").length;
-    pick = { kind: "var", cotId: [...varCots].sort((x, y) => count(y) - count(x))[0], anchorVar: null, neighbor: null, scope: "local" };
+    pick = { kind: "var", cotId: wantCot || [...varCots].sort((x, y) => count(y) - count(x))[0] || mainCotOf(draft, cotIds), anchorVar: null, neighbor: null, scope: "local" };
   }
-  const question = wantQ ?? (reuse ? reuse.value.trim() : `### 根据${myRef}，本段如何落实？具体体现在哪里？`);
+  // 2.11.19 用变量接入：getvar 放在哪一行之后。思维链不读变量时，问句照这一行的列表写法写，点名这条自己（不用思维链已经提到的共用标签）
+  const at = viaVar ? hookLine(draft, pick, wantLine, { tags, handles: myHandles, secs: outer }) : null;
+  const plainCot = viaVar && !varCots.includes(pick.cotId);
+  const ownRef = plainCot ? (() => {
+    const t = cotPlainText(draft.prompt(pick.cotId)?.content);
+    return entryHandles({ name: item.name, content }).find((h) => !t.includes(h.needle))?.ref || `「${item.label || cleanLabel(item.name) || shortLabel(item.name)}」`;
+  })() : myRef;
+  const question = wantQ ?? (reuse ? reuse.value.trim() : plainCot ? `${bulletPrefix(at.prev)}${ownRef}：本段如何落实？具体体现在哪里？` : `### 根据${myRef}，本段如何落实？具体体现在哪里？`);
   const cotName = draft.prompt(pick.cotId)?.name || pick.cotId;
   const anchorKey = (pick.scope === "global" ? "全局:" : "") + pick.anchorVar;
   const anchorWriters = pick.anchorVar ? [...new Set([...(a.vars.get(anchorKey)?.writers || []), ...draft.order.map((o) => o.identifier).filter((id) => listVarMacros(draft.prompt(id)?.content || "").some((m) => m.name === pick.anchorVar && (m.op === "set" || m.op === "add") && !isBlankValue(m.value)))])] : [];
@@ -624,12 +677,20 @@ function planHookIndexed(draft, where, gid, item, { taken = /* @__PURE__ */ new 
   const warns = [];
   const late = lateWarn(pick.cotId);
   if (late) warns.push(late);
-  if (!findInitEntry(draft)) warns.push("预设里没有每轮清空变量的初始化条目，问句变量不会被清空：之后关掉这条，思维链里仍会一直出现它的问句");
+  // 用变量接入时没有初始化条目就新建一条（放在最前面），否则关掉这条以后问句还留在思维链里
+  const createInit = viaVar && !findInitEntry(draft);
+  if (!findInitEntry(draft) && !createInit) warns.push("预设里没有每轮清空变量的初始化条目，问句变量不会被清空：之后关掉这条，思维链里仍会一直出现它的问句");
+  const selfName = item.name || item.label || "此条目";
   return {
     ...common, on: common.on && !late, warns, clash, mode: "own", cotIds: cotList, scope: pick.anchorVar ? pick.scope : "local", cotId: pick.cotId, anchorVar: pick.anchorVar, varName, question: ownMim != null ? ownMim.trim() : question,
-    text: pick.anchorVar
-      ? `${why}思维链无法读取此条目。附近的「${draft.prompt(pick.neighbor)?.name}」通过变量「${pick.anchorVar}」由「${cotName}」读取，按相同方式接入${cotList.length > 1 ? `（${cotList.length} 个思维链版本同时添加）` : ""}`
-      : `${why}思维链无法读取此条目，附近条目也未接入思维链。可接入读取变量最多的「${cotName}」`
+    ...(viaVar ? { line: at.line, createInit } : {}),
+    text: viaVar
+      ? pick.anchorVar
+        ? `附近的「${draft.prompt(pick.neighbor)?.name}」通过变量「${pick.anchorVar}」由「${cotName}」读取，按相同方式接入`
+        : `「${selfName}」末尾写入问句变量，「${cotName}」在选定的行读取。关闭「${selfName}」后，这一行为空`
+      : pick.anchorVar
+        ? `${why}思维链无法读取此条目。附近的「${draft.prompt(pick.neighbor)?.name}」通过变量「${pick.anchorVar}」由「${cotName}」读取，按相同方式接入${cotList.length > 1 ? `（${cotList.length} 个思维链版本同时添加）` : ""}`
+        : `${why}思维链无法读取此条目，附近条目也未接入思维链。可接入读取变量最多的「${cotName}」`
   };
 }
 /** 条目正文：拿掉来源自带的那句问句（避免重复），按挂法在末尾加问句 */
@@ -703,9 +764,21 @@ function applyHook(draft, hook) {
     return { ok: true, cotName: cot.name + (targets.length > 1 ? ` 等 ${targets.length} 个版本` : ""), inited: false };
   }
   const g = hook.scope === "global" ? "global" : "";
-  for (const c2 of targets) c2.content = insertGetvar(c2.content, hook.anchorVar, `{{get${g}var::${hook.varName}}}`);
-  const initId = findInitEntry(draft);
+  const macro = `{{get${g}var::${hook.varName}}}`;
+  for (const c2 of targets) {
+    if (Number.isInteger(hook.line) && c2 === cot && !String(c2.content || "").includes(macro)) {
+      const lines = String(c2.content || "").split("\n");
+      lines.splice(Math.min(hook.line, lines.length), 0, macro);
+      c2.content = lines.join("\n");
+    } else c2.content = insertGetvar(c2.content, hook.anchorVar, macro);
+  }
+  let initId = findInitEntry(draft);
+  let created = false;
+  if (!initId && hook.createInit) {
+    initId = draft.insertPrompts([{ prompt: { identifier: uid(), name: "变量初始化", content: "", role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100 }, enabled: true }], { index: 0 }, null)[0];
+    created = true;
+  }
   const inited = initId ? ensureInit(draft, hook.varName, initId, hook.scope || "local") : false;
-  return { ok: true, cotName: cot.name + (targets.length > 1 ? ` 等 ${targets.length} 个版本` : ""), inited };
+  return { ok: true, cotName: cot.name + (targets.length > 1 ? ` 等 ${targets.length} 个版本` : ""), inited, initCreated: created };
 }
 
