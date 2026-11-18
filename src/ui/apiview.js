@@ -296,7 +296,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
       if (cm) {
         const c = cats().find((x) => x.id === cm.dataset.catmenu);
         if (!c) return;
-        const a = await pickBox(`分类「${c.name}」`, [{ label: "编辑模型", sub: "勾选要留下的模型", value: "edit" }, { label: "改名", value: "rename" }, { label: "删除分类", sub: "模型不受影响", value: "del" }]);
+        const a = await pickBox(`分类「${c.name}」`, [{ label: "编辑模型", sub: "勾选要留下的模型", value: "edit" }, { label: "改名", value: "rename" }, { label: "删除分类", sub: "模型不受影响", value: "del", danger: true }]);
         if (a === "edit") {
           selecting = true;
           editing = c;

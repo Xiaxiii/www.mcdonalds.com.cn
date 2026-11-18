@@ -2311,3 +2311,40 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-aip-item .pa-btn { flex: none; min-height: 36px; }
 #mcd-root .pa-aip-note { margin: 10px 2px 0; color: var(--pa-em); font-size: .88em; line-height: 1.5; }
 #mcd-root .pa-aip-again { margin-top: 6px; padding: 8px 2px; font-size: .88em; }
+/* 2.11.25 贴着按钮弹出的小菜单（新建、工具、分组 ⋯、添加渠道、来源类型等）：
+   宽度按内容（184–300px）；没有标题栏和 ✕（点外面、Esc、返回手势关），标题缩成一行小字；
+   选项紧凑、不画分隔线，删除类选项前隔一条线并用危险色；外圈圆角 12px = 选项 8px + 内边距 4px；
+   浮起用阴影（浅色三层、深色一圈细亮边），不用边框；遮罩不压暗页面；从按钮那一角放大淡入 */
+#mcd-root .pa-sheet-mask.pa-mask-pop { background: transparent !important; }
+#mcd-root .pa-sheet.pa-sheet-pop { width: max-content; min-width: 184px; max-width: min(300px, calc(100% - 16px)); border: 0; border-radius: 12px;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .07), 0 2px 6px rgba(0, 0, 0, .06), 0 14px 34px -8px rgba(0, 0, 0, .24);
+    animation: pa-pop .14s cubic-bezier(.2, .8, .2, 1); }
+#mcd-root.pa-dark .pa-sheet.pa-sheet-pop { box-shadow: 0 0 0 1px rgba(255, 255, 255, .09), 0 16px 40px -8px rgba(0, 0, 0, .62); }
+/* 深色底：菜单比页面亮一档，浮在上面看得出来 */
+#mcd-root.pa-dark:not(.pa-has-bg) .pa-sheet.pa-sheet-pop, #mcd-root.pa-dark:not(.pa-has-bg) .pa-sheet.pa-sheet-pop::before { background: color-mix(in srgb, var(--pa-tint) 93%, #fff); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-head { padding: 9px 12px 2px; border: 0; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-head b { font-size: max(11px, .76em); font-weight: 500; color: var(--pa-dim); letter-spacing: .02em; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-x { display: none; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-body { padding: 4px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list { gap: 1px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-pair { gap: 1px; border: 0; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item {
+    --pa-row-bg: transparent; min-height: 36px; padding: 7px 10px; border: 0; border-radius: 8px; background: none;
+    font-size: .94em; line-height: 1.35; color: var(--pa-text); transition: background-color .12s ease-out; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item small { margin-top: 1px; font-size: max(11px, .84em); line-height: 1.35; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item small { font-size: max(11px, .84em); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item.on { --pa-row-bg: var(--pa-sel); background: var(--pa-sel); font-weight: 600; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item:active, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item:active { --pa-row-bg: var(--pa-card-2); background: var(--pa-card-2); }
+@media (hover: hover) {
+    #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item:hover, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item:not(.on):hover { --pa-row-bg: var(--pa-card-2); background: var(--pa-card-2); }
+}
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item:focus-visible, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-danger { color: var(--pa-warn); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger:not(:first-child) { position: relative; margin-top: 9px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger:not(:first-child)::before { content: ""; position: absolute; left: 6px; right: 6px; top: -5px; height: 1px; background: var(--pa-line); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger + .pa-pick-danger { margin-top: 1px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger + .pa-pick-danger::before { content: none; }
+@media (pointer: coarse) {
+    #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item { min-height: 40px; }
+}
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-sheet.pa-sheet-pop { animation: pa-fade .12s ease-out !important; } }

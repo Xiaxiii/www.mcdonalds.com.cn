@@ -297,26 +297,29 @@ function inlineEdit(target, value, { placeholder = "" } = {}) {
     }, 40);
   });
 }
-// 贴着按钮放菜单：下面放得下就放下面，否则放上面；右边对齐按钮，不出边
+// 贴着按钮放菜单：宽度按内容（样式里限定 184–300px）；按钮在左半边时左对齐、右半边时右对齐，不出边；
+// 下面放得下就放下面，否则放上面。2.11.25 弹出动画从按钮那一角长出来
 function placePop(wrap, anchor) {
   const box = wrap.querySelector(".pa-sheet");
   const host = (rootEl || document.body).getBoundingClientRect();
   const a = anchor.getBoundingClientRect();
   const gap = 6, edge = 8;
-  const w = Math.min(320, host.width - edge * 2);
-  box.style.width = w + "px";
-  const left = Math.min(Math.max(a.right - host.left - w, edge), host.width - w - edge);
+  const w = Math.min(box.offsetWidth, host.width - edge * 2);
+  const leftSide = (a.left + a.right) / 2 - host.left < host.width / 2;
+  const left = Math.min(Math.max(leftSide ? a.left - host.left : a.right - host.left - w, edge), host.width - w - edge);
   box.style.left = left + "px";
   const below = host.bottom - a.bottom - gap - edge;
   const above = a.top - host.top - gap - edge;
   const h = box.offsetHeight;
-  if (h <= below || below >= above) {
+  const down = h <= below || below >= above;
+  if (down) {
     box.style.top = a.bottom - host.top + gap + "px";
     box.style.maxHeight = below + "px";
   } else {
     box.style.bottom = host.bottom - a.top + gap + "px";
     box.style.maxHeight = above + "px";
   }
+  box.style.transformOrigin = `${leftSide ? "left" : "right"} ${down ? "top" : "bottom"}`;
 }
 async function confirmBox(title, text, okLabel = "确定", danger = false, cancelLabel = "取消") {
   const r = await sheet({ title, place: "center", body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: cancelLabel, value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
@@ -363,10 +366,10 @@ async function pickBox(title, items, { hint = "", anchor = recentAnchor() } = {}
   let resolveFn;
   const pop = !!anchor && !hint && items.length <= 9;
   // 先填好选项再弹出，贴按钮时才量得准高度
-  // item.pair：一行放两个短按钮（如 ↑ 上移、↓ 下移），值写成 "序号.0" / "序号.1"
+  // item.pair：一行放两个短按钮（如 ↑ 上移、↓ 下移），值写成 "序号.0" / "序号.1"；item.danger：删除类，标危险色、前面隔一条线
   list.innerHTML = items.map((it, i) => it.pair
     ? `<div class="pa-pick-pair">${it.pair.map((p, j) => `<button class="pa-pick-item" data-v="${i}.${j}">${esc(p.label)}</button>`).join("")}</div>`
-    : `<button class="pa-pick-item" data-v="${i}"><span class="pa-pick-label">${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
+    : `<button class="pa-pick-item${it.danger ? " pa-pick-danger" : ""}" data-v="${i}"><span class="pa-pick-label">${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
   const p = sheet({ title, body, place: pop ? "pop" : "center", anchor, actions: pop ? [] : [{ label: "取消", value: null }], onMount: (w) => {
     list.addEventListener("click", (e) => {
       const b = e.target.closest("[data-v]");

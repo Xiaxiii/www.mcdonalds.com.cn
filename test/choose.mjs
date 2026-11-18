@@ -31,7 +31,7 @@ export async function expandAll(page) {
     await page.click("[data-page=organize] [data-tool=menu]");
     const item = page.locator(".pa-sheet-mask:not(.pa-out) .pa-pick-item").filter({ hasText: "全部展开" });
     if (await item.count()) await item.click();
-    else await page.click(".pa-sheet-mask:not(.pa-out) .pa-sheet-x");
+    else await page.keyboard.press("Escape");
   }
   await page.waitForTimeout(250);
 }

@@ -542,7 +542,7 @@ function mountOrganize(page) {
   async function groupMenu(d, gid) {
     const g = d.group(gid);
     if (d.isEmptyGroup(gid)) {
-      const v2 = await pickBox(`分组「${g?.name}」`, [{ label: "重命名", value: "rename" }, { label: "删除空分组", value: "dissolve" }]);
+      const v2 = await pickBox(`分组「${g?.name}」`, [{ label: "重命名", value: "rename" }, { label: "删除空分组", value: "dissolve", danger: true }]);
       if (v2 === "rename") {
         const name = await promptBox("分组名称", g.name);
         if (name) mutate(d, "重命名分组", (x) => x.renameGroup(gid, name));
@@ -558,7 +558,7 @@ function mountOrganize(page) {
       { pair: [{ label: "↑ 上移一位", value: "up" }, { label: "↓ 下移一位", value: "down" }] }
     ];
     if (parts > 1) items.push({ label: `合并分散的 ${parts} 段`, value: "gather" });
-    items.push({ label: "解散分组", sub: "条目保留在原位置", value: "dissolve" });
+    items.push({ label: "解散分组", sub: "条目保留在原位置", value: "dissolve", danger: true });
     const v = await pickBox(`分组「${g?.name}」`, items);
     if (!v) return;
     if (v === "rename") {
