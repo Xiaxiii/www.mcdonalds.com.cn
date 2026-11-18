@@ -1589,7 +1589,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-savebar { background: var(--pa-tint); }
 #mcd-root .pa-dirty-text::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--pa-ok); vertical-align: 1px; }
 #mcd-root .pa-savebar.pa-save-err .pa-dirty-text::before { background: var(--pa-warn); }
-#mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--pa-dim); }
+/* 2.11.22 保存中：红色呼吸灯（亮→暗→亮），保存完变回绿色实心圆点。手机上圆点所在的框只有 8px 宽，外发光会被裁掉，只变明暗 */
+#mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { background: #cf3434; background: color-mix(in srgb, #dc2626 78%, var(--pa-text)); animation: pa-breathe 1.2s ease-in-out infinite; }
+@keyframes pa-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .28; } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { animation: pa-breathe 1.6s ease-in-out infinite !important; } }
 
 /* 按钮 */
 #mcd-root .pa-btn { border: 1px solid var(--pa-line-strong, var(--pa-line)); border-radius: var(--pa-r); background: var(--pa-tint); font-weight: 500; transition: transform .1s ease-out; touch-action: manipulation; }

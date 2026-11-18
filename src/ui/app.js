@@ -199,7 +199,7 @@ function updateSavebar() {
   const pending = !!d?.history.length && !d.confirming;
   bar.hidden = !d || !pending && !err && !saveJobs.has(d.name) && !d.confirming;
   bar.classList.toggle("pa-save-err", !!(err || blocked));
-  // 2.11.17 保存中显示空心圆点，手机上只剩圆点时也能和「已自动保存」区分
+  // 2.11.22 保存中显示红色呼吸灯，手机上只剩圆点时也能和「已自动保存」的绿点区分
   bar.classList.toggle("pa-saving", !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty || d?.confirming));
   const dirtyText = rootEl2.querySelector(".pa-dirty-text");
   dirtyText.textContent = blocked
