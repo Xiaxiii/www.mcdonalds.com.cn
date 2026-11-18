@@ -11,7 +11,7 @@ function fixture() {
   const secrets = { api_key_custom: [{ id: 'k-main', active: true }, { id: 'k-hs', active: false }] };
   const mods = { secrets: { rotateSecret() {} } };
   const host = {
-    settings: () => store, liveConnection: () => ({ model: 'current-model' }), SOURCES: { custom: { secret: 'api_key_custom' } }, keyView: (site) => site, mods, getLocalKey: () => null,
+    settings: () => store, saveSettings: () => {}, liveConnection: () => ({ model: 'current-model' }), SOURCES: { custom: { secret: 'api_key_custom' } }, keyView: (site) => site, mods, getLocalKey: () => null,
     activateSecret: async (k, id) => { secrets[k].forEach((x) => { x.active = x.id === id; }); }, readSecretState: async () => secrets,
     explainApiError: (st, t) => t, errStatus: () => 0, apiErrorText: () => ''
   };
@@ -109,9 +109,9 @@ module.exports = (async () => {
     const controller=new AbortController();const pending=f.reviewReplySemantics('正文',{signal:controller.signal});await tick();
     controller.abort();await assert.rejects(pending,/已取消/);finish({});await tick();assert.equal(sent,0);
   });
-  await test('副 API 给语义审查选了站点：改发到站点的网址和模型，用站点的密钥，完成后换回', async () => {
+  await test('副 API 给语义审查选了渠道：改发到渠道的网址和模型，用渠道的密钥，完成后换回', async () => {
     const f = fixture(); let sent = null;
-    f.store.aux = { review: { siteId: 'hs', model: 'doubao-pro' } };
+    f.store.aux = { channels: [{ id: 'c1', name: '火山', site: 'hs', model: 'doubao-pro' }], use: { review: 'c1' } };
     f.context.mainApi = 'textgenerationwebui';
     f.context.ChatCompletionService.presetToGeneratePayload = async (a, b, p) => ({ ...p, chat_completion_source: 'claude', reverse_proxy: 'https://rp.example' });
     f.context.ChatCompletionService.sendRequest = async (payload) => { sent = { ...payload, active: f.secrets.api_key_custom.find((x) => x.active).id }; return async function* () { yield { text: f.json }; }; };
