@@ -619,6 +619,53 @@ test("初始化条目：名字带「初始化」、只清一个变量的也认�
   assert.equal(A.findInitEntry(mk([["a", "清空", "{{setvar::x::}}"], ["b", "正文", "内容"]])), null);
   assert.equal(A.findInitEntry(mk([["a", "变量初始化", "{{setvar::x::有值}}"]])), null);
 });
+
+// ---- 2.11.20：批量用变量接入（多选一的文风，开着的、关着的一次接好，换文风时思维链跟着换）
+const styleBatchPreset = () => {
+  const ws = (t) => `<writing_style>\n${t}\n</writing_style>`;
+  const d = mk([
+    ["main", "主提示", "你是一位小说作者，按设定续写。"],
+    ["hunger", "饥饿", ws("饥饿感贯穿全文：角色对食物、体温、触碰的渴望写进动作和感官细节。")],
+    ["light", "清淡", ws("清淡：少形容词，靠对白推进，情绪留白给读者自己体会。")],
+    ["rich", "华丽", ws("华丽：长句铺陈，意象密集，颜色和气味都写满。")],
+    ["rain", "雨天", "雨天时角色变得沉默，反复擦拭随身物品，说话前先停顿，回答只说半句。"],
+    ["cot", "爱欲与食欲cot", "<thinking>\nstep0: where are we? identify current writing_style and erotic stage (pre-contact / early contact / foreplay / active)\n- 情节推进\n- 人物反应\n</thinking>"],
+  ]);
+  d.setEnabled(["light", "rich"], false);
+  return d;
+};
+test("批量用变量接入：候选含关着的条目，不含思维链和过短的条目", () => {
+  const d = styleBatchPreset();
+  const c = A.varHookCandidates(d);
+  assert.deepEqual(c.map((x) => x.id), ["hunger", "light", "rich", "rain"]);
+  assert.deepEqual(c.map((x) => x.level), ["mention", null, null, "none"]);
+  assert.deepEqual(c.map((x) => x.active), [true, false, false, true]);
+});
+test("批量用变量接入：按预设顺序排成一段，变量名各不相同，初始化条目只建一条", () => {
+  const d = styleBatchPreset();
+  const b = A.planVarHookBatch(d, ["rich", "hunger", "light"], { cotId: "cot" });
+  assert.deepEqual(b.done.map((x) => x.id), ["hunger", "light", "rich"]);
+  assert.deepEqual(b.done.map((x) => x.plan.varName), ["饥饿", "清淡", "华丽"]);
+  assert.deepEqual(b.done.map((x) => x.plan.question), ["「饥饿」", "「清淡」", "「华丽」"].map((r) => `${r}：本段如何落实？具体体现在哪里？`));
+  assert.equal(b.line, 2); assert.deepEqual(b.skipped, []);
+  const r = A.applyVarHookBatch(d, b);
+  assert.equal(r.count, 3); assert.ok(r.initCreated);
+  assert.deepEqual(d.prompt("cot").content.split("\n").slice(2, 5), ["{{getvar::饥饿}}", "{{getvar::清淡}}", "{{getvar::华丽}}"]);
+  assert.equal(d.preset.prompts.filter((p) => p.name === "变量初始化").length, 1);
+  assert.equal(d.prompt(A.findInitEntry(d)).content, "{{setvar::饥饿::}}\n{{setvar::清淡::}}\n{{setvar::华丽::}}");
+  assert.ok(d.prompt("light").content.endsWith("\n{{setvar::清淡::「清淡」：本段如何落实？具体体现在哪里？}}"));
+  assert.equal(A.analyze(d).coverage.get("hunger").level, "var");
+  assert.deepEqual(A.varHookCandidates(d).map((x) => x.id), ["rain"], "接好的（含关着的）不再列出");
+});
+test("批量用变量接入：同名条目自动编号，可指定行", () => {
+  const d = styleBatchPreset();
+  d.prompt("light").name = "饥饿";
+  const b = A.planVarHookBatch(d, ["hunger", "light"], { cotId: "cot", line: 4 });
+  assert.deepEqual(b.done.map((x) => x.plan.varName), ["饥饿", "饥饿2"]);
+  assert.ok(b.done.every((x) => x.plan.question.startsWith("- ")));
+  A.applyVarHookBatch(d, b);
+  assert.deepEqual(d.prompt("cot").content.split("\n").slice(3, 7), ["- 人物反应", "{{getvar::饥饿}}", "{{getvar::饥饿2}}", "</thinking>"]);
+});
 console.log(`\n${n} 项通过${skipped ? `，${skipped} 项跳过` : ""}`);
 require("./reply-core.cjs");
 require("./reply-runtime.cjs");

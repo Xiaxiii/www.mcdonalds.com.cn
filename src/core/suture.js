@@ -782,3 +782,64 @@ function applyHook(draft, hook) {
   return { ok: true, cotName: cot.name + (targets.length > 1 ? ` 等 ${targets.length} 个版本` : ""), inited, initCreated: created };
 }
 
+// ---------- 2.11.20：批量用变量接入 ----------
+/** 能用变量接入的条目（开着的、关着的都算）：不是思维链和酒馆位置、内容不太短、还没被思维链用变量读到。
+ *  返回 [{ id, active, level }]，level 是开着的条目和思维链的关联（文字提及/未提及），关着的为 null */
+function varHookCandidates(draft) {
+  return draft.withReadIndex(() => {
+    const a = analyze(draft);
+    const cotSet = new Set(a.cotIds);
+    const region = cotRegion(draft);
+    const out = [];
+    for (const o of draft.order) {
+      const id = o.identifier, p = draft.prompt(id);
+      if (!p || draft.isMarker(id) || isCotEntry(draft, id, void 0, region)) continue;
+      if (hookSkip({ content: p.content, name: p.name })) continue;
+      const level = a.coverage.get(id)?.level || null;
+      if (level === "var" || level === "chain") continue;
+      const read = listVarMacros(p.content || "").some((m) => m.depth === 0 && m.name && (m.op === "set" || m.op === "add") && !isBlankValue(m.value) && (a.vars.get(VAR_KEY(m))?.readers || []).some((r) => cotSet.has(r)));
+      if (read) continue;
+      out.push({ id, active: draft.isActive(id), level: draft.isActive(id) ? level : null });
+    }
+    return out;
+  });
+}
+/** 一次规划多条：按预设顺序，变量名互不重复，读取都放在同一行之后、按预设顺序排成一段。
+ *  问句按思维链原来的样子写（不因为前面几条先接入就换写法），和逐条接入时一样。
+ *  返回 { cotId, line, done: [{id, plan}], skipped: [{id, text}] } */
+function planVarHookBatch(draft, ids, { cotId = null, line = null } = {}) {
+  return draft.withReadIndex(() => {
+    const a = analyze(draft);
+    const pos = new Map(draft.order.map((o, i) => [o.identifier, i]));
+    const list = [...new Set(ids)].filter((id) => draft.prompt(id) && pos.has(id)).sort((x, y) => pos.get(x) - pos.get(y));
+    const taken = /* @__PURE__ */ new Set();
+    const done = [], skipped = [];
+    let cot = cotId, base = Number.isInteger(line) ? line : null;
+    for (const id of list) {
+      const p = draft.prompt(id);
+      const plan = planHook(draft, { after: id }, draft.groupOf(id), { content: p.content, name: p.name, selfId: id }, { viaVar: true, cotId: cot, line: base, taken, analysis: a });
+      if (plan.status !== "hook") {
+        skipped.push({ id, text: plan.text });
+        continue;
+      }
+      if (!cot) cot = plan.cotId;
+      if (plan.mode === "own" && base == null) base = plan.line;
+      if (plan.varName) taken.add(plan.varName);
+      done.push({ id, plan });
+    }
+    return { cotId: cot, line: base, done, skipped };
+  });
+}
+/** 按 planVarHookBatch 的结果改预设：第 k 条读取放在 line + k，初始化条目只新建一次 */
+function applyVarHookBatch(draft, batch) {
+  let k = 0, n = 0, initCreated = false;
+  for (const { id, plan } of batch.done) {
+    const p = draft.prompt(id);
+    if (!p) continue;
+    const h = plan.mode === "own" && plan.cotId === batch.cotId && Number.isInteger(batch.line) ? { ...plan, line: batch.line + k++ } : plan;
+    p.content = contentWithHook(p.content, h);
+    if (applyHook(draft, h).initCreated) initCreated = true;
+    n++;
+  }
+  return { count: n, initCreated };
+}

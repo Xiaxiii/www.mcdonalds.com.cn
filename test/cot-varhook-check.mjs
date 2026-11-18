@@ -1,4 +1,4 @@
-// 检查 → 变量：文字提及的条目「用变量接入」、思维链卡片上「接入条目」、未提及条目的接入窗口里改用变量。
+// 检查 → 思维链：文字提及的条目「用变量接入」、未提及条目的接入窗口里改用变量、批量用变量接入（含关着的条目、整组勾选）。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/cot-varhook-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -14,10 +14,12 @@ const preset = {
   prompts: [
     p('main', '主提示', '你是一位小说作者，按设定续写。'),
     p('hunger', '饥饿', HUNGER),
+    p('light', '清淡', '<writing_style>\n清淡：少形容词，靠对白推进，情绪留白给读者自己体会。\n</writing_style>'),
     p('rain', '雨天', '雨天时角色变得沉默，反复擦拭随身物品，说话前先停顿，回答只说半句。'),
     p('cot', '爱欲与食欲cot', COT)
   ],
-  prompt_order: [{ character_id: 100001, order: ['main', 'hunger', 'rain', 'cot'].map((identifier) => ({ identifier, enabled: true })) }]
+  prompt_order: [{ character_id: 100001, order: ['main', 'hunger', 'light', 'rain', 'cot'].map((identifier) => ({ identifier, enabled: identifier !== 'light' })) }],
+  extensions: { baibaiToolkit: { presetPromptGroups: { version: 1, groups: [{ id: 'g1', name: '小说文风' }], prompts: { hunger: { groupId: 'g1' }, light: { groupId: 'g1' } } } } }
 };
 const stored = (page) => page.evaluate(() => window.__mock.presets[0]);
 const top = (page) => page.locator('.pa-sheet-mask:not(.pa-out) .pa-sheet').last();
@@ -57,6 +59,11 @@ try {
   await sheet.locator('[data-k=line]').selectOption('3');
   assert.equal(await sheet.locator('[data-h=q]').inputValue(), '- 「饥饿」：本段如何落实？具体体现在哪里？', '换到列表行之后，问句跟着用「- 」');
   assert.match(await sheet.locator('[data-k=preview]').innerText(), /- 情节推进\n\{\{getvar::饥饿\}\}\n- 人物反应/);
+  await sheet.locator('[data-h=v]').fill('');
+  await sheet.locator('.pa-sheet-actions .pa-btn-primary').click();
+  assert.equal(await sheet.locator('[data-k=verr]').innerText(), '填写变量名', '变量名清空时不提交');
+  await sheet.locator('[data-h=v]').fill('饥饿');
+  await sheet.locator('[data-h=v]').dispatchEvent('change');
   await sheet.locator('.pa-sheet-actions .pa-btn-primary').click();
   await page.waitForFunction(() => window.__mock.presets[0].prompts.find((x) => x.identifier === 'cot').content.includes('{{getvar::饥饿}}'));
   let s = await stored(page);
@@ -92,26 +99,44 @@ try {
   await card.scrollIntoViewIfNeeded();
   await page.screenshot({ path: 'test/shots/cot-varhook-card.png' });
   await card.locator('[data-cotpick]').click();
-  const pick = top(page);
-  await pick.locator('.pa-pick-item').first().waitFor();
-  const labels = await pick.locator('.pa-pick-label').allInnerTexts();
-  assert.deepEqual(labels, ['饥饿', '雨天'], '只列可接入的开启条目，过短的不列');
-  await pick.locator('.pa-pick-item', { hasText: '雨天' }).click();
   sheet = top(page);
-  await sheet.locator('[data-k=preview]').waitFor();
-  assert.equal(await sheet.locator('[data-k=cot]').inputValue(), 'cot', '默认就是这条思维链');
-  assert.equal(await sheet.locator('[data-k=line]').inputValue(), '4', '没提到它时放在 </thinking> 之前');
-  await sheet.locator('[data-h=v]').fill('');
-  await sheet.locator('.pa-sheet-actions .pa-btn-primary').click();
-  assert.equal(await sheet.locator('[data-k=verr]').innerText(), '填写变量名');
-  await sheet.locator('[data-h=v]').fill('雨天问');
-  await sheet.locator('[data-h=v]').dispatchEvent('change');
-  await sheet.locator('.pa-sheet-actions .pa-btn-primary').click();
-  await page.waitForFunction(() => window.__mock.presets[0].prompts.find((x) => x.identifier === 'cot').content.includes('{{getvar::雨天问}}'));
+  await sheet.locator('.pa-vb').waitFor();
+  assert.deepEqual(await sheet.locator('.pa-vb-row:not(.pa-vb-ghead) .pa-vb-name').allInnerTexts(), ['饥饿', '清淡', '雨天'], '关着的条目也列出，过短的不列');
+  assert.deepEqual(await sheet.locator('.pa-vb-ghead .pa-vb-name').allInnerTexts(), ['小说文风', '未分组']);
+  assert.match(await sheet.locator('.pa-vb-row', { hasText: '清淡' }).innerText(), /未开启/);
+  assert.equal(await sheet.locator('[data-k=cot]').inputValue(), 'cot');
+  const primary = sheet.locator('.pa-sheet-actions .pa-btn-primary');
+  assert.ok(await primary.isDisabled(), '没勾选时不能接入');
+  await sheet.locator('.pa-vb-ghead', { hasText: '小说文风' }).locator('input').check();
+  assert.equal(await primary.innerText(), '接入 2 条');
+  await sheet.locator('[data-vid=rain]').check();
+  assert.equal(await primary.innerText(), '接入 3 条');
+  assert.equal(await sheet.locator('[data-vg="0"]').isChecked(), true);
+  await sheet.locator('[data-vid=rain]').uncheck();
+  await sheet.locator('[data-vid=light]').uncheck();
+  assert.equal(await sheet.locator('[data-vg="0"]').evaluate((x) => x.indeterminate), true, '组里只勾了一部分时显示半选');
+  await sheet.locator('[data-vid=light]').check();
+  assert.equal(await sheet.locator('[data-k=line]').inputValue(), '2');
+  assert.deepEqual(await sheet.locator('[data-k=preview] mark').allInnerTexts(), ['{{getvar::饥饿}}', '{{getvar::清淡}}']);
+  assert.ok(await sheet.evaluate((x) => x.scrollWidth <= x.clientWidth + 1), '手机宽度下批量窗口不横向溢出');
+  await settled(page.locator('.pa-sheet-mask').last());
+  await page.screenshot({ path: 'test/shots/cot-varhook-batch.png' });
+  await primary.click();
+  await page.waitForFunction(() => window.__mock.presets[0].prompts.find((x) => x.identifier === 'cot').content.includes('{{getvar::清淡}}'));
   s = await stored(page);
-  assert.equal(P('cot').content, COT.replace('- 人物反应\n', '- 人物反应\n{{getvar::雨天问}}\n'));
-  assert.ok(P('rain').content.endsWith('\n{{setvar::雨天问::- 「雨天」：本段如何落实？具体体现在哪里？}}'));
-  ok('思维链卡片上「接入条目」：选条目后用变量接入这条思维链，变量名可改，空名不提交');
+  assert.deepEqual(P('cot').content.split('\n').slice(2, 4), ['{{getvar::饥饿}}', '{{getvar::清淡}}']);
+  assert.ok(P('light').content.endsWith('\n{{setvar::清淡::「清淡」：本段如何落实？具体体现在哪里？}}'));
+  assert.equal(s.prompts.filter((x) => x.name === '变量初始化').length, 1);
+  assert.equal(s.prompts.find((x) => x.name === '变量初始化').content, '{{setvar::饥饿::}}\n{{setvar::清淡::}}');
+  assert.equal(s.prompt_order[0].order.find((o) => o.identifier === 'light').enabled, false, '关着的条目仍关着');
+  ok('批量用变量接入：整组勾选（含关着的条目），读取按预设顺序排成一段，初始化条目只建一条');
+
+  await page.locator('.pa-cot [data-batchhook]').click();
+  sheet = top(page);
+  await sheet.locator('.pa-vb').waitFor();
+  assert.deepEqual(await sheet.locator('.pa-vb-row:not(.pa-vb-ghead) .pa-vb-name').allInnerTexts(), ['雨天'], '已接入的不再列出');
+  await sheet.locator('.pa-sheet-actions .pa-btn', { hasText: '取消' }).click();
+  ok('列表上方「批量用变量接入」打开同一窗口，只列还没接入的条目');
   assert.deepEqual(errors, []);
 } finally {
   await browser.close();

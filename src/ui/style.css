@@ -2252,3 +2252,11 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-acct-row .pa-input:disabled { opacity: .5; }
 #mcd-root .pa-acct .pa-keyhead { justify-content: space-between; }
 #mcd-root .pa-acct .pa-hint { margin: 0; }
+/* 2.11.20 批量用变量接入：勾选列表，组名一行可整组勾选 */
+#mcd-root .pa-vb { display: grid; border-top: 1px solid var(--pa-line); }
+#mcd-root .pa-vb-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 4px 4px 4px 20px; border-bottom: 1px solid var(--pa-line); cursor: pointer; }
+#mcd-root .pa-vb-row.pa-vb-ghead { padding-left: 4px; font-weight: 600; color: var(--pa-em); }
+#mcd-root .pa-vb-row input[type=checkbox] { width: 18px; height: 18px; margin: 0; accent-color: var(--pa-thread); }
+#mcd-root .pa-vb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcd-root .pa-vb-row > small { color: var(--pa-dim); font-weight: 400; font-size: max(11px, .85em); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#mcd-root .pa-vb-row > .pa-lv { flex: none; font-size: max(11px, .82em); }

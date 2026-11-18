@@ -170,18 +170,101 @@ async function varHookDialog(d, id, { cotId = null } = {}) {
   });
   toast(`已用变量「${plan.varName}」接入「${d.prompt(plan.cotId)?.name}」${r?.initCreated ? "，并在最前面新增「变量初始化」" : ""}`, "success");
 }
-// 思维链卡片上的「接入条目」：列出还没被变量读到的开启条目
-async function pickHookEntry(d, cotId) {
+// 2.11.20 批量用变量接入：勾选多条（开着的、关着的都行），各写入一个问句变量，思维链在选定的行按预设顺序依次读取
+async function batchVarHookDialog(d, cotId = null) {
   const a = analyze(d);
-  const items = [];
-  for (const [id, c2] of a.coverage) {
-    if (c2.level !== "none" && c2.level !== "mention") continue;
-    const p = d.prompt(id);
-    if (!p || hookSkip({ content: p.content, name: p.name })) continue;
-    items.push({ label: p.name || id, sub: LEVEL[c2.level][1], value: id });
+  if (!a.cotIds.length) return toast("未识别到开启的思维链，可在「手动指定思维链」中指定", "warning");
+  const cands = varHookCandidates(d);
+  if (!cands.length) {
+    await sheet({ place: "center", title: "批量用变量接入", body: `<p class="pa-p">没有可接入的条目：其余条目已被思维链用变量读到，或是思维链、分隔等短条目。</p>`, actions: [{ label: "确定", value: true }] });
+    return;
   }
-  const id = await pickBox("接入条目", items, { hint: `选择要用变量接入「${d.prompt(cotId)?.name || cotId}」的条目` });
-  if (id) await varHookDialog(d, id, { cotId });
+  const version = JSON.stringify(d.toPreset());
+  // 默认思维链：卡片上点的那条；从列表上方进来时，取文字提及最多的那条
+  const mentionCot = (() => {
+    const n = new Map();
+    for (const c2 of a.coverage.values()) if (c2.level === "mention" && c2.cot) n.set(c2.cot, (n.get(c2.cot) || 0) + 1);
+    return [...n].sort((x, y) => y[1] - x[1])[0]?.[0];
+  })();
+  const st = { cot: cotId && a.cotIds.includes(cotId) ? cotId : mentionCot || mainCotOf(d, a.cotIds), line: null, sel: new Set() };
+  const nm = (x) => esc(d.prompt(x)?.name || x);
+  // 按分组列出，组名一行可整组勾选
+  const groups = [];
+  const byKey = new Map();
+  for (const c of cands) {
+    const gid = d.groupOf(c.id) || "";
+    if (!byKey.has(gid)) {
+      byKey.set(gid, { gid, name: gid ? d.group(gid)?.name || "未命名分组" : "未分组", ids: [] });
+      groups.push(byKey.get(gid));
+    }
+    byKey.get(gid).ids.push(c.id);
+  }
+  const candOf = new Map(cands.map((c) => [c.id, c]));
+  const status = (c) => !c.active ? `<span class="pa-lv pa-lv-none">未开启</span>` : `<span class="pa-lv ${LEVEL[c.level]?.[0] || "pa-lv-none"}">${LEVEL[c.level]?.[1] || ""}</span>`;
+  const body = el(`<div class="pa-form pa-varbatch">
+    <p class="pa-p">勾选的条目各写入一个问句变量，思维链在选定的行按预设顺序依次读取。关着的条目，思维链里那一行为空，换着开也不用再改思维链。</p>
+    <label class="pa-field"><span>思维链</span><select class="pa-input" data-k="cot">${a.cotIds.map((x) => `<option value="${esc(x)}">${nm(x)}</option>`).join("")}</select></label>
+    <label class="pa-field"><span>放在哪一行之后</span><select class="pa-input" data-k="line"></select></label>
+    <div class="pa-vb" role="group" aria-label="要接入的条目">${groups.map((g, gi) => `<div class="pa-vb-g">
+      <label class="pa-vb-row pa-vb-ghead"><input type="checkbox" data-vg="${gi}" aria-label="整组勾选：${esc(g.name)}"><span class="pa-vb-name">${esc(g.name)}</span><small>${g.ids.length} 条</small></label>
+      ${g.ids.map((id) => `<label class="pa-vb-row"><input type="checkbox" data-vid="${esc(id)}"><span class="pa-vb-name">${nm(id)}</span>${status(candOf.get(id))}</label>`).join("")}</div>`).join("")}</div>
+    <div data-k="warns"></div>
+    <p class="pa-hint" data-k="how"></p>
+    <details class="pa-card" open><summary>加入后的思维链</summary><pre class="pa-pre" data-k="preview" translate="no"></pre></details></div>`);
+  const $ = (sel) => body.querySelector(sel);
+  const cotSel = $("[data-k=cot]"), lineSel = $("[data-k=line]");
+  cotSel.value = st.cot;
+  const fillLines = () => { lineSel.innerHTML = cotLineOptions(d.prompt(st.cot)?.content); };
+  let batch = null;
+  const paint = () => {
+    batch = planVarHookBatch(d, [...st.sel], { cotId: st.cot, line: st.line });
+    const own = batch.done.filter((x) => x.plan.mode === "own" && x.plan.cotId === st.cot);
+    const at = Number.isInteger(batch.line) ? batch.line : hookLine(d, { cotId: st.cot }, st.line).line;
+    lineSel.value = String(at);
+    groups.forEach((g, gi) => {
+      const box = body.querySelector(`[data-vg="${gi}"]`);
+      const n = g.ids.filter((id) => st.sel.has(id)).length;
+      box.checked = n === g.ids.length;
+      box.indeterminate = n > 0 && n < g.ids.length;
+    });
+    // 同一句提醒（如排在思维链之后）合成一条，前面列出是哪几条
+    const warns = new Map();
+    for (const x of batch.done) for (const w of x.plan.warns || []) warns.set(w, [...(warns.get(w) || []), x.id]);
+    for (const x of batch.skipped) warns.set(x.text, [...(warns.get(x.text) || []), x.id]);
+    $("[data-k=warns]").innerHTML = [...warns].map(([w, ids]) => `<p class="pa-warn">${ids.map((id) => `「${nm(id)}」`).join("")}：${esc(w)}</p>`).join("");
+    const lines = String(d.prompt(st.cot)?.content || "").split("\n");
+    const pos = Math.min(at, lines.length);
+    const macros = own.map((x) => `{{get${x.plan.scope === "global" ? "global" : ""}var::${x.plan.varName}}}`);
+    $("[data-k=preview]").innerHTML = [...lines.slice(0, pos).map(esc), ...macros.map((m) => `<mark>${esc(m)}</mark>`), ...lines.slice(pos).map(esc)].join("\n");
+    const others = batch.done.filter((x) => !own.includes(x));
+    const initId = findInitEntry(d);
+    const init = !own.length ? "" : own.some((x) => x.plan.createInit) ? "在最前面新增「变量初始化」，每轮清空这些变量；" : initId ? `「${nm(initId)}」中添加清空；` : "";
+    $("[data-k=how]").innerHTML = !batch.done.length ? "勾选要接入的条目。" : `${own.length ? `${own.length} 条末尾各添加 <code translate="no">{{setvar::变量::问句}}</code>；${init}「${nm(st.cot)}」${at ? `第 ${at} 行之后` : "最前面"}添加 ${own.length} 行读取。` : ""}${others.map((x) => `「${nm(x.id)}」沿用变量「${esc(x.plan.varName)}」，思维链已读取。`).join("")}可在页头撤销。`;
+    const ok = body.closest(".pa-sheet")?.querySelector(".pa-btn-primary");
+    if (ok) {
+      ok.disabled = !batch.done.length;
+      ok.textContent = batch.done.length ? `接入 ${batch.done.length} 条` : "接入";
+    }
+  };
+  fillLines();
+  body.addEventListener("change", (e) => {
+    const t = e.target;
+    if (t === cotSel) { st.cot = cotSel.value; st.line = null; fillLines(); }
+    else if (t === lineSel) st.line = Number(lineSel.value);
+    else if (t.dataset.vid) t.checked ? st.sel.add(t.dataset.vid) : st.sel.delete(t.dataset.vid);
+    else if (t.dataset.vg) {
+      const g = groups[Number(t.dataset.vg)];
+      for (const id of g.ids) t.checked ? st.sel.add(id) : st.sel.delete(id);
+      for (const id of g.ids) { const b = body.querySelector(`[data-vid="${CSS.escape(id)}"]`); if (b) b.checked = t.checked; }
+    } else return;
+    paint();
+  });
+  const ok = await sheet({ title: "批量用变量接入", body, wide: true, noFocus: true, guardDirty: true, onMount: paint, actions: [{ label: "取消", value: false }, { label: "接入", kind: "primary", value: true, validate: () => !!batch?.done.length }] });
+  if (!ok) return;
+  if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开", "warning");
+  let r = null;
+  mutate(d, `批量用变量接入思维链（${batch.done.length} 条）`, (x) => { r = applyVarHookBatch(x, batch); });
+  toast(`已用变量接入 ${r?.count ?? 0} 条到「${d.prompt(batch.cotId)?.name}」${r?.initCreated ? "，并在最前面新增「变量初始化」" : ""}`, "success");
 }
 function mountCot(page, app) {
   const st = { filter: "none" };
@@ -232,7 +315,7 @@ function mountCot(page, app) {
                 <li><span class="pa-lv pa-lv-term">修复范围</span><span>识别 setvar、getvar、addvar、incvar、decvar、hasvar 及全局写法。自动修复只补缺失的读取、整理缝合留下的多余包裹；计数、条件、脚本、读写顺序及 MVU、酒馆助手等变量系统需人工核对。</span></li>
                 <li><span class="pa-lv pa-lv-term">加入思维链读取</span><span>用于思维链片段（变量名多以 cot 结尾）。在对应卡片上操作，可选思维链和插入行。</span></li>
                 <li><span class="pa-lv pa-lv-term">接入思维链</span><span>位于页面底部「未提及」列表各条右侧。按本预设原有写法加入读取或提及，可撤销。</span></li>
-                <li><span class="pa-lv pa-lv-term">用变量接入</span><span>位于「文字提及」各条右侧，或在思维链卡片上点「接入条目」。条目末尾写入问句变量，思维链在选定的行读取，每轮清空；关掉条目后这一行为空。思维链不读变量也可以用。</span></li>
+                <li><span class="pa-lv pa-lv-term">用变量接入</span><span>位于「文字提及」各条右侧。条目末尾写入问句变量，思维链在选定的行读取，每轮清空；关掉条目后这一行为空。思维链不读变量也可以用。多条一起接入：点列表上方「批量用变量接入」或思维链卡片上的「接入条目」，关着的条目也能勾选。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链未被识别时手动指定；误判的，在该条下点「不是思维链」。</span></li>
             </ul></div>`;
     let deadHtml = "";
@@ -291,7 +374,7 @@ function mountCot(page, app) {
                 <div class="pa-card-act"><button class="pa-btn pa-btn-soft pa-btn-s" data-cotpick="${esc(c2.id)}">接入条目</button><button class="pa-link" data-mark="${esc(c2.id)}" data-v="0">不是思维链</button></div></details>`;
     }
     html += "</div>";
-    html += `<h3 class="pa-h">开启条目与思维链的关联</h3>
+    html += `<div class="pa-row-head"><h3 class="pa-h">开启条目与思维链的关联</h3>${a.cotIds.length ? `<button class="pa-link" data-batchhook="1">批量用变量接入</button>` : ""}</div>
             <p class="pa-hint">「未提及」不等于有问题。只需为文风、人设、玩法等重点条目接入思维链；接入越多，思考越长。</p>
             <div class="pa-seg pa-seg-s" role="tablist">
                 ${[["none", `未提及 ${counts.none}`], ["mention", `文字提及 ${counts.mention}`], ["ok", `变量读到 ${counts.var + counts.chain}`], ["all", "全部"]].map(([k, l]) => `<button data-f="${k}" class="${st.filter === k ? "on" : ""}">${l}</button>`).join("")}
@@ -343,7 +426,8 @@ function mountCot(page, app) {
     const vh = e.target.closest("[data-varhook]");
     if (vh) { try { await varHookDialog(d, vh.dataset.varhook, { cotId: vh.dataset.cot }); } catch(err) { toast("用变量接入失败：" + err.message, "error"); } return; }
     const cp = e.target.closest("[data-cotpick]");
-    if (cp) { try { await pickHookEntry(d, cp.dataset.cotpick); } catch(err) { toast("用变量接入失败：" + err.message, "error"); } return; }
+    if (cp) { try { await batchVarHookDialog(d, cp.dataset.cotpick); } catch(err) { toast("用变量接入失败：" + err.message, "error"); } return; }
+    if (e.target.closest("[data-batchhook]")) { try { await batchVarHookDialog(d); } catch(err) { toast("用变量接入失败：" + err.message, "error"); } return; }
     const f = e.target.closest("[data-f]");
     if (f) {
       st.filter = f.dataset.f;
