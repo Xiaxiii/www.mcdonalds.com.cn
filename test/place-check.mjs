@@ -117,7 +117,7 @@ check(L[L.findIndex((x) => x.startsWith("[思维链:")) + 1] === "[顶部: 🎭�
 // 5) 整理页「＋ 新建分组」→ 点「正文规则」组名 → 选两条 → 移动 → 「放入此组」
 // 手机上「新建分组」在「＋」菜单里
 await page.click('[data-tool="add"]'); await page.waitForTimeout(200);
-await page.click(".pa-pick-item >> text=＋ 新建分组"); await page.waitForTimeout(250);
+await page.click(".pa-pick-item >> text=新建分组"); await page.waitForTimeout(250);
 await fillPrompt("新组B");
 await page.screenshot({ path: "test/shots/p-5-organize-newgroup.png" });
 await clickHead("正文规则", ".pa-list");
