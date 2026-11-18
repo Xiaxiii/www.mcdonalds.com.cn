@@ -192,17 +192,19 @@ function updateSavebar() {
   } catch {
   }
   // 修改即时自动保存；有未确认的修改时显示「撤销」「确认」
-  const err = saveErrors.has(d?.name);
+  // 2.11.21 上次保存失败、这次正在重试（再改一下、点了「完成」）：显示保存中，不显示上次的失败和「重试保存」
+  const err = saveErrors.has(d?.name) && !saveJobs.has(d?.name) && !d?.confirming;
   const blocked = d ? saveBlocked.get(d.name) : null;
-  const pending = !!d?.history.length;
-  bar.hidden = !d || !pending && !err && !saveJobs.has(d.name);
+  // 2.11.21 点了「完成」正在保存（confirming）：按钮先收起，只留保存状态
+  const pending = !!d?.history.length && !d.confirming;
+  bar.hidden = !d || !pending && !err && !saveJobs.has(d.name) && !d.confirming;
   bar.classList.toggle("pa-save-err", !!(err || blocked));
   // 2.11.17 保存中显示空心圆点，手机上只剩圆点时也能和「已自动保存」区分
-  bar.classList.toggle("pa-saving", !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty));
+  bar.classList.toggle("pa-saving", !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty || d?.confirming));
   const dirtyText = rootEl2.querySelector(".pa-dirty-text");
   dirtyText.textContent = blocked
     ? (blocked.kind === "conflict" ? "已暂停保存：预设在别处被改过" : "已暂停保存：备份失败")
-    : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty ? "保存中…" : "已自动保存";
+    : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty || d?.confirming ? "保存中…" : "已自动保存";
   dirtyText.title = dirtyText.textContent;
   const saveBtn = rootEl2.querySelector("[data-g=save]");
   saveBtn.hidden = !err;
@@ -961,7 +963,8 @@ async function start() {
 async function backupsSheet(name) {
   let list = [];
   try {
-    list = await backupList(name);
+    // 旧备份在保存之后才清理（2.11.21），清理前可能多出一份：只列最近的 backupMax() 份
+    list = (await backupList(name)).slice(0, backupMax());
   } catch (e) {
     return toast("读取备份失败：" + e.message, "error");
   }

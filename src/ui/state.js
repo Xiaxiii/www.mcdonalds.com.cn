@@ -109,10 +109,11 @@ function queueAutoSave(name) {
     if (d?.dirty) checkpoint(d);
     return;
   }
+  // 2.11.21 350 → 150 毫秒：连着点几下仍合成一次保存；保存期间的新改动由 saveDraft 写完后接着再存一次
   autoTimers.set(name, setTimeout(() => {
     autoTimers.delete(name);
     jankTime("自动保存预设", () => saveDraft(name, "自动保存").catch((e) => handleSaveError(name, e)));
-  }, 350));
+  }, 150));
 }
 function handleSaveError(name, e) {
   saveErrors.set(name, e.message);
@@ -235,9 +236,11 @@ function notifyDraft(name, kind = "status") {
   jankTime("改动后刷新页面", () => { for (const fn of listeners) { try { fn(name, kind); } catch (e) { console.error(e); } } });
 }
 // 本地草稿不再每改一下就整份写进 localStorage（大预设每次要整份序列化，手机上明显卡）。
-// 350 毫秒后自动保存成功就不需要草稿；保存失败、被挡住、切到后台或关页面时才写草稿。
+// 改动后 150 毫秒自动保存，保存成功就不需要草稿；保存失败、被挡住、切到后台或关页面时才写草稿。
 function emitChange(name) {
   const d = drafts.get(name);
+  // 不经 snapshot 直接改了草稿再通知的，也算一次改动
+  if (d) d.rev = (d.rev || 0) + 1;
   if (d?.dirty) queueAutoSave(name);
   notifyDraft(name, "content");
 }
@@ -370,7 +373,9 @@ async function saveDraft(name, reason = "保存") {
       }
       d.forceOnce = false;
       d.keepEntryGrouping = !!settings().mirrorIgnore?.[name];
-      const data = d.toPreset(); const sent = JSON.stringify(data);
+      // 2.11.21 记下改动计数，不再整份序列化：写完时计数没变，就是这次写的已是最新
+      const rev = d.rev;
+      const data = d.toPreset();
       // 1.4.0：每批修改（从上次「完成」或打开之后）只在第一次保存前备份一次修改前的版本
       const first = !d.batchSaved && !d.skipBackupOnce;
       await writePreset(name, data, first ? `修改前${d.history[0]?.label ? `（之后：${d.history[0].label}）` : ""}` : reason, { backup: first });
@@ -379,7 +384,7 @@ async function saveDraft(name, reason = "保存") {
       // 每次写完都记下新的基准，下一轮核对才不会把自己刚写的当成「别处改过」
       try { d.savedSig = livePresetSig(name); } catch { d.savedSig = presetSig(data); }
       if (drafts.get(name) !== d) break;
-      if (JSON.stringify(d.toPreset()) === sent) {
+      if (d.rev === rev) {
         d.dirty = false;
         removeRecovery(name);
         saveErrors.delete(name);
@@ -405,11 +410,22 @@ function setFocusPreset(n) {
   notifyDraft(n, "focus");
 }
 // 「确认」：本批修改到此为止。先等保存完成，再清空撤销记录；下一次修改会重新备份
+// 2.11.21 点下就收起「撤销」「完成」、显示保存中（confirming），先让这一帧画出来再开始保存；保存失败时按钮回来
 async function confirmDraft(name) {
   const d = drafts.get(name);
   if (!d) return;
-  if (d.dirty) await saveDraft(name, "确认");
-  d.history = [];
-  d.batchSaved = false;
+  d.confirming = true;
   notifyDraft(name);
+  try {
+    if (d.dirty) {
+      // 等一帧让按钮先收起；切到后台时 requestAnimationFrame 不触发，最多等 50 毫秒
+      await new Promise((r) => { requestAnimationFrame(() => setTimeout(r, 0)); setTimeout(r, 50); });
+      await saveDraft(name, "确认");
+    }
+    d.history = [];
+    d.batchSaved = false;
+  } finally {
+    d.confirming = false;
+    notifyDraft(name);
+  }
 }
