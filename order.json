@@ -29,6 +29,7 @@
  "ui/merge.js",
  "ui/organize.js",
  "core/suture.js",
+ "core/unhook.js",
  "core/sutureplace.js",
  "core/profile.js",
  "core/presetscan.js",
