@@ -82,6 +82,59 @@ test("全局变量：跟着用 setglobalvar / getglobalvar", () => {
   assert.equal(h.scope, "global");
   assert.ok(A.contentWithHook("x", h).includes("{{setglobalvar::"));
 });
+// 2.11.29 取消接入思维链
+const hookIn = (d, id) => {
+  const p = d.prompt(id);
+  const h = A.planHook(d, { after: id }, d.groupOf(id), { content: p.content, name: p.name, selfId: id });
+  assert.equal(h.status, "hook", h.text);
+  p.content = A.contentWithHook(p.content, h);
+  A.applyHook(d, h);
+  return h;
+};
+const texts = (d) => Object.fromEntries(d.preset.prompts.map((p) => [p.identifier, p.content]));
+test("取消接入：接入后再取消，条目、思维链、初始化条目恢复原样", () => {
+  const d = mk([["i", "初始化", "{{setvar::a问::}}"], ["a", "功能A", "功能A正文功能A正文功能A正文功能A正文\n{{setvar::a问::### A怎么做？}}"], ["n", "新功能", "新功能：角色在雨天会变得沉默，反复擦拭随身物品。"], ["c", "思维链", "<thinking>\n{{getvar::a问}}\n</thinking>"]]);
+  const before = texts(d);
+  const h = hookIn(d, "n");
+  assert.equal(A.analyze(d).coverage.get("n").level, "var");
+  assert.notDeepEqual(texts(d), before);
+  const plan = A.planUnhook(d, "n");
+  // 接入时有没有往初始化条目里加清空，看各版本的接入写法；加了就要去掉
+  const cleared = d.prompt("i").content.includes(`{{setvar::${h.varName}::}}`);
+  assert.ok(plan && !plan.others.length && plan.cotIds.includes("c") && plan.initId === (cleared ? "i" : null), JSON.stringify(plan));
+  assert.equal(A.applyUnhook(d, plan), cleared ? 3 : 2);
+  assert.deepEqual(texts(d), before);
+  assert.equal(A.analyze(d).coverage.get("n").level, "none");
+  assert.equal(A.planUnhook(d, "n"), null, "取消后不再提供");
+  assert.ok(h.varName);
+});
+test("取消接入：别的条目也写同一个变量（追加）时，只去掉这一条的写入", () => {
+  const d = mk([["i", "初始化", "{{setvar::cot片段::}}{{setvar::x::}}"], ["a", "A", "规则A正文规则A正文规则A正文规则A\n{{addvar::cot片段::\n- A？}}"], ["n", "新规则", "新规则：角色说话前会停顿一下，再说出真正想说的话。"], ["c", "思维链", "<thinking>\n{{getvar::cot片段}}\n</thinking>"]]);
+  const before = texts(d);
+  // 缝进来时按邻居的写法追加到同一个变量
+  d.prompt("n").content += "\n{{addvar::cot片段::\n- 新规则？}}";
+  const plan = A.planUnhook(d, "n");
+  assert.deepEqual(plan.others, ["a"]); assert.deepEqual(plan.cotIds, []); assert.equal(plan.initId, null);
+  A.applyUnhook(d, plan);
+  assert.deepEqual(texts(d), before);
+});
+test("取消接入：全局变量；读取行带「-」时整行去掉，和别的宏同一行时只去掉宏", () => {
+  const d = mk([["i", "初始化", "{{setglobalvar::q1::}}{{setglobalvar::q2::}}"], ["a", "功能A", "功能A正文功能A正文\n{{setglobalvar::q1::### A？}}"], ["b", "功能B", "功能B正文功能B正文\n{{setglobalvar::q2::### B？}}"], ["c", "COT", "<thinking>\n- {{getglobalvar::q1}}\n{{getglobalvar::q2}} {{getglobalvar::q1}}\n</thinking>"]]);
+  const plan = A.planUnhook(d, "b");
+  assert.equal(plan.scope, "global"); assert.equal(plan.name, "q2");
+  A.applyUnhook(d, plan);
+  const t = texts(d);
+  assert.equal(t.b, "功能B正文功能B正文");
+  assert.equal(t.c, "<thinking>\n- {{getglobalvar::q1}}\n {{getglobalvar::q1}}\n</thinking>");
+  assert.equal(t.i, "{{setglobalvar::q1::}}");
+  const p2 = A.planUnhook(d, "a");
+  A.applyUnhook(d, p2);
+  assert.equal(texts(d).c, "<thinking>\n</thinking>", texts(d).c);
+});
+test("取消接入：文字提及、未提及的条目不提供", () => {
+  const d = mk([["a", "叙事连贯", "叙事要连贯，场景切换要交代清楚，不要跳。"], ["c", "思维链", "<thinking>\n参考叙事连贯\n</thinking>"]]);
+  assert.equal(A.planUnhook(d, "a"), null);
+});
 test("来源自带问句：沿用，不重复；撞名自动换名", () => {
   const d = load("ako-stitched.json");
   const anchor = by(d, "🔔建议常驻选一·我是U嬷王").identifier, gid = d.groupOf(anchor);

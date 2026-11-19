@@ -77,6 +77,23 @@ async function hookExistingDialog(d, id) {
   });
   toast(`已接入「${d.prompt(plan.cotId)?.name}」`, "success");
 }
+// 2.11.29 取消接入：列出要去掉的几处，确认后去掉，可在页头撤销
+async function unhookDialog(d, id, manual = {}) {
+  const p = d.prompt(id);
+  const plan = p ? planUnhook(d, id, manual) : null;
+  if (!plan) return toast("这一条不是用变量接入的，没有可去掉的读取", "warning");
+  const nm = (x) => esc(d.prompt(x)?.name || x);
+  const code = (t) => `<code>${esc(t.length > 64 ? `${t.slice(0, 60)}…}}` : t)}</code>`;
+  const g = plan.scope === "global" ? "global" : "";
+  const items = [`<li>「${nm(id)}」：去掉 ${plan.writes.map(code).join("、")}</li>`];
+  if (plan.cotIds.length) items.push(`<li>${plan.cotIds.map((x) => `「${nm(x)}」`).join("")}：去掉读取 ${code(`{{get${g}var::${plan.name}}}`)}</li>`);
+  if (plan.initId) items.push(`<li>「${nm(plan.initId)}」：去掉清空 ${code(`{{set${g}var::${plan.name}::}}`)}</li>`);
+  const shared = plan.others.length ? `<p class="pa-hint">${plan.others.slice(0, 3).map((x) => `「${nm(x)}」`).join("")}${plan.others.length > 3 ? ` 等 ${plan.others.length} 条` : ""}也写入变量「${esc(plan.name)}」，思维链的读取和清空保留。</p>` : "";
+  const ok = await sheet({ place: "center", title: `取消接入「${p.name}」`, body: `<ul class="pa-notes pa-unhook">${items.join("")}</ul>${shared}<p class="pa-hint">去掉后可在页头撤销。</p>`, actions: [{ label: "保留", value: false }, { label: "取消接入", kind: "danger", value: true }] });
+  if (!ok) return;
+  mutate(d, `取消接入思维链：${p.name}`, (x) => applyUnhook(x, plan));
+  toast(`已取消接入「${p.name}」`, "success");
+}
 function mountCot(page, app) {
   const st = { filter: "none" };
   page.innerHTML = `
@@ -126,6 +143,7 @@ function mountCot(page, app) {
                 <li><span class="pa-lv pa-lv-term">修复范围</span><span>识别 setvar、getvar、addvar、incvar、decvar、hasvar 及全局写法。自动修复只补缺失的读取、整理缝合留下的多余包裹；计数、条件、脚本、读写顺序及 MVU、酒馆助手等变量系统需人工核对。</span></li>
                 <li><span class="pa-lv pa-lv-term">加入思维链读取</span><span>用于思维链片段（变量名多以 cot 结尾）。在对应卡片上操作，可选思维链和插入行。</span></li>
                 <li><span class="pa-lv pa-lv-term">接入思维链</span><span>位于页面底部「未提及」列表各条右侧。按本预设原有写法加入读取或提及，可撤销。</span></li>
+                <li><span class="pa-lv pa-lv-term">取消接入</span><span>位于「变量读到」各条右侧。去掉条目里写入问句变量的那句、思维链里读取它的那行、初始化条目里清空它的那行；其他条目也写这个变量时，只去掉这一条的写入。可撤销。</span></li>
                 <li><span class="pa-lv pa-lv-term">手动指定思维链</span><span>思维链未被识别时手动指定；误判的，在该条下点「不是思维链」。</span></li>
             </ul></div>`;
     let deadHtml = "";
@@ -208,7 +226,7 @@ function mountCot(page, app) {
       for (const [id, c2] of byGroup.get(gname)) {
         const [cls, label] = LEVEL[c2.level];
         const via = c2.level === "none" ? "" : `${esc(c2.via)} → ${nm(c2.cot)}`;
-        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">接入思维链</button>` : ""}</div>`;
+        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">接入思维链</button>` : c2.level === "var" ? `<button class="pa-link pa-unhookbtn" data-unhook="${esc(id)}">取消接入</button>` : ""}</div>`;
       }
       html += "</div>";
     }
@@ -229,6 +247,8 @@ function mountCot(page, app) {
     if (cr) { try { await cotReadDialog(d, cr.dataset.cotread, manualFor(d.name)); } catch(err) { toast(err.message, "error"); } return; }
     const rn = e.target.closest("[data-rename]");
     if (rn) { try { await renameWritesDialog(d, rn.dataset.rename, rn.dataset.to); } catch(err) { toast(err.message, "error"); } return; }
+    const uh = e.target.closest("[data-unhook]");
+    if (uh) { try { await unhookDialog(d, uh.dataset.unhook, manualFor(d.name)); } catch(err) { toast("取消接入失败：" + err.message, "error"); } return; }
     const hk = e.target.closest("[data-hook]");
     if (hk) { try { await hookExistingDialog(d, hk.dataset.hook); } catch(err) { toast("接入思维链失败：" + err.message, "error"); } return; }
     const f = e.target.closest("[data-f]");
