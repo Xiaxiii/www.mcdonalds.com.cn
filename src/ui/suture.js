@@ -97,7 +97,7 @@ function mountSuture(page, app) {
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><span class="pa-where">未选位置</span></div>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-link pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">AI 推荐</button></div></div>
         <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
         <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
@@ -706,6 +706,7 @@ function mountSuture(page, app) {
     pn.disabled = !n;
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」一栏点条目选位置" : "在「到」一栏点组名或条目选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
+    bar.querySelector("[data-st=aiplace]").hidden = !(n && st.dstType === "preset" && d);
     swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
     swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";
     if (layout() === "switch" && !(d && m) && n) bar.querySelector(".pa-where").textContent = "切到「到」，点组名或条目选位置";
@@ -713,6 +714,82 @@ function mountSuture(page, app) {
     const undo = bar.querySelector("[data-st=wbundo]");
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
     if (!undo.hidden) undo.textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;
+  }
+  // 2.11.23 AI 推荐位置：把目标预设的目录和已选条目经「连接 → 副 API」发给模型，列出 1–3 个位置，点「放这里」就选上。
+  // 同一批条目、同一目标、同一个 API 再打开时直接显示上次的结果；关掉窗口即取消请求
+  let aiPlaceLast = null;
+  async function aiPlace() {
+    if (st.dstType !== "preset" || !st.picked.size) return;
+    let d;
+    try { d = target(); } catch (e) { return toast(e.message, "warning"); }
+    const items = [...st.picked.values()];
+    const req = buildPlaceRequest(d, items);
+    const sig = hashStr(JSON.stringify([d.name, req.messages[1].content]));
+    const size = req.chars >= 1e4 ? `${(req.chars / 1e4).toFixed(1)} 万字` : `${req.chars} 字`;
+    const body = el(`<div class="pa-aip">
+        <p class="pa-hint pa-aux-use">用：<span data-x="label">${esc(auxLabel(auxTarget("suture")))}</span><button class="pa-link" data-x="aux" type="button">更改</button></p>
+        <p class="pa-hint">发送「${esc(d.name)}」的目录（${req.map.count} 条，每条只带名称和正文开头）和要缝入的 ${items.length} 条，约 ${size}。</p>
+        <div class="pa-aip-res" aria-live="polite"></div>
+      </div>`);
+    const res = body.querySelector(".pa-aip-res");
+    let controller = null, tick = 0, shown = [], win = null;
+    const close = () => win?.querySelector(".pa-sheet-x")?.click();
+    const showPlaces = (r) => {
+      shown = r.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker);
+      res.innerHTML = (shown.length ? `<ol class="pa-aip-list">${shown.map((p, i) => `<li class="pa-aip-item"><div class="pa-aip-main"><b>${esc(placeText(d, p.marker))}</b>${p.reason ? `<p>${esc(p.reason)}</p>` : ""}</div><button class="pa-btn pa-btn-s${i === 0 ? " pa-btn-primary" : ""}" type="button" data-x="use" data-i="${i}">放这里</button></li>`).join("")}</ol>` : '<p class="pa-warn">推荐的位置已经不在目标预设里了</p>')
+        + (r.note ? `<p class="pa-aip-note">${esc(r.note)}</p>` : "")
+        + '<button class="pa-link pa-aip-again" data-x="again" type="button">重新推荐</button>';
+    };
+    const run = async () => {
+      controller = new AbortController();
+      const label = auxLabel(auxTarget("suture"));
+      body.querySelector('[data-x="label"]').textContent = label;
+      const t0 = Date.now();
+      res.innerHTML = '<div class="pa-aip-wait"><span class="pa-spin" aria-hidden="true">' + ICON.refresh + '</span><span>正在推荐… <span data-x="sec">0</span> 秒</span><button class="pa-btn pa-btn-s" data-x="cancel" type="button">取消</button></div>';
+      tick = setInterval(() => { const x = res.querySelector('[data-x="sec"]'); if (x) x.textContent = String(Math.round((Date.now() - t0) / 1e3)); }, 1e3);
+      try {
+        const r = await auxRequest("suture", req.messages, { signal: controller.signal, maxTokens: 3e3, timeout: 12e4 });
+        const parsed = parsePlaceReply(r.text, req.map);
+        aiPlaceLast = { sig, label, result: parsed };
+        if (body.isConnected) showPlaces(parsed);
+      } catch (e) {
+        if (!body.isConnected) return;
+        res.innerHTML = /已取消$/.test(e.message) ? '<p class="pa-hint">已取消。</p><button class="pa-link pa-aip-again" data-x="again" type="button">重新推荐</button>'
+          : `<p class="pa-warn"${e.raw ? ` title="${esc(e.raw)}"` : ""}>${esc(e.message)}</p><button class="pa-link pa-aip-again" data-x="again" type="button">重试</button>`;
+      } finally {
+        clearInterval(tick);
+        controller = null;
+      }
+    };
+    body.addEventListener("click", (e) => {
+      const x = e.target.closest("[data-x]")?.dataset.x;
+      if (x === "cancel") return controller?.abort();
+      if (x === "again") return run();
+      if (x === "aux") { close(); return app.show?.("aux"); }
+      if (x !== "use") return;
+      const p = shown[Number(e.target.closest("[data-i]").dataset.i)];
+      let cur;
+      try { cur = target(); } catch { cur = null; }
+      const m = cur && cur.name === d.name ? fixPlace(cur, p.marker) : null;
+      if (!m) return toast("目标预设变了，这个位置已经不在了，请重新推荐", "warning");
+      st.marker = m;
+      // 组内的位置：先把那一组展开，才看得见位置标记
+      const gid = m.at === "gstart" ? m.gid : m.at === "row" ? cur.groupOf(m.id) : null;
+      if (gid && st.dstFoldKey) toggleOpen(cur, st.dstFoldKey, gid, true);
+      close();
+      if (layout() === "switch") setSide("dst");
+      renderDst();
+      scrollToView(dstList.querySelector(".pa-insert-mark"));
+      toast(`位置：${placeText(cur, m)}`, "success");
+    });
+    const cached = aiPlaceLast && aiPlaceLast.sig === sig && aiPlaceLast.label === auxLabel(auxTarget("suture")) ? aiPlaceLast.result : null;
+    await sheet({ title: "AI 推荐位置", body, actions: [], onMount: (w) => {
+      win = w;
+      if (cached) showPlaces(cached);
+      else run();
+    } });
+    controller?.abort();
+    clearInterval(tick);
   }
   // ask：来源不是预设或含正则的文件时（世界书、粘贴等），先问从哪个预设缝
   async function regexSuture({ ask = false } = {}) {
@@ -741,6 +818,7 @@ function mountSuture(page, app) {
       renderDst();
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
+    if (a === "aiplace") return aiPlace();
     if (a === "regex") return regexSuture();
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();

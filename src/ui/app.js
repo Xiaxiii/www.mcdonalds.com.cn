@@ -18,9 +18,10 @@ var NAV = [
   ["schemes", "方案", "tool"], ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
 ];
 // 各页面所属栏目；「检查」「更多」在页头下方分页
-var SECTION_OF = { organize: "preset", suture: "suture", reply: "check", cot: "check", vars: "check", conn: "conn", schemes: "more", clean: "more", health: "more", look: "more" };
-var SUBNAV = { check: [["cot", "思维链"], ["vars", "变量"], ["reply", "回复"]], more: [["schemes", "方案"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
-var PAGE_TITLE = { organize: "预设", suture: "缝合", reply: "检查", cot: "检查", vars: "检查", conn: "连接", schemes: "方案", clean: "清理", health: "体检", look: "设置" };
+var SECTION_OF = { organize: "preset", suture: "suture", reply: "check", cot: "check", vars: "check", conn: "conn", aux: "conn", schemes: "more", clean: "more", health: "more", look: "more" };
+// 2.11.23 连接分「主 API」（酒馆当前连接、站点）和「副 API」（麦当劳自己的 AI 功能用哪个 API）
+var SUBNAV = { check: [["cot", "思维链"], ["vars", "变量"], ["reply", "回复"]], conn: [["conn", "主 API"], ["aux", "副 API"]], more: [["schemes", "方案"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
+var PAGE_TITLE = { organize: "预设", suture: "缝合", reply: "检查", cot: "检查", vars: "检查", conn: "连接", aux: "连接", schemes: "方案", clean: "清理", health: "体检", look: "设置" };
 var PAGE_EL = {};
 var navSvg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`;
 var rootEl2;
@@ -107,7 +108,8 @@ function buildRoot() {
     showOrganize(ids) {
       show("organize");
       pages.organize.focusIds?.(ids);
-    }
+    },
+    show: (k) => show(k)
   };
   const pageEl = (k) => rootEl2.querySelector(`[data-page="${k}"]`);
   const plan = mountPlan(pageEl("schemes"), pageEl("conn"));
@@ -117,6 +119,7 @@ function buildRoot() {
     vars: mountVariables(pageEl("vars")),
     schemes: plan.schemes,
     conn: plan.conn,
+    aux: mountAux(pageEl("aux"), app),
     reply: mountReply(pageEl("reply"), { go: (k) => show(k) }),
     suture: mountSuture(pageEl("suture"), app),
     clean: mountCleanup(pageEl("clean")),
@@ -886,6 +889,7 @@ function bindEvents() {
   bindReplyGuard(on, et2);
   bindVariableWatch(on, et2);
   bindSemanticReview(on, et2);
+  bindAuxApi(on, et2);
   bindBalanceWatch(on, et2);
 }
 async function start() {

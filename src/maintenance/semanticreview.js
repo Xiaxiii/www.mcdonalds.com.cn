@@ -4,7 +4,10 @@ var semanticReviewSeen = new Set();
 var semanticMainGenerating = false;
 var semanticAutoPending = false;
 function semanticReviewAvailable(c = ctx()) {
-  return (!c.mainApi || c.mainApi === "openai") && typeof c.getChatCompletionModel === "function" && typeof c.ChatCompletionService?.presetToGeneratePayload === "function" && typeof c.ChatCompletionService?.sendRequest === "function";
+  const svc = typeof c.ChatCompletionService?.presetToGeneratePayload === "function" && typeof c.ChatCompletionService?.sendRequest === "function";
+  // 2.11.23 副 API 选了站点时，主 API 是什么连接都可以
+  if (svc && auxChoice("review") && !auxTarget("review").follow) return true;
+  return (!c.mainApi || c.mainApi === "openai") && typeof c.getChatCompletionModel === "function" && svc;
 }
 function semanticReplyIdentity(latest = latestReplyForCheck(ctx().chat)) {
   if (!latest) return null;
@@ -26,11 +29,13 @@ function prepareSemanticPayload(work, signal) {
 async function reviewReplySemantics(text, { signal, identity = null, rules = replyGuardConfig() } = {}) {
   const c = ctx();
   if (!semanticReviewAvailable(c)) throw new Error("语义审查需要支持独立聊天补全请求的酒馆版本，并使用聊天补全连接");
-  if (c.onlineStatus === "no_connection") throw new Error("请先连接酒馆的聊天补全模型");
+  // 2.11.23 「连接 → 副 API」给语义审查选了站点：经副 API 发出，不看主 API 的连接和模型
+  const viaAux = !auxTarget("review").follow;
+  if (!viaAux && c.onlineStatus === "no_connection") throw new Error("请先连接酒馆的聊天补全模型");
   if (semanticMainGenerating) throw new Error("酒馆正在生成，请结束后再审查");
   if (semanticReviewJob) throw new Error("已有语义审查进行中，请等待或取消");
-  const model = c.getChatCompletionModel();
-  if (typeof model !== "string" || !model.trim()) throw new Error("当前连接没有选择模型，请先在酒馆选择模型");
+  const model = viaAux ? auxTarget("review").model : c.getChatCompletionModel();
+  if (typeof model !== "string" || !model.trim()) throw new Error(viaAux ? "副 API 没有选择模型，请到「连接 → 副 API」选择" : "当前连接没有选择模型，请先在酒馆选择模型");
   const messages = semanticReviewMessages(text, rules), key = variableContextKey(c);
   const controller = new AbortController(), job = { controller };
   const abort = () => controller.abort();
@@ -41,10 +46,14 @@ async function reviewReplySemantics(text, { signal, identity = null, rules = rep
   semanticReviewJob = job;
   try {
     // 复用酒馆当前连接和服务端密钥；不通过 generateRaw，避免执行回复里的变量宏。
-    const service = c.ChatCompletionService;
-    const payload = await prepareSemanticPayload(() => service.presetToGeneratePayload({}, {}, { model, messages, stream: false, max_tokens: 800, n: 1, temperature: 0.1 }), controller.signal);
-    controller.signal.throwIfAborted();
-    const response = await service.sendRequest(payload, true, controller.signal);
+    let response;
+    if (viaAux) response = { content: (await auxRequest("review", messages, { signal: controller.signal, maxTokens: 800, temperature: 0.1, timeout: 46e3 })).text };
+    else {
+      const service = c.ChatCompletionService;
+      const payload = await prepareSemanticPayload(() => service.presetToGeneratePayload({}, {}, { model, messages, stream: false, max_tokens: 800, n: 1, temperature: 0.1 }), controller.signal);
+      controller.signal.throwIfAborted();
+      response = await service.sendRequest(payload, true, controller.signal);
+    }
     controller.signal.throwIfAborted();
     if (key !== variableContextKey() || identity && identity !== semanticReplyIdentity()) throw new Error("聊天、预设或回复已变化，本次审查结果已忽略");
     const report = parseSemanticReview(response?.content, text);

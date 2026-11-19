@@ -439,7 +439,7 @@ function mountSchemes(page, { after } = {}) {
       { label: "条目开关的保存范围", sub: s.scope === "all" ? "现在：全部条目" : `现在：${s.scope.length} 个分组`, value: "scope" },
       { label: "自动套用", sub: bind?.id === s.id ? `现在：${bind.scope === "chat" ? "进入这个聊天时" : "进入这个角色的聊天时"}` : "现在：不自动套用", value: "bind" },
       { label: "改归属角色", sub: `现在：${charNameOf(schemeCharKey(s))}`, value: "char" },
-      { label: "删除方案", sub: "预设不受影响", value: "del" }
+      { label: "删除方案", sub: "预设不受影响", value: "del", danger: true }
     ], { anchor: box.querySelector(`.pa-srow[data-id="${CSS.escape(s.id)}"] [data-a=edit]`) || recentAnchor() });
       if (!v) break;
       // 2.5.0 重命名就在这一行里改，不再弹输入框

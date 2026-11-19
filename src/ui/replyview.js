@@ -58,7 +58,8 @@ function replyForm(name, { onSaved } = {}) {
     </div>
     ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
     <details class="pa-card pa-rai"><summary>AI 语义审查</summary>
-      <p class="pa-hint">通过酒馆当前连接发送这一条回复，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用，不改动正文。</p>
+      <p class="pa-hint">把这一条回复发给模型，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用，不改动正文。</p>
+      <p class="pa-hint pa-aux-use">用：<span data-r="auxname">${esc(auxLabel(auxTarget("review")))}</span><button class="pa-link" data-r="aux" type="button">更改</button></p>
       ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>'}
       <div class="pa-toolbar"><button class="pa-btn" data-r="ai-latest" ${semanticAvailable ? "" : "disabled"}>审查最近回复</button><button class="pa-btn" data-r="ai-paste" ${semanticAvailable ? "" : "disabled"}>审查粘贴文字</button><button class="pa-btn" data-r="ai-cancel" hidden>取消审查</button><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
       <div data-r="semantic-result" aria-live="polite"></div>
@@ -292,7 +293,7 @@ function replyForm(name, { onSaved } = {}) {
     const buttons = [...body.querySelectorAll('[data-r="ai-latest"], [data-r="ai-paste"]')];
     buttons.forEach((b) => b.disabled = true);
     body.querySelector('[data-r="ai-cancel"]').hidden = false;
-    semanticResult.innerHTML = '<p class="pa-hint">正在请求当前模型审查…</p>';
+    semanticResult.innerHTML = '<p class="pa-hint">正在审查…</p>';
     try { showSemantic(await reviewReplySemantics(text, { signal: reviewCancel.signal, identity, rules: read() })); }
     catch (error) { showError(error, semanticResult); }
     finally {
@@ -343,8 +344,12 @@ function mountReply(page, { go } = {}) {
   const off = onDraftChange((name, kind) => {
     if (kind === "focus" && draftViewVisible(page)) render();
   });
+  // 2.11.23 语义审查用哪个 API：点「更改」到「连接 → 副 API」；每次进来按最新的选择写
+  page.addEventListener("click", (e) => { if (e.target.closest('[data-r="aux"]')) go?.("aux"); });
   return { render: (key, entering) => {
     picker.refresh();
     render(entering);
+    const an = box.querySelector('[data-r="auxname"]');
+    if (an) an.textContent = auxLabel(auxTarget("review"));
   }, destroy: () => { off(); form?.abort(); } };
 }

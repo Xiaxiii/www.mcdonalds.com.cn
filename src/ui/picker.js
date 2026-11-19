@@ -18,7 +18,13 @@ async function pickName({ title, items, current = null, search, extra = null } =
   const paint = () => {
     const k = (q?.value || "").trim().toLowerCase();
     const hits = items.filter((it) => !k || String(it.label ?? it.value).toLowerCase().includes(k) || String(it.sub || "").toLowerCase().includes(k));
-    box.innerHTML = hits.map((it) => `<button class="pa-npick-item${it.value === current ? " on" : ""}" style="${ROW_STYLE}" data-v="${esc(it.value)}" role="option" aria-selected="${it.value === current}"><span>${esc(it.label ?? it.value)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">没有匹配的</p>';
+    // 2.11.26 当前选中的标一个勾；开头的「＋」换成画的图标
+    box.innerHTML = hits.map((it) => {
+      const on = it.value === current;
+      const L = menuIcon(it.label ?? it.value);
+      const mark = on ? `<span class="pa-mi pa-mi-check" aria-hidden="true">${ICON.check}</span>` : L.icon;
+      return `<button class="pa-npick-item${on ? " on" : ""}${mark ? " pa-has-mi" : ""}" style="${ROW_STYLE}" data-v="${esc(it.value)}" role="option" aria-selected="${on}"><span>${esc(L.text)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}${mark}</button>`;
+    }).join("") || '<p class="pa-hint">没有匹配的</p>';
   };
   onSearchInput(q, () => paint(), items.length > 150 ? 120 : 0);
   paint();
