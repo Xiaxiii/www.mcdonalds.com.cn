@@ -324,16 +324,26 @@ function mountSuture(page, app) {
     for (const x of keys.slice(0, Math.max(0, keys.length - 40))) delete store[x];
     saveSettings();
   }
-  // 世界书条目列表（酒馆里的世界书和世界书文件共用）
+  // 世界书条目列表（酒馆里的世界书和世界书文件共用）。
+  // 2.11.34 列表块按 --n 预估高度（content-visibility），世界书这里以前没写，重画时高度先按一行算，点选条目后列表跳回顶部
   function renderWorldRows(items, from) {
     srcList.dataset.kind = "world";
     srcList._items = items;
     srcList._from = from;
     const wq = qOf("src").toLowerCase();
     const shown = wq ? items.filter((it) => String(it.name).toLowerCase().includes(wq) || String(it.content || "").toLowerCase().includes(wq)) : items;
-    srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
+    srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose" style="--n:${shown.length}">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
   }
+  // 2.11.34 重画同一个来源（点选条目、展开分组）时保住列表的滚动位置；换了来源从头显示
+  let srcShown = "";
   async function renderSrc() {
+    const shownKey = `${st.srcType}:${st.srcType === "preset" ? st.srcPreset : st.srcType === "world" ? st.srcWorld : st.srcType === "file" ? fileName() : ""}`;
+    const top = shownKey === srcShown ? srcList.scrollTop : 0;
+    srcShown = shownKey;
+    await renderSrcBody();
+    if (srcList.scrollTop !== top) srcList.scrollTop = top;
+  }
+  async function renderSrcBody() {
     if (regexSource()) return renderRegexSrc();
     const keyOf = (id) => `${st.srcType}:${st.srcType === "preset" ? st.srcPreset : st.srcType === "file" ? st.fileDraft?.name : ""}:${id}`;
     if (st.srcType === "preset" || st.srcType === "file" && st.fileKind !== "world") {

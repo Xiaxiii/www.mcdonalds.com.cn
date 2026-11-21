@@ -120,6 +120,33 @@ await page.click('[data-st="clear"]'); await page.waitForTimeout(200);
 assert.ok(!(await page.$(".pa-dst-list .pa-insert-mark")), "取消后缝合位置标识消失");
 assert.equal(await page.$eval(".pa-picked-n", (x) => x.textContent), "未选条目");
 assert.ok(await page.$eval('[data-st="clear"]', (b) => b.hidden), "没有可清的内容时不显示「清空」");
+// 6) 2.11.34 世界书来源条目多时，点选条目后列表停在原处（以前每点一条都跳回顶部）
+await page.evaluate(async () => {
+  const w = await import("/test/site/scripts/world-info.js");
+  const entries = {};
+  for (let i = 0; i < 60; i++) entries[i] = { uid: i, comment: `设定条目 ${i + 1}`, content: `第 ${i + 1} 条`, disable: false, key: ["k" + i], constant: false, position: 1, order: 100, depth: 4, displayIndex: i };
+  globalThis.__wiStore["大世界书"] = { entries };
+  w.world_names.push("大世界书");
+});
+await chooseSrcType(page, "world"); await page.waitForTimeout(300);
+await choose(page, ".pa-src-name", "大世界书"); await page.waitForTimeout(400);
+await page.$eval(".pa-src-list", (l) => { l.scrollTop = 900; });
+await page.waitForTimeout(100);
+for (const n of [0, 1]) {
+  const r = await page.evaluate((n) => {
+    const l = document.querySelector(".pa-src-list"), top = l.scrollTop, box = l.getBoundingClientRect();
+    const row = [...l.querySelectorAll(".pa-row")].filter((x) => x.getBoundingClientRect().top > box.top + 4)[n];
+    const name = row.querySelector(".pa-name").textContent;
+    row.querySelector(".pa-name").click();
+    return { top, name };
+  }, n);
+  await page.waitForTimeout(150);
+  const after = await page.$eval(".pa-src-list", (l) => l.scrollTop);
+  assert.ok(Math.abs(after - r.top) <= 2 && r.top > 800, `点「${r.name}」后列表停在原处：${r.top} → ${after}`);
+  assert.equal(await page.$eval(".pa-picked-n", (x) => x.textContent), `已选 ${n + 1} 条 ▸`);
+}
+await page.click('[data-st="clear"]'); await page.waitForTimeout(200);
+
 assert.deepEqual(errs, []);
 console.log("世界书与搬到新版检查全部通过");
 await browser.close();
