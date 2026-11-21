@@ -96,7 +96,7 @@ function mountSuture(page, app) {
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-link pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">AI 推荐</button></div></div>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-link pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">AI 推荐</button><button class="pa-link pa-aiplace" data-st="aiqueue" type="button" hidden></button></div></div>
         <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
         <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
@@ -706,6 +706,11 @@ function mountSuture(page, app) {
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」一栏点条目选位置" : "在「到」一栏点组名或条目选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
     bar.querySelector("[data-st=aiplace]").hidden = !(n && st.dstType === "preset" && d);
+    const qn = st.aiQueue?.[0]?.items.length || 0;
+    const qb = bar.querySelector("[data-st=aiqueue]");
+    qb.hidden = !(qn && !n && st.dstType === "preset");
+    qb.textContent = `接着缝 ${qn} 条`;
+    if (!qb.hidden) bar.querySelector(".pa-where").textContent = "AI 推荐的下一组";
     swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
     swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";
     if (layout() === "switch" && !(d && m) && n) bar.querySelector(".pa-where").textContent = "切到「到」，点组名或条目选位置";
@@ -714,29 +719,44 @@ function mountSuture(page, app) {
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
     if (!undo.hidden) undo.textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;
   }
-  // 2.11.23 AI 推荐位置：把目标预设的目录和已选条目经「连接 → 副 API」发给模型，列出 1–3 个位置，点「放这里」就选上。
-  // 同一批条目、同一目标、同一个 API 再打开时直接显示上次的结果；关掉窗口即取消请求
+  // 2.11.23 AI 推荐位置：把目标预设的目录和已选条目经「连接 → 副 API」发给模型，点「放这里」就选上。
+  // 2.11.31 按作用分组，每组写明条目、位置、原因；有几组时一次缝一组：点「放这里」只留这一组，
+  // 其余各组带着推荐位置排队，缝完后底栏「接着缝」。同一批条目、同一目标、同一个 API 再打开时直接显示上次的结果；关掉窗口即取消请求
   let aiPlaceLast = null;
+  st.aiQueue = [];
   async function aiPlace() {
     if (st.dstType !== "preset" || !st.picked.size) return;
     let d;
     try { d = target(); } catch (e) { return toast(e.message, "warning"); }
-    const items = [...st.picked.values()];
+    const keys = [...st.picked.keys()];
+    const items = keys.map((k) => st.picked.get(k));
     const req = buildPlaceRequest(d, items);
     const sig = hashStr(JSON.stringify([d.name, req.messages[1].content]));
-    const size = req.chars >= 1e4 ? `${(req.chars / 1e4).toFixed(1)} 万字` : `${req.chars} 字`;
+    const size = req.chars >= 1e4 ? `${(req.chars / 1e4).toFixed(1).replace(/\.0$/, "")} 万字` : `${req.chars} 字`;
     const body = el(`<div class="pa-aip">
-        <p class="pa-hint pa-aux-use">用：<span data-x="label">${esc(auxLabel(auxTarget("suture")))}</span><button class="pa-link" data-x="aux" type="button">更改</button></p>
-        <p class="pa-hint">发送「${esc(d.name)}」的目录（${req.map.count} 条，每条只带名称和正文开头）和要缝入的 ${items.length} 条，约 ${size}。</p>
+        <p class="pa-hint pa-aux-use"><span data-x="label">${esc(auxLabel(auxTarget("suture")))}</span><span class="pa-aip-size"> · 约 ${size}</span><button class="pa-link" data-x="aux" type="button">更改</button></p>
         <div class="pa-aip-res" aria-live="polite"></div>
       </div>`);
     const res = body.querySelector(".pa-aip-res");
-    let controller = null, tick = 0, shown = [], win = null;
+    let controller = null, tick = 0, views = [], win = null;
     const close = () => win?.querySelector(".pa-sheet-x")?.click();
-    const showPlaces = (r) => {
-      shown = r.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker);
-      res.innerHTML = (shown.length ? `<ol class="pa-aip-list">${shown.map((p, i) => `<li class="pa-aip-item"><div class="pa-aip-main"><b>${esc(placeText(d, p.marker))}</b>${p.reason ? `<p>${esc(p.reason)}</p>` : ""}</div><button class="pa-btn pa-btn-s${i === 0 ? " pa-btn-primary" : ""}" type="button" data-x="use" data-i="${i}">放这里</button></li>`).join("")}</ol>` : '<p class="pa-warn">推荐的位置已经不在目标预设里了</p>')
-        + (r.note ? `<p class="pa-aip-note">${esc(r.note)}</p>` : "")
+    const nameList = (v, gi, all) => (all || v.names.length <= 4 ? v.names : v.names.slice(0, 3)).map((x) => `「${esc(x)}」`).join("") + (all || v.names.length <= 4 ? "" : `<button class="pa-link pa-aip-more" data-x="names" data-g="${gi}" type="button">等 ${v.names.length} 条</button>`);
+    const card = (v, gi) => {
+      const best = v.places[0];
+      const alt = v.places.slice(1);
+      return `<section class="pa-aip-grp" data-g="${gi}">
+          <dl class="pa-aip-kv">
+            <dt>条目</dt><dd class="pa-aip-names">${nameList(v, gi)}</dd>
+            <dt>位置</dt><dd>${best ? `<b>${esc(placeText(d, best.marker))}</b>` : '<span class="pa-dim">没有推荐，在「到」一栏自己选</span>'}</dd>
+            ${best?.reason ? `<dt>原因</dt><dd>${esc(best.reason)}</dd>` : ""}
+          </dl>
+          <div class="pa-aip-act">${best ? `<button class="pa-btn pa-btn-s${gi === 0 ? " pa-btn-primary" : ""}" data-x="use" data-g="${gi}" data-i="0" type="button">放这里</button>` : `<button class="pa-btn pa-btn-s" data-x="only" data-g="${gi}" type="button">只选这几条</button>`}${alt.length ? `<button class="pa-link" data-x="alt" data-g="${gi}" type="button" aria-expanded="false">其他位置（${alt.length}）</button>` : ""}</div>
+          ${alt.length ? `<div class="pa-aip-alt" hidden>${alt.map((p, i) => `<div class="pa-aip-altrow"><div><b>${esc(placeText(d, p.marker))}</b>${p.reason ? `<p>${esc(p.reason)}</p>` : ""}</div><button class="pa-btn pa-btn-s" data-x="use" data-g="${gi}" data-i="${i + 1}" type="button">放这里</button></div>`).join("")}</div>` : ""}
+        </section>`;
+    };
+    const showGroups = (r) => {
+      views = r.groups.map((g) => ({ keys: g.entries.map((n) => keys[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
+      res.innerHTML = (views.length > 1 ? `<p class="pa-aip-lead">分成 ${views.length} 组，一次缝一组</p>` : "") + views.map(card).join("")
         + '<button class="pa-link pa-aip-again" data-x="again" type="button">重新推荐</button>';
     };
     const run = async () => {
@@ -747,10 +767,10 @@ function mountSuture(page, app) {
       res.innerHTML = '<div class="pa-aip-wait"><span class="pa-spin" aria-hidden="true">' + ICON.refresh + '</span><span>正在推荐… <span data-x="sec">0</span> 秒</span><button class="pa-btn pa-btn-s" data-x="cancel" type="button">取消</button></div>';
       tick = setInterval(() => { const x = res.querySelector('[data-x="sec"]'); if (x) x.textContent = String(Math.round((Date.now() - t0) / 1e3)); }, 1e3);
       try {
-        const r = await auxRequest("suture", req.messages, { signal: controller.signal, maxTokens: 3e3, timeout: 12e4 });
-        const parsed = parsePlaceReply(r.text, req.map);
+        const r = await auxRequest("suture", req.messages, { signal: controller.signal, maxTokens: 4e3, timeout: 12e4 });
+        const parsed = parsePlaceReply(r.text, req.map, items.length);
         aiPlaceLast = { sig, label, result: parsed };
-        if (body.isConnected) showPlaces(parsed);
+        if (body.isConnected) showGroups(parsed);
       } catch (e) {
         if (!body.isConnected) return;
         res.innerHTML = /已取消$/.test(e.message) ? '<p class="pa-hint">已取消。</p><button class="pa-link pa-aip-again" data-x="again" type="button">重新推荐</button>'
@@ -760,17 +780,44 @@ function mountSuture(page, app) {
         controller = null;
       }
     };
+    // 只留这一组的条目；其余各组带着各自最好的位置排队，缝完这组后在底栏「接着缝」
+    const keepGroup = (gi) => {
+      const v = views[gi];
+      if (views.length < 2) return 0;
+      const keep = new Set(v.keys);
+      st.aiQueue = views.filter((_, j) => j !== gi).map((w) => ({ target: d.name, marker: w.places[0]?.marker || null, items: w.keys.filter((k) => st.picked.has(k)).map((k) => [k, st.picked.get(k)]) })).filter((q) => q.items.length);
+      for (const k of [...st.picked.keys()]) if (!keep.has(k)) st.picked.delete(k);
+      renderSrc();
+      return st.aiQueue.reduce((n, q) => n + q.items.length, 0);
+    };
     body.addEventListener("click", (e) => {
-      const x = e.target.closest("[data-x]")?.dataset.x;
+      const btn = e.target.closest("[data-x]");
+      const x = btn?.dataset.x;
       if (x === "cancel") return controller?.abort();
       if (x === "again") return run();
       if (x === "aux") { close(); return app.show?.("aux"); }
-      if (x !== "use") return;
-      const p = shown[Number(e.target.closest("[data-i]").dataset.i)];
+      const gi = Number(btn?.dataset.g);
+      const v = views[gi];
+      if (x === "names" && v) { btn.closest(".pa-aip-names").innerHTML = nameList(v, gi, true); return; }
+      if (x === "alt" && v) {
+        const box = btn.closest(".pa-aip-grp").querySelector(".pa-aip-alt");
+        box.hidden = !box.hidden;
+        btn.setAttribute("aria-expanded", String(!box.hidden));
+        btn.textContent = box.hidden ? `其他位置（${v.places.length - 1}）` : "收起";
+        return;
+      }
+      if (x === "only" && v) {
+        const rest = keepGroup(gi);
+        close();
+        return toast(`已选这 ${v.keys.length} 条，在「到」一栏选位置${rest ? `；其余 ${rest} 条缝完后点底栏「接着缝」` : ""}`);
+      }
+      if (x !== "use" || !v) return;
+      const p = v.places[Number(btn.dataset.i)];
       let cur;
       try { cur = target(); } catch { cur = null; }
       const m = cur && cur.name === d.name ? fixPlace(cur, p.marker) : null;
       if (!m) return toast("目标预设变了，这个位置已经不在了，请重新推荐", "warning");
+      const rest = keepGroup(gi);
       st.marker = m;
       // 组内的位置：先把那一组展开，才看得见位置标记
       const gid = m.at === "gstart" ? m.gid : m.at === "row" ? cur.groupOf(m.id) : null;
@@ -779,16 +826,34 @@ function mountSuture(page, app) {
       if (layout() === "switch") setSide("dst");
       renderDst();
       scrollToView(dstList.querySelector(".pa-insert-mark"));
-      toast(`位置：${placeText(cur, m)}`, "success");
+      toast(rest ? `先缝这 ${v.keys.length} 条，位置：${placeText(cur, m)}。其余 ${rest} 条缝完后点底栏「接着缝」` : `位置：${placeText(cur, m)}`, "success");
     });
     const cached = aiPlaceLast && aiPlaceLast.sig === sig && aiPlaceLast.label === auxLabel(auxTarget("suture")) ? aiPlaceLast.result : null;
     await sheet({ title: "AI 推荐位置", body, actions: [], onMount: (w) => {
       win = w;
-      if (cached) showPlaces(cached);
+      if (cached) showGroups(cached);
       else run();
     } });
     controller?.abort();
     clearInterval(tick);
+  }
+  // 2.11.31 接着缝：选上排队的下一组和它推荐的位置
+  function aiQueueNext() {
+    const q = st.aiQueue.shift();
+    if (!q) return;
+    st.picked.clear();
+    for (const [k, v] of q.items) st.picked.set(k, v);
+    let d = null;
+    try { d = target(); } catch {}
+    st.marker = d && d.name === q.target && q.marker ? fixPlace(d, q.marker) : null;
+    if (st.marker) {
+      const gid = st.marker.at === "gstart" ? st.marker.gid : st.marker.at === "row" ? d.groupOf(st.marker.id) : null;
+      if (gid && st.dstFoldKey) toggleOpen(d, st.dstFoldKey, gid, true);
+    }
+    renderSrc();
+    renderDst();
+    if (st.marker) scrollToView(dstList.querySelector(".pa-insert-mark"));
+    toast(`已选 ${q.items.length} 条${st.marker ? `，位置：${placeText(d, st.marker)}` : "，在「到」一栏选位置"}`, "success");
   }
   // ask：来源不是预设或含正则的文件时（世界书、粘贴等），先问从哪个预设缝
   async function regexSuture({ ask = false } = {}) {
@@ -811,6 +876,7 @@ function mountSuture(page, app) {
     // 取消：清掉已选的条目和缝合位置
     if (a === "clear") {
       st.picked.clear();
+      st.aiQueue = [];
       st.marker = null;
       st.wbMarker = null;
       renderSrc();
@@ -818,6 +884,7 @@ function mountSuture(page, app) {
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
     if (a === "aiplace") return aiPlace();
+    if (a === "aiqueue") return aiQueueNext();
     if (a === "regex") return regexSuture();
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();

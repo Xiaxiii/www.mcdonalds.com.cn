@@ -2303,13 +2303,25 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-aip-wait .pa-btn { margin-left: auto; }
 #mcd-root .pa-aip-wait .pa-spin { display: inline-flex; color: var(--pa-dim); }
 #mcd-root .pa-aip-wait .pa-spin svg { width: 16px; height: 16px; }
-#mcd-root .pa-aip-list { margin: 0; padding: 0; list-style: none; border-top: 1px solid var(--pa-line); }
-#mcd-root .pa-aip-item { display: flex; align-items: center; gap: 12px; padding: 10px 2px; border-bottom: 1px solid var(--pa-line); }
-#mcd-root .pa-aip-main { flex: 1 1 auto; min-width: 0; }
-#mcd-root .pa-aip-main b { display: block; font-weight: 600; overflow-wrap: anywhere; }
-#mcd-root .pa-aip-main p { margin: 3px 0 0; color: var(--pa-em); font-size: .88em; line-height: 1.45; }
-#mcd-root .pa-aip-item .pa-btn { flex: none; min-height: 36px; }
-#mcd-root .pa-aip-note { margin: 10px 2px 0; color: var(--pa-em); font-size: .88em; line-height: 1.5; }
+/* 2.11.31 推荐结果按组：每组一张卡片，左边一列「条目 / 位置 / 原因」小字，右边内容；「放这里」在右下，其他位置收起 */
+#mcd-root .pa-aip-size { white-space: pre; }
+#mcd-root .pa-aip-lead { margin: 0 2px 2px; color: var(--pa-dim); font-size: .86em; }
+#mcd-root .pa-aip-grp { margin-top: 8px; padding: 12px 12px 10px; border-radius: 12px; background: var(--pa-card); }
+#mcd-root .pa-aip-kv { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 12px; margin: 0; }
+#mcd-root .pa-aip-kv dt { color: var(--pa-dim); font-size: .82em; line-height: 1.75; white-space: nowrap; }
+#mcd-root .pa-aip-kv dd { margin: 0; line-height: 1.5; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-kv dd b { font-weight: 600; }
+#mcd-root .pa-aip-more { padding: 0 2px; font-size: .9em; vertical-align: baseline; }
+#mcd-root .pa-aip-act { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 10px; }
+#mcd-root .pa-aip-act > .pa-btn { order: 2; margin-left: auto; min-height: 36px; }
+#mcd-root .pa-aip-act > .pa-link { order: 1; padding: 6px 0; font-size: .86em; }
+#mcd-root .pa-aip-alt { margin-top: 8px; border-top: 1px solid var(--pa-line); }
+#mcd-root .pa-aip-altrow { display: flex; align-items: center; gap: 12px; padding: 8px 0; border-bottom: 1px solid var(--pa-line); }
+#mcd-root .pa-aip-altrow:last-child { border-bottom: 0; padding-bottom: 0; }
+#mcd-root .pa-aip-altrow > div { flex: 1 1 auto; min-width: 0; }
+#mcd-root .pa-aip-altrow b { display: block; font-weight: 600; font-size: .94em; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-altrow p { margin: 2px 0 0; color: var(--pa-em); font-size: .86em; line-height: 1.45; }
+#mcd-root .pa-aip-altrow .pa-btn { flex: none; min-height: 34px; }
 #mcd-root .pa-aip-again { margin-top: 6px; padding: 8px 2px; font-size: .88em; }
 /* 2.11.26 贴着按钮弹出的菜单，按系统上下文菜单的结构重做：
    - 页面压一层淡遮罩，菜单明显浮在上面，压住下面的行也不像排版错位；
