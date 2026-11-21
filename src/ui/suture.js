@@ -423,7 +423,7 @@ function mountSuture(page, app) {
       const it = srcList._items.find((x) => x.id === r.dataset.wid);
       if (peekBtn) return st.srcType === "file" ? editFileWorldEntry(it) : editWorldEntry(st.srcWorld, it.uid, it.name, it.content);
       st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: srcList._from, raw: it.raw });
-      return renderSrc();
+      return paintPicked();
     }
     const d = srcList._draft;
     const head = e.target.closest(".pa-ghead");
@@ -440,9 +440,9 @@ function mountSuture(page, app) {
             st.picked.set(k2, { name: p2.name, content: p2.content, prompt: p2, from: d.name, srcDraft: d, srcId: id2 });
           }
         }
-      } else {
-        toggleOpen(d, st.srcFoldKey, gid);
+        return paintPicked();
       }
+      toggleOpen(d, st.srcFoldKey, gid);
       return renderSrc();
     }
     const row = e.target.closest(".pa-row");
@@ -453,8 +453,28 @@ function mountSuture(page, app) {
     if (d.isMarker(id)) return toast("系统位置条目不能缝合");
     const k = srcList._keyOf(id);
     st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: id });
-    renderSrc();
+    paintPicked();
   });
+  // 2.11.36 点选条目、整组选择只改列表里的勾选状态，不重画整个来源列表：
+  // 1200 条的预设每点一下要重新生成、排版一遍，手机上一次 200 多毫秒，连着点就卡
+  function paintPicked() {
+    const d = srcList._draft;
+    if (srcList.dataset.kind === "world") {
+      for (const r of srcList.querySelectorAll(".pa-row[data-wid]")) r.classList.toggle("pa-sel", st.picked.has(r.dataset.wid));
+    } else if (srcList.dataset.kind === "draft" && d) {
+      for (const r of srcList.querySelectorAll(".pa-row[data-id]")) r.classList.toggle("pa-sel", st.picked.has(srcList._keyOf(r.dataset.id)));
+      // 整组都选上时组头打勾（和 renderList 的算法一样：这一段的条目全在已选里）
+      const blocks = d.blocks();
+      for (const sec of srcList.querySelectorAll(".pa-group")) {
+        const head = sec.querySelector(":scope > .pa-ghead");
+        const b = blocks.find((x) => x.groupId === sec.dataset.gid && (x.ids[0] || "") === head?.dataset.first);
+        const all = !!b && !b.empty && b.ids.length > 0 && b.ids.every((x) => st.picked.has(srcList._keyOf(x)));
+        sec.classList.toggle("pa-gsel", all);
+        head?.querySelector("[data-act=gselect]")?.setAttribute("aria-pressed", String(all));
+      }
+    } else return renderSrc();
+    renderBar();
+  }
   // 「查看」弹窗可以直接改（和整理页一样，点了正文才弹键盘）：
   // 已安装预设存回预设（可撤销），文件只改这次读入的内容，世界书写回世界书（写前备份）。已选的条目跟着更新
   function syncPicked(test, patch, rawPatch) {
@@ -625,7 +645,7 @@ function mountSuture(page, app) {
       const m2 = placeFromClick(d2, e, false);
       if (!m2) return;
       st.wbMarker = m2;
-      return renderDst();
+      return moveMark(m2) ? renderBar() : renderDst();
     }
     const d = target();
     const act = e.target.closest("[data-act]")?.dataset.act;
@@ -654,8 +674,45 @@ function mountSuture(page, app) {
       return;
     }
     st.marker = m;
-    renderDst();
+    if (moveMark(m)) renderBar();
+    else renderDst();
   });
+  // 2.11.36 换缝合位置只挪「缝合位置」标记，不重画整个目标列表。
+  // 要放的地方不在列表里（被搜索筛掉、分组收着）时返回 false，照旧整个重画
+  function moveMark(m) {
+    const el2 = (h) => { const t = document.createElement("template"); t.innerHTML = h; return t.content.firstElementChild; };
+    let anchor = null;
+    if (m.at === "top") anchor = dstList.querySelector('.pa-slot[data-act="top"]');
+    else if (m.at === "gstart") anchor = dstList.querySelector(`.pa-slot-in[data-gid="${CSS.escape(m.gid)}"]`);
+    else if (m.at === "row") anchor = dstList.querySelector(`.pa-row[data-id="${CSS.escape(m.id)}"]`);
+    else if (m.at === "block") anchor = m.id ? dstList.querySelector(`.pa-ghead[data-last="${CSS.escape(m.id)}"]`)?.closest(".pa-group") : dstList.querySelector(`.pa-group.pa-gempty-box[data-gid="${CSS.escape(m.gid)}"]`);
+    if (!anchor) return false;
+    // 撤掉旧标记；它占着「↑ 最前面」「↑ 组内最前」的位置时，把按钮放回去
+    for (const mk of dstList.querySelectorAll(".pa-insert-mark")) {
+      const prev = mk.previousElementSibling;
+      if (mk.parentElement.classList.contains("pa-gbody") && !prev) {
+        const sec = mk.closest(".pa-group");
+        mk.replaceWith(el2(`<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(sec.dataset.gid)}">${sec.classList.contains("pa-gempty-box") ? "↓ 放入此组" : "↑ 组内最前"}</button>`));
+      } else if (!prev?.matches(".pa-row, .pa-group")) mk.replaceWith(el2('<button class="pa-slot" data-act="top">↑ 最前面</button>'));
+      else mk.remove();
+    }
+    dstList.querySelectorAll(".pa-row.pa-at").forEach((x) => x.classList.remove("pa-at"));
+    dstList.querySelectorAll(".pa-has-at, .pa-after-at").forEach((x) => x.classList.remove("pa-has-at", "pa-after-at"));
+    dstList.querySelectorAll(".pa-at-chip").forEach((x) => x.remove());
+    const mark = el2('<div class="pa-insert-mark">缝合位置</div>');
+    if (m.at === "top" || m.at === "gstart") {
+      if (m.at === "gstart") anchor.closest(".pa-group")?.classList.add("pa-has-at");
+      anchor.replaceWith(mark);
+    } else if (m.at === "row") {
+      anchor.classList.add("pa-at");
+      anchor.closest(".pa-group")?.classList.add("pa-has-at");
+      anchor.after(mark);
+    } else {
+      anchor.classList.add("pa-after-at");
+      anchor.after(mark);
+    }
+    return true;
+  }
   // ---- 🔍 搜索：点放大镜在栏头下方展开输入框，边打边在「从」「到」的列表里筛出来（和预设页一样）；
   // 搜的词存进设置，关掉面板后列表仍按它筛；点输入框右侧 ✕ 或再点放大镜清除
   const qStore = () => {
@@ -836,12 +893,12 @@ function mountSuture(page, app) {
         </section>`;
     };
     const againBtn = (text) => `<button class="pa-link pa-aip-again" data-x="again" type="button"${runs.length >= AIP_RUNS ? ` title="最多留 ${AIP_RUNS} 次，再推荐会去掉最早的一次"` : ""}>${text}</button>`;
-    const showRun = (i) => {
+    const showRun = (i) => d.withReadIndex(() => {
       cur = i;
       const r = runs[i].result;
       views = r.groups.map((g) => ({ name: g.name || "", entries: g.entries, keys: g.entries.map((n) => keys[n - 1]), items: g.entries.map((n) => items[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
       res.innerHTML = runsRow() + views.map(card).join("") + againBtn("重新推荐");
-    };
+    });
     const run = async () => {
       controller = new AbortController();
       cur = -1;

@@ -27,8 +27,9 @@ var PLACE_SYSTEM = `你在帮用户整理 SillyTavern 的聊天补全预设。�
 function placeFlat(s) {
   return String(s || "").replace(/\s+/g, " ").trim();
 }
-// 目录：每组一段，组里每条一行。excerpt：每条带多少字正文开头
-function placeOutline(d, excerpt) {
+// 目录：每组一段，组里每条一行。excerpt：每条带多少字正文开头。
+// 2.11.36 heads：各条正文开头压成一行的结果，目录太长要缩短重排时不再把整段正文重新处理一遍（1200 条的预设要排 5 遍）
+function placeOutline(d, excerpt, heads = new Map()) {
   const ids = new Map(), gids = new Map(), gcode = new Map(), names = new Map();
   const codeOfGroup = (gid) => {
     if (!gcode.has(gid)) {
@@ -59,8 +60,14 @@ function placeOutline(d, excerpt) {
       }
       const on = enabled.get(id) !== false;
       const depth = p.injection_position === 1 ? `（深度 ${p.injection_depth ?? 4} 插入）` : "";
-      const head = excerpt > 0 ? placeFlat(p.content).slice(0, excerpt) : "";
-      lines.push(`  ${c} ${on ? "开" : "关"} ${name}${depth}${head ? ` —— ${head}${placeFlat(p.content).length > excerpt ? "…" : ""}` : ""}`);
+      let h = heads.get(id);
+      if (!h) {
+        const raw = String(p.content || "");
+        h = { flat: placeFlat(raw.slice(0, 600)), long: raw.length > 600 };
+        heads.set(id, h);
+      }
+      const head = excerpt > 0 ? h.flat.slice(0, excerpt) : "";
+      lines.push(`  ${c} ${on ? "开" : "关"} ${name}${depth}${head ? ` —— ${head}${h.long || h.flat.length > excerpt ? "…" : ""}` : ""}`);
     }
   }
   return { text: lines.join("\n"), ids, gids, names, count: ids.size };
@@ -87,11 +94,16 @@ function placePickedText(items) {
     return `<条目 序号="${i + 1}" 名称="${placeFlat(it.name).replace(/"/g, "'")}">\n来源：${it.from ? `「${placeFlat(it.from)}」` : "未知"}${ctxBits.length ? `，${ctxBits.join("，")}` : ""}\n正文：\n${shown}\n</条目>`;
   }).join("\n");
 }
-// 拼出请求；目录太长时缩短每条的正文开头，再不够就只留名称
+// 拼出请求；目录太长时缩短每条的正文开头，再不够就只留名称。
+// 2.11.36 在读取索引里做：按编号找条目不再逐条翻整个列表（1200 条的预设打开 AI 推荐时卡一下）
 function buildPlaceRequest(d, items) {
+  return d.withReadIndex(() => buildPlaceRequestNow(d, items));
+}
+function buildPlaceRequestNow(d, items) {
   let outline = null;
+  const heads = new Map();
   for (const n of [80, 50, 30, 15, 0]) {
-    outline = placeOutline(d, n);
+    outline = placeOutline(d, n, heads);
     if (outline.text.length <= PLACE_OUTLINE_MAX) break;
   }
   const picked = placePickedText(items);
