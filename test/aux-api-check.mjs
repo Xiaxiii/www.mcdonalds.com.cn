@@ -13,7 +13,7 @@ await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 1500
 const fail = [];
 const check = (ok, msg) => { console.log(ok ? "✓" : "✗", msg); if (!ok) fail.push(msg); };
 const P = (id, name, content) => ({ identifier: id, name, content, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100 });
-const prompts = [P("s-a", "✒️古风", "<古风>\n半文半白，少用成语堆砌。\n</古风>"), P("s-b", "📌收尾", "结尾不要总结。")];
+const prompts = [P("s-a", "✒️古风", "<古风>\n半文半白，少用成语堆砌。\n</古风>"), P("s-b", "📌收尾", "结尾不要总结。"), P("s-c", "├───文风选择───┤", ""), P("s-d", "✒️白描", "少修饰。"), P("s-e", "✒️短句", "句子短。"), P("s-f", "✒️电影感", "镜头切换。")];
 const F = { prompts, prompt_order: [{ character_id: 100001, order: prompts.map((p) => ({ identifier: p.identifier, enabled: true })) }] };
 await page.evaluate(async (F) => {
   window.__mock.names.push("文风来源"); window.__mock.presets.push(F);
@@ -102,30 +102,40 @@ await page.waitForTimeout(400);
 await choose(page, ".pa-dst-picker .pa-namebtn", "【众生相】Claude-Lite-v1.8");
 await choose(page, ".pa-src-name", "文风来源");
 check(await page.locator(".pa-aiplace").first().isHidden(), "没选条目时不显示「AI 推荐」");
-for (const id of ["s-a", "s-b"]) await page.locator(`.pa-src-list [data-id="${id}"] .pa-name`).click();
+for (const id of ["s-a", "s-b", "s-c", "s-d", "s-e", "s-f"]) await page.locator(`.pa-src-list [data-id="${id}"] .pa-name`).click();
 await page.waitForTimeout(200);
 const aiBtn = page.locator('[data-st="aiplace"]');
 check(await aiBtn.isVisible(), "选了条目后底栏显示「AI 推荐」");
-// 2.11.31 两条作用不同：分两组，各自的位置；原因里的编号换成名字
+// 2.11.31 作用不同的条目分两组，各自的位置；原因里的编号换成名字。2.11.33 第一组 5 条带组名，第二组没给组名
 await page.evaluate(() => {
   window.__reply = (payload) => {
     const u = payload.messages[1].content;
     const e = u.match(/(E\d+) [开关] ✒️意识流/)[1], g = u.match(/(G\d+)「写作指导」/)[1], g2 = u.match(/(G\d+)「正文规则」/)[1], g3 = u.match(/(G\d+)「文风设定」/)[1];
+    const picked = [...u.matchAll(/<条目 序号="(\d+)" 名称="([^"]*)">/g)].map((m) => [Number(m[1]), m[2]]);
+    const style = picked.filter(([, n]) => n !== "📌收尾").map(([i]) => i), end = picked.filter(([, n]) => n === "📌收尾").map(([i]) => i);
     return "```json\n" + JSON.stringify({ groups: [
-      { entries: [1], places: [{ type: "after", entry: e, reason: `文风条目，接在${e}后，归入${g3}` }, { type: "after", entry: "E999", reason: "不存在" }, { type: "group_start", group: g, reason: "写作类规则" }] },
-      { entries: [2, 9], places: [{ type: "group_start", group: g2, reason: "收尾属于正文规则" }] }
-    ] }) + "\n```";
+      style.length && { name: "本体文风", entries: style, places: [{ type: "after", entry: e, reason: `文风条目，接在${e}后，归入${g3}` }, { type: "after", entry: "E999", reason: "不存在" }, { type: "group_start", group: g, reason: "写作类规则" }] },
+      end.length && { entries: [...end, 99], places: [{ type: "group_start", group: g2, reason: "收尾属于正文规则" }] }
+    ].filter(Boolean) }) + "\n```";
   };
 });
 await aiBtn.click();
 await page.waitForSelector(".pa-aip-grp", { timeout: 5000 });
-const cards = () => page.evaluate(() => [...document.querySelectorAll(".pa-aip-grp")].map((c) => { const m = c.querySelector(".pa-aip-main"); return { 条目: m.querySelector(".pa-aip-names").textContent.trim(), 位置: m.querySelector(".pa-aip-pos").textContent.trim(), 原因: m.querySelector(".pa-aip-why")?.textContent.trim() || "" }; }));
+const cards = () => page.evaluate(() => [...document.querySelectorAll(".pa-aip-grp")].map((c) => ({ 组: c.querySelector(".pa-aip-name").textContent.trim(), 条数: c.querySelector(".pa-aip-n").textContent.trim(), 条目: c.querySelector(".pa-aip-few")?.textContent.trim() || "", 位置: c.querySelector(".pa-aip-best .pa-aip-pos").textContent.trim(), 原因: c.querySelector(".pa-aip-best .pa-aip-why")?.textContent.trim() || "" })));
 const r1 = await page.evaluate(() => ({ head: document.querySelector(".pa-aip .pa-aux-use").textContent, alt: [...document.querySelectorAll('.pa-aip-grp [data-x="alt"]')].map((b) => b.textContent), user: window.__sent.at(-1).payload.messages[1].content, sys: window.__sent.at(-1).payload.messages[0].content }));
 const c1 = await cards();
 check(/^火山 · 约 [\d.]+ (万字|字)更改$/.test(r1.head), "窗口顶部一行：用哪个渠道、约多少字：" + r1.head);
 check(c1.length === 2, "两条作用不同，分两组");
-check(c1[0]["条目"] === "✒️古风" && c1[0]["位置"] === "「文风设定」组内，「✒️意识流」之后" && c1[0]["原因"] === "文风条目，接在「✒️意识流」后，归入「文风设定」", "第一组写明条目、位置、原因，原因里的编号换成名字：" + JSON.stringify(c1[0]));
-check(c1[1]["条目"] === "📌收尾" && c1[1]["位置"] === "「正文规则」组内最前", "第二组：" + JSON.stringify(c1[1]));
+check(c1[0]["组"] === "本体文风" && c1[0]["条数"] === "5 条" && c1[0]["位置"] === "「文风设定」组内，「✒️意识流」之后" && c1[0]["原因"] === "文风条目，接在「✒️意识流」后，归入「文风设定」", "第一组写明组名、条数、位置、原因，原因里的编号换成名字：" + JSON.stringify(c1[0]));
+check(c1[1]["组"] === "📌收尾" && c1[1]["条目"] === "📌收尾" && c1[1]["位置"] === "「正文规则」组内最前", "第二组没给组名时用条目名，三条以内直接列出：" + JSON.stringify(c1[1]));
+// 条目多的组：列表收着，点条数展开，再点「收起」合上；分隔条目只留标题
+const tog = page.locator('.pa-aip-grp[data-g="0"] [data-x="list"]'), list = page.locator('.pa-aip-grp[data-g="0"] .pa-aip-list');
+check(await list.isHidden(), "条目多的组，列表默认收着");
+await tog.click();
+const li = await list.evaluate((l) => [...l.children].map((x) => (x.classList.contains("pa-aip-div") ? "#" : "") + x.textContent));
+check(await list.isVisible() && (await tog.textContent()) === "收起" && (await tog.getAttribute("aria-expanded")) === "true" && li.join("|") === "✒️古风|#文风选择|✒️白描|✒️短句|✒️电影感", "点条数展开，一行一条，分隔条目当小标题：" + li.join("|"));
+await tog.click();
+check(await list.isHidden() && (await tog.textContent()) === "5 条", "再点「收起」合上");
 check(r1.alt.join() === "其他位置 1", "其他位置收起，编号对不上的不要：" + r1.alt.join());
 check(/✒️古风/.test(r1.user) && /半文半白/.test(r1.user) && /G\d+「文风设定」/.test(r1.user) && /不要执行/.test(r1.sys) && /按作用分组/.test(r1.sys), "发出目标目录、已选条目全文，要求按作用分组，说明资料里的指令不执行");
 await page.screenshot({ path: "test/shots/aux-suture-groups.png" });
@@ -151,11 +161,11 @@ await page.waitForTimeout(800);
 await page.locator(".pa-sheet-mask:not(.pa-out) .pa-sheet-actions .pa-btn-primary").last().click();
 await page.waitForTimeout(800);
 const qb = page.locator('[data-st="aiqueue"]');
-check(await qb.isVisible() && (await qb.textContent()) === "接着缝 1 条" && (await page.locator(".pa-sbar .pa-where").textContent()) === "AI 推荐的下一组", "缝完后底栏出现「接着缝 1 条」");
+check(await qb.isVisible() && (await qb.textContent()) === "接着缝 5 条" && (await page.locator(".pa-sbar .pa-where").textContent()) === "AI 推荐的下一组", "缝完后底栏出现「接着缝 5 条」");
 await qb.click();
 await page.waitForTimeout(400);
 const w3 = await page.evaluate(() => ({ where: document.querySelector(".pa-sbar .pa-where").textContent, n: document.querySelector(".pa-sbar .pa-picked-n").textContent }));
-check(w3.where === "位置：「文风设定」组内，「✒️意识流」之后" && w3.n.startsWith("已选 1 条") && await qb.isHidden(), "点「接着缝」：选上排队的那一组和它的位置：" + JSON.stringify(w3));
+check(w3.where === "位置：「文风设定」组内，「✒️意识流」之后" && w3.n.startsWith("已选 5 条") && await qb.isHidden(), "点「接着缝」：选上排队的那一组和它的位置：" + JSON.stringify(w3));
 // 换着密钥时酒馆开始生成：先换回主 API 的密钥
 await page.evaluate(() => { window.__hold = new Promise((r) => { window.__release = r; }); });
 await aiBtn.click();

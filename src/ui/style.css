@@ -2303,25 +2303,41 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-aip-wait .pa-btn { margin-left: auto; }
 #mcd-root .pa-aip-wait .pa-spin { display: inline-flex; color: var(--pa-dim); }
 #mcd-root .pa-aip-wait .pa-spin svg { width: 16px; height: 16px; }
-/* 2.11.32 推荐结果：不用卡片和标签列，一组一段、组间一条细线。条目小字灰、位置加粗、原因小字灰；「放这里」在右边，和这一段上下居中 */
 #mcd-root .pa-aip-size { white-space: pre; }
-#mcd-root .pa-aip-grp { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; column-gap: 14px; padding: 12px 2px; border-top: 1px solid var(--pa-line); }
-#mcd-root .pa-aip-grp:first-child { border-top: 0; padding-top: 4px; }
-#mcd-root .pa-aip-main { min-width: 0; }
-#mcd-root .pa-aip-main p, #mcd-root .pa-aip-altrow p { margin: 0; overflow-wrap: anywhere; }
-#mcd-root .pa-aip-names { color: var(--pa-dim); font-size: .84em; line-height: 1.45; }
-#mcd-root .pa-aip-more { padding: 0; font-size: 1em; }
-#mcd-root .pa-aip-pos { font-weight: 600; line-height: 1.4; }
-#mcd-root .pa-aip-main .pa-aip-pos { margin-top: 3px; }
-#mcd-root .pa-aip-why { color: var(--pa-em); font-size: .86em; line-height: 1.45; }
-#mcd-root .pa-aip-main .pa-aip-why, #mcd-root .pa-aip-altrow .pa-aip-why { margin-top: 2px; }
-#mcd-root .pa-aip-altbtn { margin-top: 2px; padding: 6px 0 0; font-size: .82em; }
-#mcd-root .pa-aip-grp > .pa-btn { min-height: 36px; }
-#mcd-root .pa-aip-alt { grid-column: 1 / -1; margin-top: 8px; padding-left: 12px; border-left: 1px solid var(--pa-line); }
-#mcd-root .pa-aip-altrow { display: flex; align-items: center; gap: 12px; padding: 6px 0; }
-#mcd-root .pa-aip-altrow > div { flex: 1 1 auto; min-width: 0; }
-#mcd-root .pa-aip-altrow .pa-aip-pos { font-size: .94em; }
-#mcd-root .pa-aip-altrow .pa-btn { flex: none; min-height: 34px; }
+/* 2.11.33 AI 推荐位置：每组一段，组之间一条细线。组名一行（条数在右，点开看全部条目，列表限高、自己滚动）；
+   位置一行（↳ 图标、加粗）和原因，「放这里」在右；其他位置收起，展开后同样一行一个 */
+#mcd-root .pa-aip { --pa-aip-sub: var(--pa-dim); }
+@supports (color: color-mix(in srgb, red 50%, blue)) { #mcd-root .pa-aip { --pa-aip-sub: color-mix(in srgb, var(--pa-text) 68%, transparent); } }
+#mcd-root .pa-aip-grp { padding: 16px 0 14px; border-top: 1px solid var(--pa-line); }
+#mcd-root .pa-aip-grp:first-child { border-top: 0; padding-top: 0; }
+#mcd-root .pa-aip-head { display: flex; align-items: center; gap: 12px; min-height: 32px; }
+#mcd-root h3.pa-aip-name { flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; font: inherit; font-size: 1.12em; font-weight: 700; line-height: 1.35; letter-spacing: 0; text-transform: none; color: var(--pa-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mcd-root .pa-aip-n { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--pa-aip-sub); font-size: .86em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#mcd-root .pa-aip-tog { min-height: 32px; margin-right: -8px; padding: 0 6px 0 10px; border: 0; border-radius: var(--pa-r, 8px); background: none; cursor: pointer; touch-action: manipulation; }
+#mcd-root .pa-aip-tog:hover, #mcd-root .pa-aip-more:hover { color: var(--pa-text); }
+#mcd-root .pa-aip-tog:focus-visible, #mcd-root .pa-aip-more:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }
+#mcd-root .pa-aip-tog svg, #mcd-root .pa-aip-more svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s cubic-bezier(.22, 1, .36, 1); }
+#mcd-root .pa-aip [aria-expanded="true"] > svg { transform: rotate(180deg); }
+#mcd-root .pa-aip-few { margin: 0; color: var(--pa-aip-sub); font-size: .86em; line-height: 1.45; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-list { list-style: none; margin: 4px 0 2px; padding: 8px 12px; max-height: min(40vh, 18em); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; border-radius: var(--pa-r, 8px); background: var(--pa-card); font-size: .88em; line-height: 1.4; scrollbar-width: thin; scrollbar-color: var(--pa-line) transparent; }
+#mcd-root .pa-aip-list li { padding: 3px 0; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-list .pa-aip-div { margin-top: 8px; color: var(--pa-aip-sub); font-size: .9em; font-weight: 600; }
+#mcd-root .pa-aip-list .pa-aip-div:first-child { margin-top: 0; }
+#mcd-root .pa-aip-list .pa-aip-end { margin: 0 0 4px; font-weight: 400; }
+#mcd-root .pa-aip-place { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; margin-top: 10px; }
+#mcd-root .pa-aip-ic { align-self: start; width: 18px; height: 18px; margin-top: .12em; color: var(--pa-thread); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#mcd-root .pa-aip-pt { min-width: 0; }
+#mcd-root .pa-aip-pt p { margin: 0; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-pos { line-height: 1.4; text-wrap: pretty; }
+#mcd-root .pa-aip-best .pa-aip-pos { font-weight: 600; }
+#mcd-root .pa-aip-pos.pa-aip-none { color: var(--pa-aip-sub); font-weight: 400; }
+#mcd-root .pa-aip-pt .pa-aip-why { margin-top: 2px; color: var(--pa-aip-sub); font-size: .86em; line-height: 1.45; text-wrap: pretty; }
+#mcd-root .pa-aip-place > .pa-btn { min-height: 36px; white-space: nowrap; }
+#mcd-root .pa-aip-more { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; margin: 2px 0 0 20px; padding: 0 6px; color: var(--pa-aip-sub); font-size: .84em; text-decoration: none; touch-action: manipulation; }
+#mcd-root .pa-aip-alt { margin-left: 26px; }
+#mcd-root .pa-aip-alt .pa-aip-place { grid-template-columns: minmax(0, 1fr) auto; margin-top: 0; padding: 6px 0; }
+#mcd-root .pa-aip-alt .pa-aip-place:last-child { padding-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-aip-tog svg, #mcd-root .pa-aip-more svg { transition: none; } }
 #mcd-root .pa-aip-again { margin-top: 6px; padding: 8px 2px; font-size: .88em; }
 /* 2.11.26 贴着按钮弹出的菜单，按系统上下文菜单的结构重做：
    - 页面压一层淡遮罩，菜单明显浮在上面，压住下面的行也不像排版错位；

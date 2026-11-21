@@ -135,6 +135,22 @@ test("取消接入：文字提及、未提及的条目不提供", () => {
   const d = mk([["a", "叙事连贯", "叙事要连贯，场景切换要交代清楚，不要跳。"], ["c", "思维链", "<thinking>\n参考叙事连贯\n</thinking>"]]);
   assert.equal(A.planUnhook(d, "a"), null);
 });
+test("AI 推荐位置：分隔条目取出标题，┌┐ └┘ ├┤ ╓╖ 几种写法都认", () => {
+  const t = (n) => A.placeDivider(n);
+  assert.deepEqual(t("┌──本体文风·点小铅笔查看说明──┐"), { title: "本体文风·点小铅笔查看说明", kind: "open" });
+  assert.deepEqual(t("├───────勿关·故事基调────────┤"), { title: "勿关·故事基调", kind: "mid" });
+  assert.deepEqual(t("└──本体文风·文风的确认与接收──┘"), { title: "本体文风·文风的确认与接收", kind: "close" });
+  assert.equal(t("╓文风开始╖").kind, "open");
+  for (const n of ["𝄞基调·青春万岁", "📒自缝文风1", "文风-自由", "────", "├──┤"]) assert.equal(t(n), null, n);
+});
+test("AI 推荐位置：模型回的组名留下，没分进组的条目另成一组", () => {
+  const map = { ids: new Map([["E1", "x"]]), gids: new Map(), names: new Map([["E1", "文风"]]) };
+  const r = A.parsePlaceReply(JSON.stringify({ groups: [{ name: " 本体文风 ", entries: [1, 2, 9], places: [{ type: "after", entry: "E1", reason: "接在E1后" }] }] }), map, 3);
+  assert.equal(r.groups[0].name, "本体文风");
+  assert.deepEqual(r.groups[0].entries, [1, 2]);
+  assert.equal(r.groups[0].places[0].reason, "接在「文风」后");
+  assert.deepEqual(r.groups[1], { name: "", entries: [3], places: [] });
+});
 test("来源自带问句：沿用，不重复；撞名自动换名", () => {
   const d = load("ako-stitched.json");
   const anchor = by(d, "🔔建议常驻选一·我是U嬷王").identifier, gid = d.groupOf(anchor);

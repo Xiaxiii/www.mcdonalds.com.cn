@@ -740,24 +740,45 @@ function mountSuture(page, app) {
     const res = body.querySelector(".pa-aip-res");
     let controller = null, tick = 0, views = [], win = null;
     const close = () => win?.querySelector(".pa-sheet-x")?.click();
-    const nameList = (v, gi, all) => (all || v.names.length <= 4 ? v.names : v.names.slice(0, 3)).map(esc).join("、") + (all || v.names.length <= 4 ? "" : ` <button class="pa-link pa-aip-more" data-x="names" data-g="${gi}" type="button">等 ${v.names.length} 条</button>`);
-    // 一组一段：条目（小字）、位置（加粗）、原因（小字），「放这里」在右边；其他位置收起
+    // 2.11.33 一组一段：组名和条数（点开看全部条目，点「收起」合上）→ 放到哪（加粗）和原因、「放这里」→ 其他位置收起
+    const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+    const TO = '<svg class="pa-aip-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v7a4 4 0 0 0 4 4h9"/><path d="m15 11 4 4-4 4"/></svg>';
+    // 组名：模型起的 → 第一条分隔条目的标题 → 来源预设里共同的分组 → 第一条的名字
+    const groupName = (v) => {
+      if (v.name) return v.name.replace(/^[「『"]+|[」』"]+$/g, "");
+      const dv = v.names.map(placeDivider).find((x) => x && x.kind !== "close");
+      if (dv) return dv.title.split(/[·・｜|]/)[0].trim() || dv.title;
+      const gs = new Set(v.items.map((it) => {
+        const g = it?.srcDraft && it.srcId ? it.srcDraft.groupOf(it.srcId) : null;
+        return g ? placeFlat(it.srcDraft.group(g)?.name) : "";
+      }));
+      const g = gs.size === 1 ? [...gs][0] : "";
+      return g || (v.names.length > 1 ? `${v.names[0]} 等` : v.names[0]);
+    };
+    // 条目一行一条；分隔条目（┌──本体文风──┐ 之类）只留标题，当小标题
+    const listHtml = (v) => v.names.map((n) => {
+      const dv = placeDivider(n);
+      return dv ? `<li class="pa-aip-div${dv.kind === "close" ? " pa-aip-end" : ""}" title="${esc(n)}">${esc(dv.title)}</li>` : `<li>${esc(n)}</li>`;
+    }).join("");
+    const placeRow = (gi, p, i) => `<div class="pa-aip-place${i ? "" : " pa-aip-best"}">${i ? "" : TO}
+        <div class="pa-aip-pt"><p class="pa-aip-pos">${esc(placeText(d, p.marker))}</p>${p.reason ? `<p class="pa-aip-why">${esc(p.reason)}</p>` : ""}</div>
+        <button class="pa-btn pa-btn-s${!i && gi === 0 ? " pa-btn-primary" : ""}" data-x="use" data-g="${gi}" data-i="${i}" type="button">放这里</button>
+      </div>`;
     const card = (v, gi) => {
-      const best = v.places[0];
-      const alt = v.places.slice(1);
+      const best = v.places[0], alt = v.places.slice(1), few = v.names.length <= 3, name = groupName(v);
       return `<section class="pa-aip-grp" data-g="${gi}">
-          <div class="pa-aip-main">
-            <p class="pa-aip-names">${nameList(v, gi)}</p>
-            <p class="pa-aip-pos">${best ? esc(placeText(d, best.marker)) : '<span class="pa-dim">没有推荐位置</span>'}</p>
-            ${best?.reason ? `<p class="pa-aip-why">${esc(best.reason)}</p>` : ""}
-            ${alt.length ? `<button class="pa-link pa-aip-altbtn" data-x="alt" data-g="${gi}" type="button" aria-expanded="false">其他位置 ${alt.length}</button>` : ""}
+          <div class="pa-aip-head">
+            <h3 class="pa-aip-name" title="${esc(name)}">${esc(name)}</h3>
+            ${few ? `<span class="pa-aip-n">${v.names.length} 条</span>` : `<button class="pa-aip-n pa-aip-tog" data-x="list" data-g="${gi}" type="button" aria-expanded="false" aria-controls="pa-aip-l${gi}"><span>${v.names.length} 条</span>${CHEV}</button>`}
           </div>
-          ${best ? `<button class="pa-btn pa-btn-s${gi === 0 ? " pa-btn-primary" : ""}" data-x="use" data-g="${gi}" data-i="0" type="button">放这里</button>` : `<button class="pa-btn pa-btn-s" data-x="only" data-g="${gi}" type="button">只选这几条</button>`}
-          ${alt.length ? `<div class="pa-aip-alt" hidden>${alt.map((p, i) => `<div class="pa-aip-altrow"><div><p class="pa-aip-pos">${esc(placeText(d, p.marker))}</p>${p.reason ? `<p class="pa-aip-why">${esc(p.reason)}</p>` : ""}</div><button class="pa-btn pa-btn-s" data-x="use" data-g="${gi}" data-i="${i + 1}" type="button">放这里</button></div>`).join("")}</div>` : ""}
+          ${few ? `<p class="pa-aip-few">${v.names.map(esc).join("、")}</p>` : `<ol class="pa-aip-list" id="pa-aip-l${gi}" hidden>${listHtml(v)}</ol>`}
+          ${best ? placeRow(gi, best, 0) : `<div class="pa-aip-place"><span class="pa-aip-ic"></span><div class="pa-aip-pt"><p class="pa-aip-pos pa-aip-none">没有推荐位置</p></div><button class="pa-btn pa-btn-s" data-x="only" data-g="${gi}" type="button">只选这几条</button></div>`}
+          ${alt.length ? `<button class="pa-link pa-aip-more" data-x="alt" data-g="${gi}" type="button" aria-expanded="false" aria-controls="pa-aip-a${gi}"><span>其他位置 ${alt.length}</span>${CHEV}</button>
+          <div class="pa-aip-alt" id="pa-aip-a${gi}" hidden>${alt.map((p, i) => placeRow(gi, p, i + 1)).join("")}</div>` : ""}
         </section>`;
     };
     const showGroups = (r) => {
-      views = r.groups.map((g) => ({ keys: g.entries.map((n) => keys[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
+      views = r.groups.map((g) => ({ name: g.name || "", keys: g.entries.map((n) => keys[n - 1]), items: g.entries.map((n) => items[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
       res.innerHTML = views.map(card).join("")
         + '<button class="pa-link pa-aip-again" data-x="again" type="button">重新推荐</button>';
     };
@@ -800,12 +821,12 @@ function mountSuture(page, app) {
       if (x === "aux") { close(); return app.show?.("aux"); }
       const gi = Number(btn?.dataset.g);
       const v = views[gi];
-      if (x === "names" && v) { btn.closest(".pa-aip-names").innerHTML = nameList(v, gi, true); return; }
-      if (x === "alt" && v) {
-        const box = btn.closest(".pa-aip-grp").querySelector(".pa-aip-alt");
+      // 条目列表、其他位置：再点一下收起
+      if ((x === "list" || x === "alt") && v) {
+        const box = body.querySelector(`#${btn.getAttribute("aria-controls")}`);
         box.hidden = !box.hidden;
         btn.setAttribute("aria-expanded", String(!box.hidden));
-        btn.textContent = box.hidden ? `其他位置 ${v.places.length - 1}` : "收起";
+        btn.firstElementChild.textContent = !box.hidden ? "收起" : x === "list" ? `${v.names.length} 条` : `其他位置 ${v.places.length - 1}`;
         return;
       }
       if (x === "only" && v) {

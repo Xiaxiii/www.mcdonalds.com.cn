@@ -17,7 +17,8 @@ var PLACE_SYSTEM = `你在帮用户整理 SillyTavern 的聊天补全预设。�
 - 标着「深度插入」的条目，位置不影响发送顺序，按归类放即可。
 
 只回答 JSON，不要别的文字：
-{"groups":[{"entries":[1,2,3],"places":[{"type":"after","entry":"E12","reason":"…"}]}]}
+{"groups":[{"name":"本体文风","entries":[1,2,3],"places":[{"type":"after","entry":"E12","reason":"…"}]}]}
+- name 是这组的简短名称，8 字以内，用来源预设里的叫法，例如「本体文风」「性癖补丁」。
 - entries 填要缝入的条目序号。每条都要分进一个组，一条只进一个组。
 - 每组的 places 按推荐程度排序，1 到 3 个。
 - type 只能是：after（放在条目 entry 之后，和它同组）、group_start（放进分组 group 的最前面）、after_group（放在分组 group 之后、组外）、top（放在最前面）。
@@ -132,7 +133,7 @@ function placeMarkers(list, map) {
   }
   return out;
 }
-// 2.11.31 模型的回答 → { groups: [{ entries: [序号], places: [{ marker, reason }] }] }。
+// 2.11.31 模型的回答 → { groups: [{ name, entries: [序号], places: [{ marker, reason }] }] }。
 // 按作用分组，每组各自的位置；编号对不上、重复的位置不要；没分进组的条目另成一组（没有推荐位置）。
 // 旧写法 { places } 当作全部条目一组
 function parsePlaceReply(text, map, count = 1) {
@@ -148,10 +149,18 @@ function parsePlaceReply(text, map, count = 1) {
     const entries = [...new Set((Array.isArray(g.entries) ? g.entries : []).map(Number))].filter((n) => Number.isInteger(n) && n >= 1 && n <= count && !used.has(n)).sort((x, y) => x - y);
     if (!entries.length) continue;
     entries.forEach((n) => used.add(n));
-    groups.push({ entries, places: placeMarkers(g.places, map) });
+    groups.push({ name: placeFlat(g.name).slice(0, 16), entries, places: placeMarkers(g.places, map) });
   }
   const rest = Array.from({ length: count }, (_, i) => i + 1).filter((n) => !used.has(n));
-  if (rest.length) groups.push({ entries: rest, places: [] });
+  if (rest.length) groups.push({ name: "", entries: rest, places: [] });
   if (!groups.some((g) => g.places.length)) throw new Error("模型给出的位置在目标预设里找不到，未采用");
   return { groups };
+}
+// 2.11.33 分隔条目的标题：┌──本体文风──┐、├──勿关·故事基调──┤、╓文风开始╖ → 「本体文风」…；kind：open / mid / close；不是分隔条目返回 null
+function placeDivider(name) {
+  const info = separatorInfo(name, "");
+  if (info) return { title: info.title, kind: info.kind === "close" ? "close" : "open" };
+  const n = String(name || "").trim();
+  const m = /^[├┝┠╟╞┣╠│┃]?[─━═┄┅┈┉╌╍\-—=~]{2,}\s*(.+?)\s*[─━═┄┅┈┉╌╍\-—=~]{2,}[┤┥┨╢╡┫╣│┃]?$/u.exec(n) || /^[├┝┠╟╞┣╠]\s*(.+?)\s*[┤┥┨╢╡┫╣]$/u.exec(n);
+  return m && /[\p{L}\p{N}]/u.test(m[1]) ? { title: m[1].replace(/[─━═\s]+$/u, "").trim(), kind: "mid" } : null;
 }
