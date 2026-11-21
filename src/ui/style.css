@@ -2309,7 +2309,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-aip { --pa-aip-sub: var(--pa-dim); }
 @supports (color: color-mix(in srgb, red 50%, blue)) { #mcd-root .pa-aip { --pa-aip-sub: color-mix(in srgb, var(--pa-text) 68%, transparent); } }
 #mcd-root .pa-aip-grp { padding: 16px 0 14px; border-top: 1px solid var(--pa-line); }
-#mcd-root .pa-aip-grp:first-child { border-top: 0; padding-top: 0; }
+#mcd-root .pa-aip-grp:first-of-type { border-top: 0; padding-top: 0; }
 #mcd-root .pa-aip-head { display: flex; align-items: center; gap: 12px; min-height: 32px; }
 #mcd-root h3.pa-aip-name { flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; font: inherit; font-size: 1.12em; font-weight: 700; line-height: 1.35; letter-spacing: 0; text-transform: none; color: var(--pa-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #mcd-root .pa-aip-n { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--pa-aip-sub); font-size: .86em; font-variant-numeric: tabular-nums; white-space: nowrap; }
@@ -2338,6 +2338,18 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-aip-alt .pa-aip-place { grid-template-columns: minmax(0, 1fr) auto; margin-top: 0; padding: 6px 0; }
 #mcd-root .pa-aip-alt .pa-aip-place:last-child { padding-bottom: 0; }
 @media (prefers-reduced-motion: reduce) { #mcd-root .pa-aip-tog svg, #mcd-root .pa-aip-more svg { transition: none; } }
+/* 2.11.35 推荐记录：「第 1 次 / 第 2 次」分段切换，选中的一段浮起；每组位置下面一行小字「几次里有几次推荐这里」，次次一致时用绿色 */
+#mcd-root .pa-aip-runs { display: flex; gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: calc(var(--pa-r, 8px) + 3px); background: var(--pa-card); }
+#mcd-root .pa-aip-runs [role="tab"] { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 42px; padding: 4px 6px; border: 0; border-radius: var(--pa-r, 8px); background: none; color: var(--pa-aip-sub); font-size: .86em; line-height: 1.2; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: background-color .15s, color .15s; }
+#mcd-root .pa-aip-runs [role="tab"] small { font-size: .84em; font-variant-numeric: tabular-nums; }
+#mcd-root .pa-aip-runs [role="tab"]:hover { color: var(--pa-text); }
+#mcd-root .pa-aip-runs [aria-selected="true"] { background: var(--pa-input-bg, var(--pa-tint)); color: var(--pa-text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 1px var(--pa-line); }
+#mcd-root .pa-aip-runs [aria-selected="true"] small { font-weight: 400; color: var(--pa-aip-sub); }
+#mcd-root .pa-aip-runs [role="tab"]:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }
+#mcd-root .pa-aip-runmeta { margin: -10px 0 16px; color: var(--pa-aip-sub); font-size: .82em; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-pt .pa-aip-agree { margin-top: 3px; color: var(--pa-aip-sub); font-size: .8em; font-variant-numeric: tabular-nums; }
+#mcd-root .pa-aip-pt .pa-aip-agree.pa-aip-all { color: var(--pa-ok); }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-aip-runs [role="tab"] { transition: none; } }
 #mcd-root .pa-aip-again { margin-top: 6px; padding: 8px 2px; font-size: .88em; }
 /* 2.11.26 贴着按钮弹出的菜单，按系统上下文菜单的结构重做：
    - 页面压一层淡遮罩，菜单明显浮在上面，压住下面的行也不像排版错位；

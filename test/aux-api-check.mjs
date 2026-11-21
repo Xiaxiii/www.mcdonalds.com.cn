@@ -142,13 +142,35 @@ await page.screenshot({ path: "test/shots/aux-suture-groups.png" });
 await page.locator('.pa-aip-grp[data-g="0"] [data-x="alt"]').click();
 check(await page.locator('.pa-aip-grp[data-g="0"] .pa-aip-alt').isVisible() && (await page.locator('.pa-aip-grp[data-g="0"] [data-x="alt"]').textContent()) === "收起", "点「其他位置」展开");
 await page.locator('.pa-aip-grp[data-g="0"] [data-x="alt"]').click();
+// 2.11.35 重新推荐留下记录：第 2 次第一组换了位置；顶部切换「第 1 次 / 第 2 次」，每组写明几次里有几次推荐这里
+const nA = await page.evaluate(() => window.__sent.length);
+await page.evaluate(() => {
+  const f = window.__reply;
+  window.__reply1 = f;
+  window.__reply = (payload) => { const t = JSON.parse(f(payload).replace(/^```json\n|\n```$/g, "")); t.groups[0].places.reverse(); return JSON.stringify(t); };
+});
+await page.click('.pa-aip [data-x="again"]');
+await page.waitForSelector(".pa-aip-runs");
+const tabs = () => page.$$eval('.pa-aip-runs [role="tab"]', (b) => b.map((x) => (x.getAttribute("aria-selected") === "true" ? "*" : "") + x.querySelector("span").textContent).join());
+const agree = () => page.$$eval(".pa-aip-grp", (gs) => gs.map((g) => g.querySelector(".pa-aip-agree")?.textContent || "").join("|"));
+let c2 = await cards();
+check(await tabs() === "第 1 次,*第 2 次" && c2[0]["位置"] === "「写作指导」组内最前", "重新推荐后两次都留着，显示第 2 次：" + await tabs() + " " + c2[0]["位置"]);
+check(await agree() === "2 次里 1 次推荐这里|2 次都推荐这里", "每组写明几次里有几次推荐这里：" + await agree());
+await page.screenshot({ path: "test/shots/aux-suture-runs.png" });
+await page.click('.pa-aip-runs [data-r="0"]');
+c2 = await cards();
+check(await tabs() === "*第 1 次,第 2 次" && c2[0]["位置"] === "「文风设定」组内，「✒️意识流」之后" && await page.evaluate(() => window.__sent.length) === nA + 1, "点「第 1 次」切回第一次的结果，不再发请求");
+const kept = await page.evaluate(() => Object.values(JSON.parse(localStorage.getItem("mcdonalds:aiplace") || "{}")).map((b) => b.runs.length));
+check(kept.join() === "2", "记录存在本浏览器：" + kept.join());
+await page.evaluate(() => { window.__reply = window.__reply1; });
 // 同一批条目再打开：直接显示上次的结果，不再发请求
 const n0 = await page.evaluate(() => window.__sent.length);
 await page.click(`${top} .pa-sheet-x`);
 await page.waitForTimeout(300);
 await aiBtn.click();
 await page.waitForSelector(".pa-aip-grp");
-check(await page.evaluate(() => window.__sent.length) === n0, "同一批条目再打开时用上次的结果");
+check(await page.evaluate(() => window.__sent.length) === n0 && await tabs() === "第 1 次,*第 2 次", "同一批条目再打开时显示最近一次的结果，不再发请求");
+await page.click('.pa-aip-runs [data-r="0"]');
 // 第二组「放这里」：只留这一组，第一组排队
 await page.locator('.pa-aip-grp[data-g="1"] [data-x="use"]').click();
 await page.waitForTimeout(400);

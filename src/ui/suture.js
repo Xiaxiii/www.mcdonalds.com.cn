@@ -731,9 +731,30 @@ function mountSuture(page, app) {
   }
   // 2.11.23 AI 推荐位置：把目标预设的目录和已选条目经「连接 → 副 API」发给模型，点「放这里」就选上。
   // 2.11.31 按作用分组，每组写明条目、位置、原因；有几组时一次缝一组：点「放这里」只留这一组，
-  // 其余各组带着推荐位置排队，缝完后底栏「接着缝」。同一批条目、同一目标、同一个 API 再打开时直接显示上次的结果；关掉窗口即取消请求
-  let aiPlaceLast = null;
+  // 其余各组带着推荐位置排队，缝完后底栏「接着缝」。关掉窗口即取消请求。
+  // 2.11.35 推荐记录：同一批条目、同一个目标预设（发出去的内容一样）每次推荐都留下，最多 5 次，窗口顶部切换对照；
+  // 有两次以上时每组写明「几次里有几次推荐这里」。存在本浏览器，留最近 10 批。再打开时用的 API 和最近一次一样就直接显示，不一样就重新推荐
   st.aiQueue = [];
+  const AIP_KEY = "mcdonalds:aiplace", AIP_RUNS = 5, AIP_BATCHES = 10;
+  let aipMem = null;
+  const aipAll = () => {
+    if (!aipMem) {
+      try { aipMem = JSON.parse(localStorage.getItem(AIP_KEY) || "{}"); } catch { aipMem = {}; }
+      if (!aipMem || typeof aipMem !== "object" || Array.isArray(aipMem)) aipMem = {};
+    }
+    return aipMem;
+  };
+  const aipRuns = (sig) => (Array.isArray(aipAll()[sig]?.runs) ? aipAll()[sig].runs : []).filter((x) => x && Array.isArray(x.result?.groups));
+  function aipSave(sig, runs) {
+    const all = aipAll();
+    all[sig] = { at: Date.now(), runs: runs.slice(-AIP_RUNS) };
+    aipMem = Object.fromEntries(Object.entries(all).sort((a, b) => (b[1]?.at || 0) - (a[1]?.at || 0)).slice(0, AIP_BATCHES));
+    try { localStorage.setItem(AIP_KEY, JSON.stringify(aipMem)); } catch {}
+  }
+  const aipTime = (t) => {
+    const x = new Date(t), p = (n) => String(n).padStart(2, "0"), hm = `${p(x.getHours())}:${p(x.getMinutes())}`;
+    return x.toDateString() === new Date().toDateString() ? hm : `${x.getMonth() + 1}-${x.getDate()} ${hm}`;
+  };
   async function aiPlace() {
     if (st.dstType !== "preset" || !st.picked.size) return;
     let d;
@@ -748,8 +769,35 @@ function mountSuture(page, app) {
         <div class="pa-aip-res" aria-live="polite"></div>
       </div>`);
     const res = body.querySelector(".pa-aip-res");
-    let controller = null, tick = 0, views = [], win = null;
+    let controller = null, tick = 0, views = [], win = null, runs = aipRuns(sig), cur = -1;
     const close = () => win?.querySelector(".pa-sheet-x")?.click();
+    // 推荐记录：两次以上（或这次没推荐成、之前有）时显示「第 1 次 / 第 2 次」，下面小字是时间；换过模型时再写一行这次用的模型
+    const runsRow = () => {
+      if (runs.length < 2 && !(runs.length && cur < 0)) return "";
+      const tabs = runs.map((r, i) => `<button type="button" role="tab" aria-selected="${i === cur}" data-x="run" data-r="${i}" title="${esc(r.label || "")}"><span>第 ${i + 1} 次</span><small>${esc(aipTime(r.at))}</small></button>`).join("");
+      const mixed = new Set(runs.map((r) => r.label)).size > 1;
+      return `<div class="pa-aip-runs" role="tablist" aria-label="推荐记录">${tabs}</div>${mixed && runs[cur] ? `<p class="pa-aip-runmeta">${esc(runs[cur].label || "")}</p>` : ""}`;
+    };
+    // 每条条目在某一次推荐里排到的第一个位置
+    const posKey = (m) => {
+      const f = m && fixPlace(d, m);
+      return f ? JSON.stringify(f) : "";
+    };
+    const bestByEntry = (r) => {
+      const map = new Map();
+      for (const g of r.result.groups) {
+        const k = (g.places || []).map((p) => posKey(p.marker)).find(Boolean) || "";
+        for (const n of g.entries) map.set(n, k);
+      }
+      return map;
+    };
+    // 这一组的位置在几次推荐里出现：一次推荐里这组过半的条目排到同一个位置就算
+    const agreeText = (v) => {
+      if (runs.length < 2 || !v.places[0]) return "";
+      const k = JSON.stringify(v.places[0].marker);
+      const n = runs.map(bestByEntry).filter((m) => v.entries.filter((e) => m.get(e) === k).length * 2 > v.entries.length).length;
+      return n === runs.length ? `<p class="pa-aip-agree pa-aip-all">${n} 次都推荐这里</p>` : `<p class="pa-aip-agree">${runs.length} 次里 ${n} 次推荐这里</p>`;
+    };
     // 2.11.33 一组一段：组名和条数（点开看全部条目，点「收起」合上）→ 放到哪（加粗）和原因、「放这里」→ 其他位置收起
     const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
     const TO = '<svg class="pa-aip-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v7a4 4 0 0 0 4 4h9"/><path d="m15 11 4 4-4 4"/></svg>';
@@ -771,7 +819,7 @@ function mountSuture(page, app) {
       return dv ? `<li class="pa-aip-div${dv.kind === "close" ? " pa-aip-end" : ""}" title="${esc(n)}">${esc(dv.title)}</li>` : `<li>${esc(n)}</li>`;
     }).join("");
     const placeRow = (gi, p, i) => `<div class="pa-aip-place${i ? "" : " pa-aip-best"}">${i ? "" : TO}
-        <div class="pa-aip-pt"><p class="pa-aip-pos">${esc(placeText(d, p.marker))}</p>${p.reason ? `<p class="pa-aip-why">${esc(p.reason)}</p>` : ""}</div>
+        <div class="pa-aip-pt"><p class="pa-aip-pos">${esc(placeText(d, p.marker))}</p>${p.reason ? `<p class="pa-aip-why">${esc(p.reason)}</p>` : ""}${i ? "" : agreeText(views[gi])}</div>
         <button class="pa-btn pa-btn-s${!i && gi === 0 ? " pa-btn-primary" : ""}" data-x="use" data-g="${gi}" data-i="${i}" type="button">放这里</button>
       </div>`;
     const card = (v, gi) => {
@@ -787,13 +835,16 @@ function mountSuture(page, app) {
           <div class="pa-aip-alt" id="pa-aip-a${gi}" hidden>${alt.map((p, i) => placeRow(gi, p, i + 1)).join("")}</div>` : ""}
         </section>`;
     };
-    const showGroups = (r) => {
-      views = r.groups.map((g) => ({ name: g.name || "", keys: g.entries.map((n) => keys[n - 1]), items: g.entries.map((n) => items[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
-      res.innerHTML = views.map(card).join("")
-        + '<button class="pa-link pa-aip-again" data-x="again" type="button">重新推荐</button>';
+    const againBtn = (text) => `<button class="pa-link pa-aip-again" data-x="again" type="button"${runs.length >= AIP_RUNS ? ` title="最多留 ${AIP_RUNS} 次，再推荐会去掉最早的一次"` : ""}>${text}</button>`;
+    const showRun = (i) => {
+      cur = i;
+      const r = runs[i].result;
+      views = r.groups.map((g) => ({ name: g.name || "", entries: g.entries, keys: g.entries.map((n) => keys[n - 1]), items: g.entries.map((n) => items[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
+      res.innerHTML = runsRow() + views.map(card).join("") + againBtn("重新推荐");
     };
     const run = async () => {
       controller = new AbortController();
+      cur = -1;
       const label = auxLabel(auxTarget("suture"));
       body.querySelector('[data-x="label"]').textContent = auxTarget("suture").name;
       const t0 = Date.now();
@@ -802,12 +853,13 @@ function mountSuture(page, app) {
       try {
         const r = await auxRequest("suture", req.messages, { signal: controller.signal, maxTokens: 4e3, timeout: 12e4 });
         const parsed = parsePlaceReply(r.text, req.map, items.length);
-        aiPlaceLast = { sig, label, result: parsed };
-        if (body.isConnected) showGroups(parsed);
+        runs = [...aipRuns(sig), { at: Date.now(), label, result: parsed }].slice(-AIP_RUNS);
+        aipSave(sig, runs);
+        if (body.isConnected) showRun(runs.length - 1);
       } catch (e) {
         if (!body.isConnected) return;
-        res.innerHTML = /已取消$/.test(e.message) ? '<p class="pa-hint">已取消。</p><button class="pa-link pa-aip-again" data-x="again" type="button">重新推荐</button>'
-          : `<p class="pa-warn"${e.raw ? ` title="${esc(e.raw)}"` : ""}>${esc(e.message)}</p><button class="pa-link pa-aip-again" data-x="again" type="button">重试</button>`;
+        res.innerHTML = runsRow() + (/已取消$/.test(e.message) ? `<p class="pa-hint">已取消。</p>${againBtn("重新推荐")}`
+          : `<p class="pa-warn"${e.raw ? ` title="${esc(e.raw)}"` : ""}>${esc(e.message)}</p>${againBtn("重试")}`);
       } finally {
         clearInterval(tick);
         controller = null;
@@ -829,6 +881,7 @@ function mountSuture(page, app) {
       if (x === "cancel") return controller?.abort();
       if (x === "again") return run();
       if (x === "aux") { close(); return app.show?.("aux"); }
+      if (x === "run") return showRun(Number(btn.dataset.r));
       const gi = Number(btn?.dataset.g);
       const v = views[gi];
       // 条目列表、其他位置：再点一下收起
@@ -861,10 +914,9 @@ function mountSuture(page, app) {
       scrollToView(dstList.querySelector(".pa-insert-mark"));
       toast(rest ? `已选这 ${v.keys.length} 条和位置，其余 ${rest} 条稍后「接着缝」` : `位置：${placeText(cur, m)}`, "success");
     });
-    const cached = aiPlaceLast && aiPlaceLast.sig === sig && aiPlaceLast.label === auxLabel(auxTarget("suture")) ? aiPlaceLast.result : null;
     await sheet({ title: "AI 推荐位置", body, actions: [], onMount: (w) => {
       win = w;
-      if (cached) showGroups(cached);
+      if (runs.length && runs.at(-1).label === auxLabel(auxTarget("suture"))) showRun(runs.length - 1);
       else run();
     } });
     controller?.abort();
