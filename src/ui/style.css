@@ -348,7 +348,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-placing .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }
 #mcd-root .pa-placing .pa-row:not(.pa-sel):hover, #mcd-root .pa-placing .pa-row:not(.pa-sel):active { box-shadow: inset 0 -3px 0 var(--pa-thread); }
 /* 选位置：点组头＝放在组后面，所以按下组头时提示线画在整个组框的下沿 */
-#mcd-root .pa-placing .pa-group:has(> .pa-ghead:hover:not(:has(.pa-caret:hover))), #mcd-root .pa-placing .pa-group:has(> .pa-ghead:active:not(:has(.pa-caret:active))) { box-shadow: 0 3px 0 var(--pa-thread); }
+#mcd-root .pa-placing .pa-group:has(> .pa-ghead:hover):not(:has(> .pa-ghead .pa-caret:hover)), #mcd-root .pa-placing .pa-group:has(> .pa-ghead:active):not(:has(> .pa-ghead .pa-caret:active)) { box-shadow: 0 3px 0 var(--pa-thread); }
 #mcd-root .pa-group.pa-after-at { box-shadow: 0 0 0 1.5px var(--pa-thread); }
 #mcd-root .pa-group.pa-after-at + .pa-insert-mark { margin-top: 4px; }
 #mcd-root .pa-slot {
@@ -2255,6 +2255,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-acct-row .pa-input:disabled { opacity: .5; }
 #mcd-root .pa-acct .pa-keyhead { justify-content: space-between; }
 #mcd-root .pa-acct .pa-hint { margin: 0; }
+/* =====================================================================
    2.12.0 预设 → 世界书、正则。分段沿用分组卡片（组头 + 组内行），开关在行右；
    世界书的条目页：手机上盖住列表，宽屏在右边一栏（与条目编辑栏同宽）
    ===================================================================== */
@@ -2349,7 +2350,6 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-rx-more { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
 #mcd-root .pa-rx-form > .pa-inline-check { justify-self: start; }
 #mcd-root .pa-sheet-rxedit .pa-sheet-actions .pa-btn-danger-soft { margin-right: auto; }
-=======
 /* 2.11.20 批量用变量接入：勾选列表，组名一行可整组勾选 */
 #mcd-root .pa-vb { display: grid; border-top: 1px solid var(--pa-line); }
 #mcd-root .pa-vb-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 4px 4px 4px 20px; border-bottom: 1px solid var(--pa-line); cursor: pointer; }
@@ -2508,7 +2508,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 2.11.29 取消接入：列出要去掉的宏，长的折行 */
 #mcd-root .pa-unhook li { margin: 2px 0; line-height: 1.5; }
 #mcd-root .pa-unhook code { font-size: .92em; overflow-wrap: anywhere; }
-/* ==============================================================/* 2.12.1 滚动引导条：滚动时右边出现，停下后淡出；不挡点击 */
+/* 2.12.1 滚动引导条：滚动时右边出现，停下后淡出；不挡点击 */
 #mcd-root .pa-scrollhint { position: absolute; top: 0; right: 2px; width: 3px; height: 0; border-radius: 2px; background: var(--pa-thread); opacity: 0; pointer-events: none; z-index: 6; transition: opacity .4s ease-out; }
 #mcd-root .pa-scrollhint.on { opacity: .28; transition-duration: .12s; }
 #mcd-root .pa-bk-dhead [data-e="search"][aria-expanded="true"] { color: var(--pa-text); background: var(--pa-card-2); }

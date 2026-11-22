@@ -42,6 +42,16 @@ await page.evaluate(async () => {
 });
 await page.evaluate(() => window.__mcdonalds.open("preset"));
 await page.waitForTimeout(300);
+// 样式表完整：文本里每个顶层块浏览器都认得（多出的文字、合并冲突留下的标记会让紧跟的那条规则失效）
+const css = await page.evaluate(() => {
+  const el = document.getElementById("mcd-style");
+  const text = el.textContent.replace(/\/\*[\s\S]*?\*\//g, "");
+  let depth = 0, blocks = 0;
+  for (const ch of text) { if (ch === "{") { if (depth === 0) blocks++; depth++; } else if (ch === "}") depth--; }
+  return { blocks, parsed: el.sheet.cssRules.length, stray: /^\s*(={7}|<{7}|>{7})/m.test(text) };
+});
+assert.ok(!css.stray, "样式表里没有合并冲突标记");
+assert.strictEqual(css.parsed, css.blocks, `样式表每条规则都生效（文本 ${css.blocks} 块，浏览器认得 ${css.parsed} 条）`);
 const tabs = await page.$$eval(".pa-subnav button", (bs) => bs.map((b) => b.textContent));
 assert.deepStrictEqual(tabs, ["条目", "世界书", "正则"], "预设下分三页");
 await page.click('.pa-subnav [data-tab="books"]');
