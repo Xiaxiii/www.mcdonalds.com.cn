@@ -2,7 +2,7 @@
 // 绑给角色的世界书写进酒馆自己的「角色附加世界书」（world_info.charLore，按头像文件名对应角色）：
 // 只在和这个角色聊天时生效，换角色时酒馆自动换，不影响别的角色，也不依赖本扩展常驻。
 // 角色卡自带的那本（data.extensions.world）酒馆总是读入；在这里关掉时，生成前从角色世界书里去掉它（WORLDINFO_ENTRIES_LOADED），角色卡不改。
-// 列着但关着的附加世界书记在本扩展设置 bookKeep 里，下次打开这个角色还在列表里，一点就开。
+// 2.12.2 开着的才挂在角色名下，关掉就回到「其他世界书」；2.12.0–2.12.1 记的「关着也列在角色下」（bookKeep）不再使用，启动时清掉。
 var charFileBase = (a) => String(a || "").replace(/\.[^.]+$/, "");
 function charInfo(ch, chid) {
   return ch?.avatar ? { chid, ch, avatar: ch.avatar, key: charFileBase(ch.avatar), name: String(ch.name || charFileBase(ch.avatar)) } : null;
@@ -121,17 +121,8 @@ function setOwnBookOff(key, off) {
   else delete s.bookOwnOff[key];
   saveSettings();
 }
-function keptBooks(key) {
-  const v = settings().bookKeep?.[key];
-  return Array.isArray(v) ? v.filter((x) => typeof x === "string" && x) : [];
-}
-function setKeptBooks(key, list) {
-  const s = settings();
-  if (!s.bookKeep || typeof s.bookKeep !== "object") s.bookKeep = {};
-  const next = [...new Set(list)];
-  if (next.length) s.bookKeep[key] = next;
-  else delete s.bookKeep[key];
-  saveSettings();
+function dropKeptBooks() {
+  try { if (settings().bookKeep !== undefined) { delete settings().bookKeep; saveSettings(); } } catch {}
 }
 // 没绑世界书的角色卡：按名称猜哪本是它的（导入角色卡时酒馆另存的「角色名's Lorebook」、角色卡内嵌世界书的名字、名字里带角色名的）
 function guessCharBooks(ci, names = listWorldbooks()) {
@@ -149,7 +140,7 @@ function charBookOn(ci, name) {
   if (name === charPrimaryBook(ci)) return !ownBookOff(ci.key) || charExtraBooks(ci.key).includes(name);
   return charExtraBooks(ci.key).includes(name);
 }
-// 开关：绑在这个角色上的书开或关（关了仍列在这个角色下）
+// 开关：给这个角色开或关一本书（角色卡自带的那本记在本扩展设置里，其他的写进酒馆的角色附加世界书）
 function setCharBookOn(ci, name, on) {
   if (!ci) throw new Error("没有打开角色");
   if (name === charPrimaryBook(ci)) {
@@ -159,8 +150,6 @@ function setCharBookOn(ci, name, on) {
   }
   const extra = charExtraBooks(ci.key);
   setCharExtraBooks(ci.key, on ? [...extra, name] : extra.filter((x) => x !== name));
-  const kept = keptBooks(ci.key);
-  setKeptBooks(ci.key, on ? kept.filter((x) => x !== name) : [...kept, name]);
 }
 // 用在哪：none 不用、char 这个角色、all 所有角色（全局）
 function bookScope(ci, name) {
@@ -174,7 +163,6 @@ function setBookScope(ci, name, scope) {
     // 全局开着时酒馆不再从角色这一层读它；附加世界书里的那份去掉，免得改回「不用」时又从角色这层冒出来
     if (ci && name !== charPrimaryBook(ci) && charExtraBooks(ci.key).includes(name)) {
       setCharExtraBooks(ci.key, charExtraBooks(ci.key).filter((x) => x !== name));
-      setKeptBooks(ci.key, keptBooks(ci.key).filter((x) => x !== name));
     }
     return;
   }
@@ -186,7 +174,6 @@ function setBookScope(ci, name, scope) {
     setOwnBookOff(ci.key, true);
   }
   setCharExtraBooks(ci.key, charExtraBooks(ci.key).filter((x) => x !== name));
-  setKeptBooks(ci.key, keptBooks(ci.key).filter((x) => x !== name));
 }
 // 生成前：当前角色的角色卡世界书被关掉时，从角色世界书里去掉它
 function dropOwnBookEntries(lore) {
@@ -199,6 +186,7 @@ function dropOwnBookEntries(lore) {
   for (let i = list.length - 1; i >= 0; i--) if (list[i]?.world === w) list.splice(i, 1);
 }
 function bindCharBooks(on, et2) {
+  dropKeptBooks();
   if (et2?.WORLDINFO_ENTRIES_LOADED) on(et2.WORLDINFO_ENTRIES_LOADED, (lore) => { try { dropOwnBookEntries(lore); } catch (e) { console.warn("[麦当劳] 跳过角色卡世界书失败", e); } });
 }
 

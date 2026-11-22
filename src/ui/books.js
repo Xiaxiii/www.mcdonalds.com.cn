@@ -120,9 +120,8 @@ function mountBooks(page) {
     key: null, // 选中的角色；null 跟随正在聊天的角色
     keyChat: null, // 选角色时所在的聊天：换了聊天就回到正在聊天的角色
     query: "",
-    layout: null, // 这次进来时各段的书：开关后不换段，下次进来再按新状态排
-    layoutFor: null,
     counts: new Map(),
+    flash: null, // 刚换了段的书：{ n, at }
     open: null, // 打开的世界书
     entries: null,
     equery: "",
@@ -147,6 +146,8 @@ function mountBooks(page) {
   const wide = () => matchMedia("(min-width: 1000px)").matches;
   const char = () => (st.key ? charByKey(st.key) : null) || (st.key ? null : currentChar());
   // ---------- 列表
+  // 2.12.2 分段随状态即时变化：给这个角色开的书马上挂到角色名下（角色卡自带的、开着的、名称像的依次排），
+  // 关掉就回到「其他世界书」；角色卡自带的那本关了也留在角色名下。换了段的行闪一下，并提示去了哪里
   function computeLayout(ci) {
     const names = listWorldbooks();
     const have = new Set(names);
@@ -156,7 +157,6 @@ function mountBooks(page) {
     if (ci) {
       add(charPrimaryBook(ci));
       charExtraBooks(ci.key).forEach(add);
-      keptBooks(ci.key).forEach(add);
       guessCharBooks(ci, names).forEach(add);
     }
     const all = names.filter((n) => glob.has(n) && !charList.includes(n));
@@ -164,26 +164,6 @@ function mountBooks(page) {
     const chatList = chat && have.has(chat) && !charList.includes(chat) && !glob.has(chat) ? [chat] : [];
     const used = new Set([...charList, ...all, ...chatList]);
     return { char: charList, all, chat: chatList, other: names.filter((n) => !used.has(n)) };
-  }
-  // 沿用这次进来时的分段；新出现的书按当前状态放，已删掉的去掉
-  function layoutNow(ci) {
-    const key = ci?.key || "";
-    const fresh = computeLayout(ci);
-    if (!st.layout || st.layoutFor !== key) {
-      st.layout = fresh;
-      st.layoutFor = key;
-      return fresh;
-    }
-    const have = new Set(listWorldbooks());
-    const out = {};
-    const placed = new Set();
-    for (const k of Object.keys(st.layout)) {
-      out[k] = st.layout[k].filter((n) => have.has(n));
-      out[k].forEach((n) => placed.add(n));
-    }
-    for (const k of Object.keys(fresh)) for (const n of fresh[k]) if (!placed.has(n)) { out[k].push(n); placed.add(n); }
-    st.layout = out;
-    return out;
   }
   // 这一次画列表时的状态，一行一行查时不再各自重算（世界书几百本时）
   let snap = null;
@@ -196,7 +176,6 @@ function mountBooks(page) {
       primary,
       primaryOn: !!primary && (!ci || !ownBookOff(ci.key) || extra.has(primary)),
       extra,
-      kept: new Set(ci ? keptBooks(ci.key) : []),
       guess: new Set(ci ? guessCharBooks(ci) : [])
     };
     return snap;
@@ -210,7 +189,7 @@ function mountBooks(page) {
   function rowMeta(ci, sec, n) {
     const out = [];
     if (n === snap.primary) out.push('<span class="pa-chip pa-chip-cot">角色卡自带</span>');
-    else if (ci && sec === "char" && snap.guess.has(n) && !snap.extra.has(n) && !snap.kept.has(n)) out.push('<span class="pa-chip pa-chip-dim">名称像这个角色的</span>');
+    else if (ci && sec === "char" && snap.guess.has(n) && !snap.extra.has(n)) out.push('<span class="pa-chip pa-chip-dim">名称像这个角色的</span>');
     if (sec !== "all" && snap.glob.has(n)) out.push('<span class="pa-chip">所有角色</span>');
     if (sec !== "chat" && snap.chat === n) out.push('<span class="pa-chip">本聊天</span>');
     if (sec === "other" && ci && charOn(n)) out.push('<span class="pa-chip">这个角色</span>');
@@ -223,7 +202,8 @@ function mountBooks(page) {
     const on = rowOn(ci, sec, n);
     const meta = rowMeta(ci, sec, n);
     const label = sec === "all" ? `所有角色都开「${n}」` : sec === "chat" ? `本聊天开「${n}」` : ci ? `给「${ci.name}」开「${n}」` : `所有角色都开「${n}」`;
-    return `<div class="pa-row pa-bk-row${on ? "" : " pa-off"}${st.open === n ? " pa-editing" : ""}" data-book="${esc(n)}" data-sec="${sec}" tabindex="0">
+    const fl = flashAttr(n);
+    return `<div class="pa-row pa-bk-row${on ? "" : " pa-off"}${st.open === n ? " pa-editing" : ""}${fl.cls}" data-book="${esc(n)}" data-sec="${sec}" tabindex="0"${fl.style}>
       <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(n, st.query.trim().toLowerCase())}</span></span>${meta ? `<small class="pa-meta">${meta}</small>` : ""}</span>
       <button class="pa-icon-btn pa-peek" data-b="peek" aria-label="查看「${esc(n)}」的条目" title="查看条目">${ICON.eye}</button>
       <label class="pa-switch"><input type="checkbox" data-b="toggle" aria-label="${esc(label)}" ${on ? "checked" : ""}><i></i></label>
@@ -270,7 +250,6 @@ function mountBooks(page) {
   function render() {
     if (st.key && st.keyChat !== chatNow()) {
       st.key = null;
-      st.layout = null;
       closeBook();
     }
     const ci = char();
@@ -286,7 +265,7 @@ function mountBooks(page) {
       closeBook();
       return;
     }
-    const L = layoutNow(ci);
+    const L = computeLayout(ci);
     snapshot(ci);
     let html = "";
     if (ci) {
@@ -327,12 +306,33 @@ function mountBooks(page) {
     }
     if (draftViewVisible(page)) render();
   }
+  // 闪一下：列表随后重画（条目数读回来时）也接着闪完，不从头再闪
   function flashRow(n) {
+    st.flash = { n, at: Date.now() };
     const r = list.querySelector(`.pa-bk-row[data-book="${CSS.escape(n)}"]`);
     if (!r) return;
     r.classList.remove("pa-flash");
     void r.offsetWidth;
     r.classList.add("pa-flash");
+  }
+  function flashAttr(n) {
+    const f = st.flash;
+    const t = f && f.n === n ? Date.now() - f.at : Infinity;
+    return t < 1400 ? { cls: " pa-flash", style: ` style="animation-delay:-${t}ms"` } : { cls: "", style: "" };
+  }
+  const SEC_NAME = { all: "所有角色", chat: "本聊天", other: "其他世界书" };
+  function secOf(ci, n) {
+    const L = computeLayout(ci);
+    return Object.keys(L).find((k) => L[k].includes(n)) || null;
+  }
+  // 行换到了别的段：那一段收着时展开，行闪一下，提示去了哪里
+  function noteMoved(ci, n, from) {
+    const to = secOf(ci, n);
+    if (!to || to === from) return;
+    if (!foldGet("books", to, true)) foldSet("books", to, true);
+    render();
+    flashRow(n);
+    toast(to === "char" ? `「${n}」已挂到「${ci.name}」名下` : to === "all" ? `「${n}」已开给所有角色` : `「${n}」已移到「${SEC_NAME[to]}」`, "success");
   }
   async function toggle(sec, n, on) {
     const ci = char();
@@ -340,15 +340,16 @@ function mountBooks(page) {
       if (sec === "all") setGlobalBook(n, on);
       else if (sec === "chat") await setChatBook(on ? n : null);
       else if (!ci) setGlobalBook(n, on);
-      else if (sec === "char") {
+      else if (n === charPrimaryBook(ci)) {
         if (!on && globalBooks().includes(n)) setGlobalBook(n, false);
-        if (on || charBookOn(ci, n)) setCharBookOn(ci, n, on);
+        setCharBookOn(ci, n, on);
       } else setBookScope(ci, n, on ? "char" : "none");
     } catch (e) {
       toast(e.message, "error");
     }
     render();
     if (st.open === n) paintScope();
+    noteMoved(ci, n, sec);
   }
   list.addEventListener("click", (e) => {
     const fold = e.target.closest("[data-b=fold]");
@@ -536,10 +537,11 @@ function mountBooks(page) {
     const a = e.target.closest("[data-e], [data-scope]");
     if (a?.dataset.scope) {
       const ci = char();
+      const from = secOf(ci, st.open);
       try { setBookScope(ci, st.open, a.dataset.scope); } catch (err) { toast(err.message, "error"); }
       paintScope();
       render();
-      flashRow(st.open);
+      noteMoved(ci, st.open, from);
       return;
     }
     const act = a?.dataset.e;
@@ -613,7 +615,6 @@ function mountBooks(page) {
       if (!v) return;
       st.key = v === "__cur" || v === cur?.key ? null : v;
       st.keyChat = chatNow();
-      st.layout = null;
       closeBook();
       render();
     }
@@ -621,14 +622,13 @@ function mountBooks(page) {
   onSearchInput(search, () => { st.query = search.value; render(); });
   return {
     render(_k, fresh) {
-      if (fresh) { st.layout = null; st.counts.clear(); }
+      if (fresh) st.counts.clear();
       render();
       if (st.open && !st.entries) loadEntries(st.open);
     },
     // 换了聊天（可能换了角色）：跟随正在聊天的角色
     onChat() {
       st.key = null;
-      st.layout = null;
       closeBook();
       render();
     },

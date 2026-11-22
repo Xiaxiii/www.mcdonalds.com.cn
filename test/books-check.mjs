@@ -64,7 +64,9 @@ await page.click('.pa-bk-row[data-book="城市设定"] .pa-switch');
 await page.waitForTimeout(200);
 let lore = await page.evaluate(async () => (await import("/test/site/scripts/world-info.js")).world_info.charLore);
 assert.deepStrictEqual(lore, [{ name: "linyao", extraBooks: ["城市设定"] }], "写进酒馆的角色附加世界书");
-assert.match(await secText("other"), /城市设定[\s\S]*这个角色/, "开关后不换段，标出「这个角色」");
+assert.match(await secText("char"), /城市设定/, "开了马上挂到角色名下");
+assert.doesNotMatch(await secText("other"), /城市设定/, "不再留在「其他世界书」");
+assert.ok(await page.$('[data-sec="char"] .pa-bk-row[data-book="城市设定"].pa-flash'), "挂过去的那行闪一下");
 // 换到沈岸：城市设定不跟过去；猜出沈岸's Lorebook
 await page.evaluate(async () => { const c = window.SillyTavern.getContext(); c.characterId = "1"; await c.eventSource.emit("chat_changed"); });
 await page.waitForTimeout(800);
@@ -88,18 +90,17 @@ const left = await page.evaluate(async () => {
   return lore.characterLore.map((x) => x.world);
 });
 assert.deepStrictEqual(left, ["城市设定"], "角色卡自带的世界书关掉后不读入");
-// 关掉附加的那本：仍列在这个角色下
+// 关掉附加的那本：回到「其他世界书」；角色卡自带的那本关了仍留在角色名下
 await page.click('[data-sec="char"] .pa-bk-row[data-book="城市设定"] .pa-switch');
 await page.waitForTimeout(200);
 lore = await page.evaluate(async () => (await import("/test/site/scripts/world-info.js")).world_info.charLore);
 assert.deepStrictEqual(lore, [], "关掉后从角色附加世界书里去掉");
-await page.evaluate(() => window.__mcdonalds.open("preset"));
-await page.click('.pa-subnav [data-tab="organize"]');
-await page.click('.pa-subnav [data-tab="books"]');
-await page.waitForTimeout(400);
-assert.match(await secText("char"), /城市设定/, "关着的附加世界书下次仍列在这个角色下");
-await page.click('[data-sec="char"] .pa-bk-row[data-book="城市设定"] .pa-switch');
+assert.match(await secText("other"), /城市设定/, "关掉的回到「其他世界书」");
+assert.doesNotMatch(await secText("char"), /城市设定/);
+assert.match(await secText("char"), /林遥的世界/, "角色卡自带的关了仍在角色名下");
+await page.click('[data-sec="other"] .pa-bk-row[data-book="城市设定"] .pa-switch');
 await page.waitForTimeout(200);
+assert.match(await secText("char"), /城市设定/, "再开又挂回角色名下");
 // 条目页
 await page.click('[data-sec="char"] .pa-bk-row[data-book="城市设定"] [data-b=peek]');
 await page.waitForSelector(".pa-wbe-row");
