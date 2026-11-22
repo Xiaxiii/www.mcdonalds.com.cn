@@ -31,7 +31,7 @@ body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-se
     }),
     extensionSettings: {}, saveSettingsDebounced() {},
     eventSource: { on(e, f) { (listeners[e] ||= []).push(f); }, removeListener() {}, async emit(e, ...a) { for (const f of listeners[e] || []) await f(...a); } },
-    eventTypes: { APP_READY: "app_ready", PRESET_CHANGED: "preset_changed", CHAT_CHANGED: "chat_changed", OAI_PRESET_CHANGED_BEFORE: "oai_before", OAI_PRESET_CHANGED_AFTER: "oai_after", CHATCOMPLETION_MODEL_CHANGED: "cc_model_changed", GENERATION_STARTED: "generation_started", GENERATION_ENDED: "generation_ended", GENERATION_STOPPED: "generation_stopped" },
+    eventTypes: { APP_READY: "app_ready", PRESET_CHANGED: "preset_changed", CHAT_CHANGED: "chat_changed", OAI_PRESET_CHANGED_BEFORE: "oai_before", OAI_PRESET_CHANGED_AFTER: "oai_after", CHATCOMPLETION_MODEL_CHANGED: "cc_model_changed", GENERATION_STARTED: "generation_started", GENERATION_ENDED: "generation_ended", GENERATION_STOPPED: "generation_stopped", WORLDINFO_ENTRIES_LOADED: "wi_loaded", WORLDINFO_SETTINGS_UPDATED: "wi_settings" },
     chat: [{ is_user: true, mes: "你好" }, { is_user: false, mes: "回复到一半" }], generate: async (type) => { (window.__gen ||= []).push(type); },
     chatMetadata: {}, powerUserSettings: { personas: { "u.png": "我" } }, mainApi: "openai", onlineStatus: "Valid", chatId: "c1"
   };
