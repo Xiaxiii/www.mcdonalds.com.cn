@@ -37,10 +37,17 @@ const state = (page) => page.evaluate(() => {
   assert.deepEqual(s.nav, ["预设", "缝合", "检查", "连接", "更多"]);
   assert.deepEqual(s.navOn, ["预设"]);
   assert.equal(s.title, "预设");
-  assert.deepEqual(s.sub, []);
+  assert.deepEqual(s.sub, ["条目*", "世界书", "正则"], "2.12.0 预设下分条目、世界书、正则");
   assert.deepEqual(s.page, ["organize"]);
   await page.screenshot({ path: S + "n-1-phone-preset.png" });
-  ok("手机：底部五栏「预设、缝合、检查、连接、更多」，预设不再分页");
+  await page.click('.pa-subnav [data-tab="books"]');
+  s = await state(page);
+  assert.equal(s.title, "预设"); assert.deepEqual(s.page, ["books"]); assert.deepEqual(s.navOn, ["预设"]);
+  await page.click('.pa-tabs [data-nav="suture"]');
+  await page.click('.pa-tabs [data-nav="preset"]');
+  assert.deepEqual((await state(page)).page, ["books"], "回到预设时停在上次的分页");
+  await page.click('.pa-subnav [data-tab="organize"]');
+  ok("手机：底部五栏「预设、缝合、检查、连接、更多」，预设下分条目、世界书、正则");
 
   await page.click('.pa-tabs [data-nav="suture"]');
   s = await state(page);
@@ -142,7 +149,7 @@ for (const [w, h] of [[1280, 800], [1024, 768]]) {
   assert.deepEqual(s.nav, ["预设", "缝合", "检查", "连接", "方案", "清理", "体检", "设置"]);
   const side = await page.evaluate(() => document.querySelector(".pa-tabs").getBoundingClientRect().toJSON());
   assert.ok(side.left === 0 && side.width > 180 && side.width < 260 && side.height > h - 60, "左侧栏贴左、全高");
-  assert.deepEqual(s.sub, []);
+  assert.deepEqual(s.sub, ["条目*", "世界书", "正则"]);
   await page.click('.pa-tabs [data-nav="clean"]');
   s = await state(page);
   assert.equal(s.title, "清理"); assert.deepEqual(s.page, ["clean"]); assert.deepEqual(s.sub, [], "宽屏不显示「更多」的分页");

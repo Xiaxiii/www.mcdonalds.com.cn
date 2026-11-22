@@ -412,6 +412,30 @@ async function pickBox(title, items, { hint = "", anchor = recentAnchor() } = {}
   await p;
   return picked;
 }
+// 2.12.1 滚动引导条：滚动时右边出现一条细滑块，停下后淡出；内容放得下时不出现。2.12.3 更细、用主题色，停下 0.6 秒淡出
+// 酒馆主题常把滚动条藏起来，长窗口里看不出还能往下滑、滑到了哪里。host 是定位容器（position 非 static），滑块不挡点击
+function scrollHint(box, host = box?.parentElement) {
+  if (!box || !host) return () => {};
+  const bar = document.createElement("i");
+  bar.className = "pa-scrollhint";
+  bar.setAttribute("aria-hidden", "true");
+  host.append(bar);
+  let timer = 0, raf = 0;
+  const paint = (hold = 600) => {
+    raf = 0;
+    const H = box.clientHeight, S = box.scrollHeight;
+    if (!box.isConnected || S <= H + 2) { bar.classList.remove("on"); return; }
+    const h = Math.max(28, H * H / S);
+    const y = box.offsetTop + (H - h) * (box.scrollTop / (S - H));
+    bar.style.height = `${Math.round(h)}px`;
+    bar.style.transform = `translateY(${Math.round(y)}px)`;
+    bar.classList.add("on");
+    clearTimeout(timer);
+    timer = setTimeout(() => bar.classList.remove("on"), hold);
+  };
+  box.addEventListener("scroll", () => { if (!raf) raf = requestAnimationFrame(() => paint()); }, { passive: true });
+  return (hold = 900) => requestAnimationFrame(() => paint(hold));
+}
 function debounce(fn, ms) {
   let t;
   return (...a) => {

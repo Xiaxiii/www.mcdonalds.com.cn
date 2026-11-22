@@ -284,6 +284,20 @@ async function updateWorldEntry(name, uid, fields) {
   } catch {
   }
 }
+// 2.12.0 删掉世界书里的一条（按 uid 找）
+async function deleteWorldEntry(name, uid) {
+  const wi = mods.wi;
+  if (!wi?.loadWorldInfo || !wi?.saveWorldInfo) throw new Error("无法写入世界书，酒馆版本可能过旧");
+  const data = await wi.loadWorldInfo(name);
+  const k = Object.keys(data?.entries || {}).find((x) => String(data.entries[x]?.uid) === String(uid));
+  if (k === undefined) throw new Error("条目已不存在");
+  delete data.entries[k];
+  await wi.saveWorldInfo(name, data, true);
+  try {
+    wi.reloadEditor?.(name);
+  } catch {
+  }
+}
 function listPersonas() {
   const map = ctx().powerUserSettings?.personas || {};
   return Object.entries(map).map(([avatar, name]) => ({ avatar, name }));

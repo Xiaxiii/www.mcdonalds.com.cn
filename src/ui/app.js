@@ -18,16 +18,18 @@ var NAV = [
   ["schemes", "方案", "tool"], ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
 ];
 // 各页面所属栏目；「检查」「更多」在页头下方分页
-var SECTION_OF = { organize: "preset", suture: "suture", reply: "check", cot: "check", vars: "check", conn: "conn", aux: "conn", schemes: "more", clean: "more", health: "more", look: "more" };
+var SECTION_OF = { organize: "preset", books: "preset", rx: "preset", suture: "suture", reply: "check", cot: "check", vars: "check", conn: "conn", aux: "conn", schemes: "more", clean: "more", health: "more", look: "more" };
 // 2.11.23 连接分「主 API」（酒馆当前连接、站点）和「副 API」（麦当劳自己的 AI 功能用哪个 API）
-var SUBNAV = { check: [["cot", "思维链"], ["vars", "变量"], ["reply", "回复"]], conn: [["conn", "主 API"], ["aux", "副 API"]], more: [["schemes", "方案"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
-var PAGE_TITLE = { organize: "预设", suture: "缝合", reply: "检查", cot: "检查", vars: "检查", conn: "连接", aux: "连接", schemes: "方案", clean: "清理", health: "体检", look: "设置" };
+// 2.12.0 预设下分「条目」「世界书」「正则」
+var SUBNAV = { preset: [["organize", "条目"], ["books", "世界书"], ["rx", "正则"]], check: [["cot", "思维链"], ["vars", "变量"], ["reply", "回复"]], conn: [["conn", "主 API"], ["aux", "副 API"]], more: [["schemes", "方案"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
+var PAGE_TITLE = { organize: "预设", books: "预设", rx: "预设", suture: "缝合", reply: "检查", cot: "检查", vars: "检查", conn: "连接", aux: "连接", schemes: "方案", clean: "清理", health: "体检", look: "设置" };
 var PAGE_EL = {};
 var navSvg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`;
 var rootEl2;
 var pages = {};
 var current = "organize";
 var lastCheckPage = "cot";
+var lastPresetPage = "organize";
 var cleanups = [];
 function injectStyle() {
   document.getElementById("mcd-style")?.remove();
@@ -115,6 +117,8 @@ function buildRoot() {
   const plan = mountPlan(pageEl("schemes"), pageEl("conn"));
   pages = {
     organize: mountOrganize(pageEl("organize"), app),
+    books: mountBooks(pageEl("books")),
+    rx: mountRegexPage(pageEl("rx")),
     cot: mountCot(pageEl("cot"), app),
     vars: mountVariables(pageEl("vars")),
     schemes: plan.schemes,
@@ -218,7 +222,7 @@ function updateSavebar() {
 function resolvePage(key, sub) {
   if (key === "more" && sub && SECTION_OF[sub]) return sub;
   if (key === "api") return "conn";
-  if (key === "preset") return "organize";
+  if (key === "preset") return lastPresetPage;
   if (key === "check") return lastCheckPage;
   if (/^reply-/.test(key)) return "reply";
   if (key === "more") {
@@ -234,6 +238,7 @@ function show(key, sub) {
   current = k;
   if (k !== "organize") rootEl2.classList.remove("pa-selecting");
   if (sec === "check") lastCheckPage = k;
+  if (sec === "preset") lastPresetPage = k;
   if (sec === "more" && settings().moreTab !== k) {
     settings().moreTab = k;
     saveSettings();
@@ -319,6 +324,13 @@ function onPopState() {
     pushBackState();
     return;
   }
+  // 2.12.0 世界书条目页盖住列表时，返回先回到列表
+  const bkBack = rootEl2.querySelector(".pa-page:not([hidden]) .pa-bk-detail:not([hidden]) [data-esc-back]");
+  if (bkBack?.offsetParent) {
+    bkBack.click();
+    pushBackState();
+    return;
+  }
   close({ fromBack: true });
 }
 function onRootKey(e) {
@@ -338,6 +350,14 @@ function onRootKey(e) {
       (pg?.querySelector(row.dataset.qside ? `[data-st="${row.dataset.qside}search"]` : '[data-tool="search"]'))?.focus({ preventScroll: true });
       return;
     }
+    // 2.12.0 世界书的条目页（手机上盖住列表）：先回到列表
+    const bk = t.closest(".pa-bk-detail");
+    const bkBack = bk?.querySelector("[data-esc-back]");
+    if (bkBack?.offsetParent) {
+      e.preventDefault();
+      bkBack.click();
+      return;
+    }
     const pane = t.closest(".pa-editpane");
     if (pane) {
       e.preventDefault();
@@ -349,6 +369,12 @@ function onRootKey(e) {
       t.blur();
       return;
     }
+  }
+  const bkOpen = rootEl2.querySelector(".pa-page:not([hidden]) .pa-bk-detail:not([hidden]) [data-esc-back]");
+  if (bkOpen?.offsetParent) {
+    e.preventDefault();
+    bkOpen.click();
+    return;
   }
   // 宽屏编辑栏开着时，先关编辑栏
   const openPane = rootEl2.querySelector('.pa-page:not([hidden]) .pa-editpane:not([hidden]) [data-ep="x"]');
@@ -400,6 +426,7 @@ async function close({ fromBack = false } = {}) {
   document.documentElement.classList.remove("mcd-open");
   document.getElementById("mcd-ball")?.removeAttribute("hidden");
   flushPresetNotice();
+  flushChatReload();
   if (backArmed) {
     backArmed = false;
     try { history.back(); } catch {}
@@ -489,7 +516,7 @@ function addSettingsEntry() {
         <div class="inline-drawer-icon fa-solid fa-circle-chevron-down down"></div>
       </div>
       <div class="inline-drawer-content">
-        <div class="pa-set-intro">整理预设、跨预设缝合、检查回复与思维链、连接与余额、方案、体检、预设清理。</div>
+        <div class="pa-set-intro">整理预设、跨预设缝合、按角色卡切换世界书和正则、检查回复与思维链、连接与余额、方案、体检、预设清理。</div>
         <div class="pa-set-btns">
           <div class="menu_button menu_button_icon" data-a="open" tabindex="0" role="button"><i class="fa-solid fa-scissors"></i><span>打开<span class="pa-appname">${esc(appName())}</span></span></div>
           <div class="menu_button menu_button_icon" data-a="health" tabindex="0" role="button"><i class="fa-solid fa-gauge-high"></i><span>体检</span></div>
@@ -859,7 +886,7 @@ function bindEvents() {
   const c2 = ctx();
   const et2 = c2.eventTypes || c2.event_types;
   // 2.7.8 每个处理函数都计时，供「体检 → 运行中的卡顿」核对
-  const EV_NAME = { CHAT_CHANGED: "切换聊天", PRESET_CHANGED: "切换预设", GENERATION_STARTED: "开始生成", GENERATION_AFTER_COMMANDS: "生成前", GENERATION_ENDED: "生成结束", GENERATION_STOPPED: "停止生成" };
+  const EV_NAME = { WORLDINFO_ENTRIES_LOADED: "读入世界书", WORLDINFO_SETTINGS_UPDATED: "世界书开关变动", CHAT_CHANGED: "切换聊天", PRESET_CHANGED: "切换预设", GENERATION_STARTED: "开始生成", GENERATION_AFTER_COMMANDS: "生成前", GENERATION_ENDED: "生成结束", GENERATION_STOPPED: "停止生成" };
   const evLabel = (ev) => EV_NAME[Object.keys(et2).find((k) => et2[k] === ev)] || ev;
   const on = (ev, fn) => {
     if (!ev) return;
@@ -877,7 +904,13 @@ function bindEvents() {
     // 整页重画（含预设下拉框里的「使用中」标记）
     if (rootEl2 && !rootEl2.hidden) show(current);
   });
-  on(et2.CHAT_CHANGED, () => onChatChanged());
+  on(et2.CHAT_CHANGED, () => {
+    onChatChanged();
+    // 2.12.0 换了聊天（可能换了角色）：世界书、正则页跟着正在聊天的角色
+    if (rootEl2 && !rootEl2.hidden && (current === "books" || current === "rx")) pages[current]?.onChat?.();
+  });
+  on(et2.WORLDINFO_SETTINGS_UPDATED, () => { if (rootEl2 && !rootEl2.hidden && current === "books") pages.books?.onWorldSettings?.(); });
+  bindCharBooks(on, et2);
   // 2.11.5 站点模型跟随当前模型；切换预设读入预设里的模型时暂停，切完再等 2 秒（方案套用的连接在这期间完成）
   on(et2.OAI_PRESET_CHANGED_BEFORE, () => holdModelSync(1e4));
   on(et2.OAI_PRESET_CHANGED_AFTER, () => {
