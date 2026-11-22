@@ -313,3 +313,76 @@ async function renameWorldbook(oldName, newName) {
   if (editorOn) { try { wi.reloadEditor?.(newName, true); } catch {} }
   return { failed };
 }
+
+// 2.12.4 改、删正则。全局写回酒馆设置；角色卡写回角色卡。原对象原地更新：酒馆正则面板的每一行拿着同一个对象
+function regexFromText(text) {
+  // 与酒馆的 regexFromString 一致：/内容/标志 或直接写内容
+  const s = String(text || "");
+  const m = s.match(/(\/?)(.+)\1([a-z]*)/i);
+  if (!m) throw new Error("查找内容为空");
+  if (m[3] && !/^(?!.*?(.).*?\1)[gmixXsuUAJ]+$/.test(m[3])) return new RegExp(s);
+  return new RegExp(m[2], m[3]);
+}
+function syncNativeRegexRow(box, rule, { remove = false } = {}) {
+  if (!rule?.id) return;
+  try {
+    const row = $(`${box} [id="${CSS.escape(rule.id)}"]`);
+    if (remove) return void row.remove();
+    row.find(".regex_script_name").text(rule.scriptName || "").attr("title", rule.scriptName || "");
+    row.find(".disable_regex").prop("checked", !!rule.disabled);
+  } catch {}
+}
+function saveGlobalRegex(i, next) {
+  const rule = globalRegexList()[i];
+  if (!rule) throw new Error("这条正则已不存在");
+  const was = !!rule.markdownOnly;
+  Object.assign(rule, next);
+  ctx().saveSettingsDebounced();
+  syncNativeRegexRow("#saved_regex_scripts", rule);
+  if (was || rule.markdownOnly) noteRegexDisplay({ markdownOnly: true });
+}
+function deleteGlobalRegex(i) {
+  const list = globalRegexList();
+  const rule = list[i];
+  if (!rule) throw new Error("这条正则已不存在");
+  list.splice(i, 1);
+  ctx().saveSettingsDebounced();
+  syncNativeRegexRow("#saved_regex_scripts", rule, { remove: true });
+  noteRegexDisplay(rule);
+}
+async function writeCharRegex(ci, list) {
+  const write = ctx().writeExtensionField;
+  if (typeof write !== "function") throw new Error("酒馆版本较旧，不能在这里改角色卡的正则");
+  await write(ci.chid, "regex_scripts", list);
+}
+async function saveCharRegex(ci, i, next) {
+  const list = charRegexList(ci);
+  const rule = list[i];
+  if (!rule) throw new Error("这条正则已不存在");
+  const before = { ...rule };
+  const was = !!rule.markdownOnly;
+  Object.assign(rule, next);
+  try {
+    await writeCharRegex(ci, list);
+  } catch (e) {
+    for (const k of Object.keys(rule)) if (!(k in before)) delete rule[k];
+    Object.assign(rule, before);
+    throw e;
+  }
+  if (currentChar()?.avatar === ci.avatar) syncNativeRegexRow("#saved_scoped_scripts", rule);
+  if (was || rule.markdownOnly) noteRegexDisplay({ markdownOnly: true });
+}
+async function deleteCharRegex(ci, i) {
+  const list = charRegexList(ci);
+  const rule = list[i];
+  if (!rule) throw new Error("这条正则已不存在");
+  list.splice(i, 1);
+  try {
+    await writeCharRegex(ci, list);
+  } catch (e) {
+    list.splice(i, 0, rule);
+    throw e;
+  }
+  if (currentChar()?.avatar === ci.avatar) syncNativeRegexRow("#saved_scoped_scripts", rule, { remove: true });
+  noteRegexDisplay(rule);
+}

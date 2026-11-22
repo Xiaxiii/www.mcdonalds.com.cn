@@ -2337,11 +2337,18 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-wb-trig.pa-kw-open .pa-wb-kwtext { white-space: pre-wrap; overflow-x: hidden; overflow-wrap: anywhere; }
 #mcd-root .pa-sheet-wbentry .pa-wbset { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 #mcd-root .pa-sheet-wbentry .pa-sheet-actions .pa-btn-danger-soft { margin-right: auto; }
-/* 正则：查看查找、替换内容（原样显示，不执行） */
-#mcd-root .pa-rx-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin: 0 0 10px; }
-#mcd-root .pa-rx-kv dt { color: var(--pa-dim); font-size: .9em; }
-#mcd-root .pa-rx-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-#mcd-root .pa-rx-code { margin: 4px 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--pa-card); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow-y: auto; }
+/* 2.12.4 编辑正则：查找、替换、修剪用等宽字，随内容增高；作用于、改哪里两组勾选横排 */
+#mcd-root .pa-rx-form .pa-rx-ta { resize: none; overflow: hidden; min-height: 38px; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+#mcd-root .pa-rx-form > .pa-rx-help, #mcd-root .pa-rx-form > .pa-field-err { margin: -6px 2px 0; line-height: 1.5; }
+#mcd-root .pa-rx-set { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: 6px; }
+#mcd-root .pa-rx-set > legend { padding: 0; margin-bottom: 4px; color: var(--pa-dim); font-size: .9em; }
+#mcd-root .pa-rx-checks { display: flex; flex-wrap: wrap; gap: 4px 18px; }
+#mcd-root .pa-rx-checks .pa-inline-check { min-height: 32px; }
+@media (pointer: coarse) { #mcd-root .pa-rx-checks .pa-inline-check, #mcd-root .pa-rx-form > .pa-inline-check { min-height: 44px; } }
+#mcd-root .pa-rx-set .pa-hint { margin: 0; }
+#mcd-root .pa-rx-more { grid-template-columns: repeat(auto-fill, minmax(120px, 1fr)); }
+#mcd-root .pa-rx-form > .pa-inline-check { justify-self: start; }
+#mcd-root .pa-sheet-rxedit .pa-sheet-actions .pa-btn-danger-soft { margin-right: auto; }
 =======
 /* 2.11.20 批量用变量接入：勾选列表，组名一行可整组勾选 */
 #mcd-root .pa-vb { display: grid; border-top: 1px solid var(--pa-line); }

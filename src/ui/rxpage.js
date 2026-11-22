@@ -1,4 +1,4 @@
-// 2.12.0 预设 → 正则：开关预设、角色卡、全局三处的正则，可搜索；点眼睛看查找和替换内容。
+// 2.12.0 预设 → 正则：开关预设、角色卡、全局三处的正则，可搜索。2.12.4 点行或眼睛编辑：名称、查找、替换、修剪、作用于、改哪里、宏、深度；可删除。
 // 预设的正则走预设的草稿（自动保存、可撤销）；角色卡的写回角色卡；全局的写回酒馆设置。
 var RX_PLACE = { 1: "用户输入", 2: "AI 输出", 3: "快捷命令", 5: "世界书", 6: "推理" };
 // 柏宝箱保存在预设里的正则分组（只读）：[{ id, name, collapsed, idx: 规则下标 }]，没有分组时返回 null
@@ -20,6 +20,104 @@ function regexSubgroups(d, rules) {
   for (const g of [...groups, rest]) g.idx.sort((a, b) => orderOf.get(a) - orderOf.get(b) || a - b);
   const out = [...groups, rest].filter((g) => g.idx.length);
   return out.length > 1 || out[0]?.id !== "__ungrouped" ? out : null;
+}
+// 编辑一条正则。返回新的字段（保留原有的其他字段），取消返回 null，删除返回 "delete"
+var RX_SUB = [[0, "不替换"], [1, "原样替换"], [2, "转义后替换"]];
+function rxScopeNote(md, pr) {
+  const s = presetRegexRuleScope({ markdownOnly: md, promptOnly: pr });
+  return md || pr ? `现在：${s}` : `现在：${s}，直接改聊天记录里的原文`;
+}
+async function regexEditSheet(rule) {
+  const place = new Set(Array.isArray(rule.placement) ? rule.placement : []);
+  const sub = rule.substituteRegex === true ? 1 : Number(rule.substituteRegex) || 0;
+  const num = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 ? String(v) : "";
+  const body = el(`<div class="pa-form pa-rx-form">
+      <label class="pa-field"><span>名称</span><input class="pa-input" data-x="name" autocomplete="off" value="${esc(rule.scriptName || "")}" aria-describedby="pa-rx-name-err"></label>
+      <small class="pa-field-err" id="pa-rx-name-err" data-err="name" hidden></small>
+      <label class="pa-field"><span>查找</span><textarea class="pa-input pa-rx-ta" data-x="find" rows="1" spellcheck="false" autocapitalize="off" autocomplete="off" translate="no" placeholder="/内容/g" aria-describedby="pa-rx-find-help pa-rx-find-err">${esc(rule.findRegex || "")}</textarea></label>
+      <small class="pa-hint pa-rx-help" id="pa-rx-find-help">写成 /内容/标志，例如 /&lt;状态&gt;([\\s\\S]*?)&lt;\\/状态&gt;/g；不带斜杠时整段当作正则。</small>
+      <small class="pa-field-err" id="pa-rx-find-err" data-err="find" hidden></small>
+      <label class="pa-field"><span>替换为</span><textarea class="pa-input pa-rx-ta" data-x="replace" rows="1" spellcheck="false" autocapitalize="off" autocomplete="off" translate="no" placeholder="留空：删掉匹配到的内容" aria-describedby="pa-rx-rep-help">${esc(rule.replaceString || "")}</textarea></label>
+      <small class="pa-hint pa-rx-help" id="pa-rx-rep-help">$1 是第一个括号里的内容，{{match}} 是整段匹配。</small>
+      <label class="pa-field"><span>修剪掉（每行一个）</span><textarea class="pa-input pa-rx-ta" data-x="trim" rows="1" spellcheck="false" autocapitalize="off" autocomplete="off" translate="no">${esc((Array.isArray(rule.trimStrings) ? rule.trimStrings : []).join("\n"))}</textarea></label>
+      <fieldset class="pa-rx-set" aria-describedby="pa-rx-place-err"><legend>作用于</legend>
+        <div class="pa-rx-checks">${Object.entries(RX_PLACE).map(([k, l]) => `<label class="pa-inline-check"><input type="checkbox" data-place="${k}" ${place.has(Number(k)) ? "checked" : ""}><span>${l}</span></label>`).join("")}</div>
+        <small class="pa-field-err" id="pa-rx-place-err" data-err="place" hidden></small>
+      </fieldset>
+      <fieldset class="pa-rx-set"><legend>改哪里</legend>
+        <div class="pa-rx-checks"><label class="pa-inline-check"><input type="checkbox" data-x="md" ${rule.markdownOnly ? "checked" : ""}><span>只改显示</span></label><label class="pa-inline-check"><input type="checkbox" data-x="pr" ${rule.promptOnly ? "checked" : ""}><span>只改发给模型的内容</span></label></div>
+        <small class="pa-hint" data-x="scope">${esc(rxScopeNote(!!rule.markdownOnly, !!rule.promptOnly))}</small>
+      </fieldset>
+      <div class="pa-item-ctl pa-rx-more">
+        <label class="pa-field"><span>查找里的宏</span><select class="pa-select" data-x="sub">${RX_SUB.map(([k, l]) => `<option value="${k}" ${sub === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
+        <label class="pa-field"><span>最小深度</span><input class="pa-input" type="number" min="-1" inputmode="numeric" autocomplete="off" data-x="min" placeholder="不限" value="${num(rule.minDepth)}"></label>
+        <label class="pa-field"><span>最大深度</span><input class="pa-input" type="number" min="0" inputmode="numeric" autocomplete="off" data-x="max" placeholder="不限" value="${num(rule.maxDepth)}"></label>
+      </div>
+      <label class="pa-inline-check"><input type="checkbox" data-x="edit" ${rule.runOnEdit ? "checked" : ""}><span>编辑消息时也运行</span></label>
+    </div>`);
+  const q = (k) => body.querySelector(`[data-x=${k}]`);
+  const grow = (ta) => {
+    const box = ta.closest(".pa-sheet-body");
+    const top = box?.scrollTop;
+    ta.style.height = "auto";
+    ta.style.height = ta.scrollHeight + 2 + "px";
+    if (box && top != null) box.scrollTop = top;
+  };
+  body.querySelectorAll(".pa-rx-ta").forEach((ta) => {
+    ta.addEventListener("input", () => grow(ta));
+    requestAnimationFrame(() => requestAnimationFrame(() => grow(ta)));
+  });
+  const paintScope = () => { q("scope").textContent = rxScopeNote(q("md").checked, q("pr").checked); };
+  q("md").addEventListener("change", paintScope);
+  q("pr").addEventListener("change", paintScope);
+  const setErr = (k, msg) => {
+    const e = body.querySelector(`[data-err=${k}]`);
+    e.hidden = !msg;
+    e.textContent = msg || "";
+    const field = k === "name" ? q("name") : k === "find" ? q("find") : null;
+    if (field) { if (msg) field.setAttribute("aria-invalid", "true"); else field.removeAttribute("aria-invalid"); }
+  };
+  const depth = (v) => { const t = String(v).trim(); if (!t) return null; const n = Math.floor(Number(t)); return Number.isFinite(n) ? n : null; };
+  const read = () => {
+    const placement = [...body.querySelectorAll("[data-place]")].filter((x) => x.checked).map((x) => Number(x.dataset.place));
+    return {
+      ...rule,
+      scriptName: q("name").value.trim(),
+      findRegex: q("find").value,
+      replaceString: q("replace").value,
+      trimStrings: q("trim").value.split("\n").map((x) => x.trim()).filter(Boolean),
+      placement,
+      markdownOnly: q("md").checked,
+      promptOnly: q("pr").checked,
+      runOnEdit: q("edit").checked,
+      substituteRegex: Number(q("sub").value) || 0,
+      minDepth: depth(q("min").value),
+      maxDepth: depth(q("max").value)
+    };
+  };
+  // 名称、查找必填，查找要能被酒馆解析，至少作用于一处；有错时写在对应的框下面，焦点移到第一个错处
+  const validate = () => {
+    const v = read();
+    const errs = [];
+    setErr("name", v.scriptName ? "" : (errs.push(q("name")), "名称不能空着"));
+    let findErr = "";
+    if (!v.findRegex.trim()) findErr = "查找不能空着";
+    else { try { regexFromText(v.findRegex); } catch (e) { findErr = `酒馆解析不了这个正则：${e.message}`; } }
+    if (findErr) errs.push(q("find"));
+    setErr("find", findErr);
+    setErr("place", v.placement.length ? "" : (errs.push(body.querySelector("[data-place]")), "至少选一处，不然这条正则不会运行"));
+    errs[0]?.focus();
+    return !errs.length;
+  };
+  return sheet({
+    title: rule.scriptName || "编辑正则", body, wide: true, noFocus: true, guardDirty: true,
+    actions: [{ label: "删除", kind: "danger-soft", value: "delete" }, { label: "取消", value: null }, { label: "保存", kind: "primary", value: read, validate }],
+    onMount: (w) => {
+      const sh = w.querySelector(".pa-sheet");
+      sh.classList.add("pa-sheet-rxedit");
+      scrollHint(w.querySelector(".pa-sheet-body"), sh);
+    }
+  });
 }
 function mountRegexPage(page) {
   const st = { query: "" };
@@ -69,7 +167,7 @@ function mountRegexPage(page) {
       const where = (Array.isArray(r.placement) ? r.placement : []).map((p) => RX_PLACE[p]).filter(Boolean);
       return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
           <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
-          <button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看「${esc(name)}」" title="查看">${ICON.eye}</button>
+          <button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
           <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
         </div>`;
     };
@@ -129,18 +227,36 @@ function mountRegexPage(page) {
   async function peek(kind, i) {
     const r = ruleOf(kind, i);
     if (!r) return;
-    const where = (Array.isArray(r.placement) ? r.placement : []).map((p) => RX_PLACE[p]).filter(Boolean);
-    const depth = [r.minDepth, r.maxDepth].some((x) => typeof x === "number" && x >= 0) ? `${r.minDepth ?? 0} – ${r.maxDepth ?? "∞"}` : "";
-    const body = `<dl class="pa-rx-kv">
-        <dt>状态</dt><dd>${r.disabled ? "关着" : "开着"}</dd>
-        <dt>作用</dt><dd>${esc(presetRegexRuleScope(r))}${where.length ? `，影响${esc(where.join("、"))}` : ""}</dd>
-        ${depth ? `<dt>深度</dt><dd class="pa-num">${esc(depth)}</dd>` : ""}
-      </dl>
-      <p class="pa-sub">查找</p><pre class="pa-rx-code" translate="no">${esc(r.findRegex || "")}</pre>
-      <p class="pa-sub">替换为</p><pre class="pa-rx-code" translate="no">${esc(r.replaceString || "") || '<span class="pa-hint">（空：删掉匹配到的内容）</span>'}</pre>
-      ${Array.isArray(r.trimStrings) && r.trimStrings.length ? `<p class="pa-sub">修剪掉</p><pre class="pa-rx-code" translate="no">${esc(r.trimStrings.join("\n"))}</pre>` : ""}
-      <p class="pa-hint">要改查找或替换内容，在酒馆的正则面板里编辑。</p>`;
-    await sheet({ title: presetRegexRuleName(r), body, wide: true, actions: [{ label: "关闭", value: null }] });
+    const name = presetRegexRuleName(r);
+    const next = await regexEditSheet(r);
+    if (!next) return;
+    // 编辑窗口开着时，预设、角色或列表可能变了：按同一个位置再取一次，对不上就不写
+    const cur = ruleOf(kind, i);
+    if (cur !== r && !(kind === "preset" && cur && cur.id === r.id)) return toast("这条正则已变动，没有保存，请重新打开", "warning");
+    try {
+      if (next === "delete") {
+        const undo = kind === "preset" ? "可在页头撤销。" : "删除后不能撤销。";
+        if (!await confirmBox("删除正则", `删除「${name}」？${undo}`, "删除", true)) return;
+        if (kind === "preset") {
+          const d = getDraft(focusPreset());
+          mutate(d, "删除正则", (x) => { presetRegexList(x).splice(i, 1); });
+          if (d.name === currentPresetName()) noteRegexDisplay(r);
+        } else if (kind === "char") await deleteCharRegex(currentChar(), i);
+        else deleteGlobalRegex(i);
+        toast(`已删除「${name}」`, "success");
+      } else {
+        if (kind === "preset") {
+          const d = getDraft(focusPreset());
+          mutate(d, "编辑正则", (x) => { presetRegexList(x)[i] = next; });
+          if (d.name === currentPresetName() && (r.markdownOnly || next.markdownOnly)) noteRegexDisplay({ markdownOnly: true });
+        } else if (kind === "char") await saveCharRegex(currentChar(), i, next);
+        else saveGlobalRegex(i, next);
+        toast("已保存", "success");
+      }
+    } catch (e) {
+      toast("保存失败：" + e.message, "error");
+    }
+    render();
   }
   list.addEventListener("click", (e) => {
     const a = e.target.closest("[data-r]");
