@@ -110,8 +110,7 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
     onMount: (w) => {
       const sh = w.querySelector(".pa-sheet");
       sh.classList.add("pa-sheet-edit", "pa-sheet-wbentry");
-      const flash = scrollHint(w.querySelector(".pa-sheet-body"), sh);
-      setTimeout(() => flash(1500), 400);
+      scrollHint(w.querySelector(".pa-sheet-body"), sh);
     }
   });
 }
@@ -269,11 +268,11 @@ function mountBooks(page) {
     snapshot(ci);
     let html = "";
     if (ci) {
-      html += section(ci, "char", ci.name, L.char, { empty: "这个角色还没有绑世界书。在「其他世界书」里打开的书只给这个角色用。" });
+      html += section(ci, "char", ci.name, L.char, { note: L.char.length ? `只对「${esc(ci.name)}」生效：不进酒馆的全局世界书列表，在角色卡的世界书按钮（附加世界书）里。` : "", empty: "这个角色还没有绑世界书。在「其他世界书」里打开的书只给这个角色用。" });
     } else {
       html += `<p class="pa-hint pa-bk-none">${inGroupChat() ? "群聊没有单个角色卡。" : "没有打开角色。"}点上方「角色」选一个角色来绑世界书；不选时，这里的开关对所有角色生效。</p>`;
     }
-    html += section(ci, "all", "所有角色", L.all, { note: L.all.length ? "换角色后仍然开着。" : "" });
+    html += section(ci, "all", "所有角色", L.all, { note: L.all.length ? "即酒馆的「已启用的世界书（全局有效）」，换角色后仍然开着。" : "" });
     html += section(ci, "chat", "本聊天", L.chat);
     html += section(ci, "other", "其他世界书", L.other);
     if (st.query.trim() && !html.includes("pa-bk-row")) html += '<p class="pa-empty">没有匹配的世界书</p>';
@@ -392,7 +391,8 @@ function mountBooks(page) {
     list.querySelectorAll(".pa-bk-row").forEach((x) => x.classList.toggle("pa-editing", x.dataset.book === n));
     detail.innerHTML = `<div class="pa-bk-dhead">
         <button class="pa-icon-btn pa-bk-back" data-e="back" data-esc-back aria-label="返回世界书列表" title="返回">${BACK_ICON}</button>
-        <b class="pa-bk-dname" title="${esc(n)}">${esc(n)}</b>
+        <b class="pa-bk-dname" data-e="rename" role="button" tabindex="0" title="改名">${esc(n)}</b>
+        <button class="pa-icon-btn pa-bk-rename" data-e="rename" aria-label="改世界书名称" title="改名">${ICON.pencil}</button>
         <button class="pa-icon-btn" data-e="search" aria-label="搜索条目" aria-expanded="false" title="搜索条目">${ICON.search}</button>
         <button class="pa-icon-btn" data-e="new" aria-label="新建条目" title="新建条目">${ICON.plus}</button>
       </div>
@@ -470,6 +470,34 @@ function mountBooks(page) {
     sc.scrollTop = top;
   }
   // 每打开一本书，第一次写入前备份一次
+  // 2.12.3 改世界书名称：标题行原地改，回车保存、Esc 取消
+  let renaming = false;
+  async function renameOpen() {
+    const n = st.open;
+    const nameEl = detail.querySelector(".pa-bk-dname");
+    if (!n || !nameEl || renaming) return;
+    renaming = true;
+    try {
+      const v = await inlineEdit(nameEl, n, { placeholder: "世界书名称" });
+      if (!v || v === n || st.open !== n) return;
+      const r = await renameWorldbook(n, v);
+      if (!r) return;
+      const c = st.counts.get(n);
+      st.counts.delete(n);
+      if (c) st.counts.set(v, c);
+      st.backedUp.delete(n);
+      st.open = null;
+      render();
+      await openBook(v, { focus: false });
+      flashRow(v);
+      if (r.failed.length) toast(`已改名为「${v}」。${r.failed.join("、")} 的角色卡没改过来，请在角色卡里重新选这本世界书`, "warning");
+      else toast(`已改名为「${v}」`, "success");
+    } catch (e) {
+      toast("改名失败：" + e.message, "error");
+    } finally {
+      renaming = false;
+    }
+  }
   async function backupOnce(n) {
     if (st.backedUp.has(n) || !backupOn()) return true;
     try {
@@ -546,6 +574,7 @@ function mountBooks(page) {
     }
     const act = a?.dataset.e;
     if (act === "back") return backToList();
+    if (act === "rename") return renameOpen();
     if (act === "search" || act === "searchclose") {
       const qbox = detail.querySelector(".pa-bk-q");
       const q = detail.querySelector("[data-e=q]");

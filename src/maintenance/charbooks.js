@@ -258,3 +258,58 @@ async function setCharRegexOn(ci, i, on) {
   if (currentChar()?.avatar === ci.avatar) syncNativeRegexBox("#saved_scoped_scripts", rule);
   noteRegexDisplay(rule);
 }
+
+// 2.12.3 世界书改名。照酒馆自己的改名做：先存一份新名字的，把用到旧名字的地方都改过去，再删掉旧的。
+// 用到的地方：全局列表、各角色的附加世界书、当前聊天、人设、角色卡自带。先改链接再删旧文件：
+// 酒馆删世界书时，正在打开的角色卡若还指着旧名字，会把它清空并保存角色卡
+var BAD_BOOK_NAME = /[\\/:*?"<>|]/;
+async function renameWorldbook(oldName, newName) {
+  const wi = mods.wi;
+  newName = String(newName || "").trim();
+  if (!newName || newName === oldName) return null;
+  if (typeof wi?.saveWorldInfo !== "function" || typeof wi?.loadWorldInfo !== "function" || typeof wi?.deleteWorldInfo !== "function") throw new Error("酒馆版本较旧，不能在这里改世界书名称");
+  if (BAD_BOOK_NAME.test(newName)) throw new Error('名称不能含 \\ / : * ? " < > |');
+  if (listWorldbooks().some((n) => n !== oldName && n.toLowerCase() === newName.toLowerCase())) throw new Error(`已有叫「${newName}」的世界书`);
+  const src = await wi.loadWorldInfo(oldName);
+  if (!src?.entries) throw new Error(`读不到世界书「${oldName}」`);
+  const data = structuredClone(src);
+  try { await backupPut(`世界书：${oldName}`, data, `改名为「${newName}」前`); } catch {}
+  const c = ctx();
+  const wasGlobal = globalBooks().includes(oldName);
+  const lores = charLoreList().filter((e) => Array.isArray(e?.extraBooks) && e.extraBooks.includes(oldName));
+  const inChat = chatBook() === oldName;
+  const primaries = (c.characters || []).map((ch, i) => [ch, i]).filter(([ch]) => ch?.data?.extensions?.world === oldName);
+  let editorOn = false;
+  try { editorOn = $("#world_editor_select").find(":selected").text() === oldName; } catch {}
+  await wi.saveWorldInfo(newName, data, true);
+  if (typeof wi.updateWorldInfoList === "function") await wi.updateWorldInfoList();
+  else if (Array.isArray(wi.world_names) && !wi.world_names.includes(newName)) wi.world_names.push(newName);
+  // 改链接
+  for (const e of lores) e.extraBooks = [...new Set(e.extraBooks.map((x) => x === oldName ? newName : x))];
+  if (lores.length) saveWorldSettings();
+  if (wasGlobal) { setGlobalBook(newName, true); setGlobalBook(oldName, false); }
+  if (inChat) await setChatBook(newName);
+  const pu = c.powerUserSettings;
+  if (pu) {
+    let changed = false;
+    if (pu.persona_description_lorebook === oldName) { pu.persona_description_lorebook = newName; changed = true; }
+    for (const d of Object.values(pu.persona_descriptions || {})) if (d?.lorebook === oldName) { d.lorebook = newName; changed = true; }
+    if (changed) c.saveSettingsDebounced();
+  }
+  const failed = [];
+  for (const [ch, i] of primaries) {
+    const active = currentChar()?.chid === i;
+    if (active) { try { $("#character_world").val(newName); } catch {} }
+    try {
+      if (typeof c.writeExtensionField !== "function") throw new Error("no writeExtensionField");
+      await c.writeExtensionField(i, "world", newName);
+    } catch {
+      failed.push(ch.name || ch.avatar);
+    }
+    if (active) { try { wi.setWorldInfoButtonClass?.(undefined, true); } catch {} }
+  }
+  // 删旧文件（酒馆同时把它从列表、缓存里去掉）
+  await wi.deleteWorldInfo(oldName);
+  if (editorOn) { try { wi.reloadEditor?.(newName, true); } catch {} }
+  return { failed };
+}

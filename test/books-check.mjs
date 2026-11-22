@@ -37,7 +37,7 @@ await page.evaluate(async () => {
     { id: "p4", scriptName: "单独一条", findRegex: "d", replaceString: "", placement: [2], disabled: false }
   ], baibaiToolkit: { regexGroups: { version: 1, groups: [{ id: "gA", name: "必选", order: 0 }, { id: "gB", name: "美化", order: 1, collapsed: true }], scripts: { p1: { groupId: "gA", order: 0 }, p2: { groupId: "gA", order: 1 }, p3: { groupId: "gB", order: 0 } }, ungrouped: { name: "默认分组" } } } };
   c.extensionSettings.regex = [{ id: "g1", scriptName: "去掉多余空行", findRegex: "\\n{3,}", replaceString: "\\n\\n", placement: [2], markdownOnly: false, promptOnly: false, disabled: false }];
-  c.writeExtensionField = async (id, k, v) => { window.__wef = [id, k, structuredClone(v)]; };
+  c.writeExtensionField = async (id, k, v) => { window.__wef = [id, k, structuredClone(v)]; c.characters[Number(id)].data.extensions[k] = v; };
   c.reloadCurrentChat = async () => { window.__reloaded = (window.__reloaded || 0) + 1; };
 });
 await page.evaluate(() => window.__mcdonalds.open("preset"));
@@ -158,6 +158,19 @@ await page.waitForTimeout(200);
 const g = await page.evaluate(async () => { const wi = await import("/test/site/scripts/world-info.js"); return { sel: [...wi.selected_world_info], lore: wi.world_info.charLore }; });
 assert.ok(g.sel.includes("城市设定"), "加进全局世界书");
 assert.deepStrictEqual(g.lore, [], "改成全局后不再留在角色附加世界书里");
+// 改世界书名称：全局列表跟着改，旧的删掉
+await page.click('.pa-bk-dhead [data-e="rename"].pa-bk-rename');
+await page.waitForSelector(".pa-bk-dname .pa-inline-input");
+await page.fill(".pa-bk-dname .pa-inline-input", "雾港设定");
+await page.keyboard.press("Enter");
+await page.waitForTimeout(600);
+let rn = await page.evaluate(async () => { const wi = await import("/test/site/scripts/world-info.js"); return { names: [...wi.world_names], sel: [...wi.selected_world_info], has: !!globalThis.__wiStore["雾港设定"], old: !!globalThis.__wiStore["城市设定"] }; });
+assert.ok(rn.names.includes("雾港设定") && !rn.names.includes("城市设定"), "改名后列表里是新名字");
+assert.ok(rn.sel.includes("雾港设定") && !rn.sel.includes("城市设定"), "全局开着的跟着改名");
+assert.ok(rn.has && !rn.old, "新文件存在，旧文件删掉");
+assert.strictEqual(await page.$eval(".pa-bk-dname", (x) => x.textContent), "雾港设定");
+assert.match(await page.$eval(".pa-bk-entries", (x) => x.innerText), /共 4 条/, "条目都在");
+assert.match(await secText("all"), /雾港设定/);
 // Esc 回到列表
 await page.keyboard.press("Escape");
 await page.waitForTimeout(200);
@@ -169,6 +182,24 @@ await page.waitForTimeout(300);
 const rows = await page.$$eval(".pa-bk-row", (rs) => rs.map((r) => r.dataset.book));
 assert.deepStrictEqual(rows, ["通用文风"], "按名称搜世界书");
 await page.click('[data-b="searchclose"]');
+// 改角色卡自带那本的名字：角色卡跟着改
+await page.click('[data-sec="char"] .pa-bk-row[data-book="林遥的世界"] [data-b=peek]');
+await page.waitForSelector(".pa-wbe-row");
+await page.click(".pa-bk-dname");
+await page.waitForSelector(".pa-bk-dname .pa-inline-input");
+await page.fill(".pa-bk-dname .pa-inline-input", "林遥的过去");
+await page.keyboard.press("Enter");
+await page.waitForTimeout(600);
+assert.strictEqual(await page.evaluate(() => window.SillyTavern.getContext().characters[0].data.extensions.world), "林遥的过去", "角色卡自带的链接跟着改");
+assert.match(await secText("char"), /林遥的过去[\s\S]*角色卡自带/);
+await page.click(".pa-bk-dname");
+await page.waitForSelector(".pa-bk-dname .pa-inline-input");
+await page.fill(".pa-bk-dname .pa-inline-input", "通用文风");
+await page.keyboard.press("Enter");
+await page.waitForTimeout(400);
+assert.strictEqual(await page.$eval(".pa-bk-dname", (x) => x.textContent), "林遥的过去", "重名时不改");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(200);
 // 正则页
 await page.click('.pa-subnav [data-tab="rx"]');
 await page.waitForTimeout(400);

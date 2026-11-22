@@ -2502,6 +2502,15 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-unhook li { margin: 2px 0; line-height: 1.5; }
 #mcd-root .pa-unhook code { font-size: .92em; overflow-wrap: anywhere; }
 /* ==============================================================/* 2.12.1 滚动引导条：滚动时右边出现，停下后淡出；不挡点击 */
-#mcd-root .pa-scrollhint { position: absolute; top: 0; right: 3px; width: 4px; height: 0; border-radius: 2px; background: var(--pa-text); opacity: 0; pointer-events: none; z-index: 6; transition: opacity .3s ease-out; }
-#mcd-root .pa-scrollhint.on { opacity: .3; transition-duration: .1s; }
+#mcd-root .pa-scrollhint { position: absolute; top: 0; right: 2px; width: 3px; height: 0; border-radius: 2px; background: var(--pa-thread); opacity: 0; pointer-events: none; z-index: 6; transition: opacity .4s ease-out; }
+#mcd-root .pa-scrollhint.on { opacity: .28; transition-duration: .12s; }
 #mcd-root .pa-bk-dhead [data-e="search"][aria-expanded="true"] { color: var(--pa-text); background: var(--pa-card-2); }
+/* 2.12.3 条目页标题行：世界书名称可点改名，旁边铅笔 */
+#mcd-root .pa-bk-dname { cursor: text; border-radius: 6px; }
+#mcd-root .pa-bk-dname:focus-visible { outline: 2px solid var(--pa-info, var(--pa-thread)); outline-offset: 2px; }
+#mcd-root .pa-bk-dname.pa-inline-editing { flex: 1 1 auto; cursor: auto; }
+#mcd-root .pa-bk-dname .pa-inline-input { width: 100%; min-height: 36px; font-weight: 500; }
+#mcd-root .pa-bk-dname { flex: 0 1 auto; }
+#mcd-root .pa-bk-dhead > .pa-bk-rename { margin-right: auto; color: var(--pa-dim); }
+#mcd-root .pa-bk-dhead > .pa-bk-rename svg { width: 16px; height: 16px; }
+#mcd-root .pa-bk-dname.pa-inline-editing + .pa-bk-rename { display: none; }
