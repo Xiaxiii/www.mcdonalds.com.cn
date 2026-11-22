@@ -237,6 +237,16 @@ function sheet(opt) {
         dismiss();
         return;
       }
+      // 2.11.26 菜单里上下键在选项之间移动，Home / End 到头尾
+      if (place === "pop" && ["ArrowDown", "ArrowUp", "Home", "End"].includes(e.key)) {
+        const f = [...wrap.querySelectorAll(".pa-pick-item, .pa-npick-item")].filter((x) => !x.disabled && x.offsetParent !== null);
+        if (!f.length) return;
+        e.preventDefault();
+        const i = f.indexOf(document.activeElement);
+        const n = e.key === "Home" ? 0 : e.key === "End" ? f.length - 1 : e.key === "ArrowDown" ? (i + 1) % f.length : (i <= 0 ? f.length : i) - 1;
+        f[n].focus();
+        return;
+      }
       if (e.key === "Tab") {
         // 焦点留在弹窗里
         const f = [...wrap.querySelectorAll('button, [href], input, select, textarea, summary, [tabindex]:not([tabindex="-1"])')].filter((x) => !x.disabled && x.offsetParent !== null);
@@ -297,26 +307,34 @@ function inlineEdit(target, value, { placeholder = "" } = {}) {
     }, 40);
   });
 }
-// 贴着按钮放菜单：下面放得下就放下面，否则放上面；右边对齐按钮，不出边
+// 贴着按钮放菜单：宽度按内容（样式里限定 184–300px）；按钮在左半边时左对齐、右半边时右对齐，不出边；
+// 下面放得下就放下面，否则放上面。2.11.25 弹出动画从按钮那一角长出来
 function placePop(wrap, anchor) {
   const box = wrap.querySelector(".pa-sheet");
+  // 2.11.26 标题和点的那一行、那个按钮说的一样（如「推荐缝合位置」「新建」）就不显示；说的是哪一组、哪个方案时留着
+  const title = (box.querySelector(".pa-sheet-head b")?.textContent || "").trim();
+  const near = anchor.closest(".pa-aux-row, .pa-aux-ch, .pa-row, .pa-srow, .pa-site, .pa-sgroup > header") || anchor;
+  if (!title || `${near.textContent} ${anchor.getAttribute("aria-label") || ""} ${anchor.title || ""}`.includes(title)) box.classList.add("pa-pop-plain");
   const host = (rootEl || document.body).getBoundingClientRect();
   const a = anchor.getBoundingClientRect();
   const gap = 6, edge = 8;
-  const w = Math.min(320, host.width - edge * 2);
-  box.style.width = w + "px";
-  const left = Math.min(Math.max(a.right - host.left - w, edge), host.width - w - edge);
+  const w = Math.min(box.offsetWidth, host.width - edge * 2);
+  const leftSide = (a.left + a.right) / 2 - host.left < host.width / 2;
+  const left = Math.min(Math.max(leftSide ? a.left - host.left : a.right - host.left - w, edge), host.width - w - edge);
   box.style.left = left + "px";
   const below = host.bottom - a.bottom - gap - edge;
   const above = a.top - host.top - gap - edge;
   const h = box.offsetHeight;
-  if (h <= below || below >= above) {
+  const down = h <= below || below >= above;
+  if (down) {
     box.style.top = a.bottom - host.top + gap + "px";
     box.style.maxHeight = below + "px";
   } else {
     box.style.bottom = host.bottom - a.top + gap + "px";
     box.style.maxHeight = above + "px";
   }
+  box.style.transformOrigin = `${leftSide ? "left" : "right"} ${down ? "top" : "bottom"}`;
+  box.style.setProperty("--pa-pop-dy", down ? "-6px" : "6px");
 }
 async function confirmBox(title, text, okLabel = "确定", danger = false, cancelLabel = "取消") {
   const r = await sheet({ title, place: "center", body: `<p class="pa-p">${esc(text)}</p>`, actions: [{ label: cancelLabel, value: false }, { label: okLabel, kind: danger ? "danger" : "primary", value: true }] });
@@ -357,16 +375,27 @@ async function promptBox(title, value = "", placeholder = "") {
   });
 }
 // 2.5.0 选项不多的菜单贴着刚点的按钮弹出（点外面关掉）；选项多或带说明时放在屏幕中间
+// 菜单选项开头的「＋」「↑」「↓」字符 → 画的图标（和其他线条图标一致）。返回 { text, icon }
+function menuIcon(label) {
+  const t = String(label ?? "");
+  const m = /^\s*([＋+↑↓])\s+/.exec(t);
+  if (!m) return { text: t, icon: "" };
+  const key = { "＋": "plus", "+": "plus", "↑": "arrowUp", "↓": "arrowDown" }[m[1]];
+  return { text: t.slice(m[0].length), icon: `<span class="pa-mi" aria-hidden="true">${ICON[key]}</span>` };
+}
 async function pickBox(title, items, { hint = "", anchor = recentAnchor() } = {}) {
   const body = el(`<div>${hint ? `<p class="pa-hint">${esc(hint)}</p>` : ""}<div class="pa-pick"></div></div>`);
   const list = body.querySelector(".pa-pick");
   let resolveFn;
   const pop = !!anchor && !hint && items.length <= 9;
   // 先填好选项再弹出，贴按钮时才量得准高度
-  // item.pair：一行放两个短按钮（如 ↑ 上移、↓ 下移），值写成 "序号.0" / "序号.1"
-  list.innerHTML = items.map((it, i) => it.pair
-    ? `<div class="pa-pick-pair">${it.pair.map((p, j) => `<button class="pa-pick-item" data-v="${i}.${j}">${esc(p.label)}</button>`).join("")}</div>`
-    : `<button class="pa-pick-item" data-v="${i}"><span class="pa-pick-label">${esc(it.label)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}</button>`).join("") || '<p class="pa-hint">无可选项</p>';
+  // item.pair：一行放两个短按钮（如 ↑ 上移、↓ 下移），值写成 "序号.0" / "序号.1"；item.danger：删除类，标危险色、前面隔一条线
+  // 2.11.26 开头的「＋」「↑」「↓」换成画的图标：成对的放在文字前，单独一行的放在右边
+  list.innerHTML = items.map((it, i) => {
+    if (it.pair) return `<div class="pa-pick-pair">${it.pair.map((p, j) => { const L = menuIcon(p.label); return `<button class="pa-pick-item" data-v="${i}.${j}">${L.icon}<span class="pa-pick-label">${esc(L.text)}</span></button>`; }).join("")}</div>`;
+    const L = menuIcon(it.label);
+    return `<button class="pa-pick-item${it.danger ? " pa-pick-danger" : ""}${L.icon ? " pa-has-mi" : ""}" data-v="${i}"><span class="pa-pick-label">${esc(L.text)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}${L.icon}</button>`;
+  }).join("") || '<p class="pa-hint">无可选项</p>';
   const p = sheet({ title, body, place: pop ? "pop" : "center", anchor, actions: pop ? [] : [{ label: "取消", value: null }], onMount: (w) => {
     list.addEventListener("click", (e) => {
       const b = e.target.closest("[data-v]");

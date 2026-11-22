@@ -120,6 +120,7 @@ async function flushPresetNotice() {
   }
 }
 // backup：写之前把服务器上的旧版本存一份备份（每批修改只存一次，由调用方决定）
+// data 由 saveDraft 用 toPreset() 新生成、之后不再改动，写回预设列表时直接用它，不再整份复制（2.11.21）
 async function writePreset(name, data, reason = "保存", { backup = true } = {}) {
   const { presets } = pm().getPresetList();
   const idx = presetIndex(name);
@@ -145,8 +146,8 @@ async function writePreset(name, data, reason = "保存", { backup = true } = {}
   if (idx !== void 0 && idx >= 0) {
     // 原地替换：别的扩展可能拿着旧对象的引用，换成新对象的话它下次保存会把旧内容写回去
     const cur = presets[idx];
-    if (cur && typeof cur === "object") { replaceInPlace(cur, structuredClone(data)); forgetSize(cur); }
-    else presets[idx] = structuredClone(data);
+    if (cur && typeof cur === "object") { replaceInPlace(cur, data); forgetSize(cur); }
+    else presets[idx] = data;
   }
   if (name === currentPresetName() && restChanged) {
     toast(`「${name}」的温度等参数已写入预设文件。正在使用的参数要在酒馆里重新选一次这个预设才会更新`, "warning");
@@ -789,11 +790,28 @@ function tx(store, mode, fn) {
 function backupMine(b) {
   return b.user ? b.user === userHandle() : userHandle() === "default-user";
 }
+// 2.11.21 写入时 IndexedDB 自己会复制一份，不再先 structuredClone；
+// 清理旧备份要把这个预设的所有备份整份读出来（大预设 10 份就是十几 MB），放到保存之后、空闲时再做，不挡保存
 async function backupPut(preset, data, reason) {
   if (!backupOn()) return;
-  await tx("backups", "readwrite", (s) => s.add({ preset, user: userHandle(), reason, time: Date.now(), data: structuredClone(data) }));
-  const list = await backupList(preset);
-  for (const old of list.slice(backupMax())) await tx("backups", "readwrite", (s) => s.delete(old.id));
+  await tx("backups", "readwrite", (s) => s.add({ preset, user: userHandle(), reason, time: Date.now(), data }));
+  queueBackupPrune(preset);
+}
+var backupPrunes = new Map();
+function queueBackupPrune(preset) {
+  if (backupPrunes.has(preset)) return;
+  const run = async () => {
+    try {
+      const list = await backupList(preset);
+      for (const old of list.slice(backupMax())) await tx("backups", "readwrite", (s) => s.delete(old.id));
+    } catch (e) {
+      console.warn("[麦当劳] 清理旧备份失败", e);
+    } finally {
+      backupPrunes.delete(preset);
+    }
+  };
+  const idle = globalThis.requestIdleCallback;
+  backupPrunes.set(preset, idle ? idle(() => run(), { timeout: 5e3 }) : setTimeout(run, 2e3));
 }
 async function backupList(preset) {
   const all = await tx("backups", "readonly", (s) => s.index("preset").getAll(preset));

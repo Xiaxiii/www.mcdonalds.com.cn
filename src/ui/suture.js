@@ -96,7 +96,7 @@ function mountSuture(page, app) {
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><span class="pa-where">未选位置</span></div>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-link pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">AI 推荐</button><button class="pa-link pa-aiplace" data-st="aiqueue" type="button" hidden></button></div></div>
         <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
         <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
@@ -324,16 +324,26 @@ function mountSuture(page, app) {
     for (const x of keys.slice(0, Math.max(0, keys.length - 40))) delete store[x];
     saveSettings();
   }
-  // 世界书条目列表（酒馆里的世界书和世界书文件共用）
+  // 世界书条目列表（酒馆里的世界书和世界书文件共用）。
+  // 2.11.34 列表块按 --n 预估高度（content-visibility），世界书这里以前没写，重画时高度先按一行算，点选条目后列表跳回顶部
   function renderWorldRows(items, from) {
     srcList.dataset.kind = "world";
     srcList._items = items;
     srcList._from = from;
     const wq = qOf("src").toLowerCase();
     const shown = wq ? items.filter((it) => String(it.name).toLowerCase().includes(wq) || String(it.content || "").toLowerCase().includes(wq)) : items;
-    srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
+    srcList.innerHTML = qBar("src") + (wq ? `<div class="pa-qsum">匹配 <b>${shown.length}</b> 条（名称或正文）</div>` : "") + `<div class="pa-loose" style="--n:${shown.length}">${shown.map((it) => `<div class="pa-row${st.picked.has(it.id) ? " pa-sel" : ""}${it.enabled ? "" : " pa-off"}" data-wid="${esc(it.id)}" tabindex="0"><span class="pa-check"></span><span class="pa-name">${markText(it.name, wq)}</span><button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button></div>`).join("") || `<p class="pa-empty">${wq ? "没有匹配的条目" : "没有条目"}</p>`}</div>`;
   }
+  // 2.11.34 重画同一个来源（点选条目、展开分组）时保住列表的滚动位置；换了来源从头显示
+  let srcShown = "";
   async function renderSrc() {
+    const shownKey = `${st.srcType}:${st.srcType === "preset" ? st.srcPreset : st.srcType === "world" ? st.srcWorld : st.srcType === "file" ? fileName() : ""}`;
+    const top = shownKey === srcShown ? srcList.scrollTop : 0;
+    srcShown = shownKey;
+    await renderSrcBody();
+    if (srcList.scrollTop !== top) srcList.scrollTop = top;
+  }
+  async function renderSrcBody() {
     if (regexSource()) return renderRegexSrc();
     const keyOf = (id) => `${st.srcType}:${st.srcType === "preset" ? st.srcPreset : st.srcType === "file" ? st.fileDraft?.name : ""}:${id}`;
     if (st.srcType === "preset" || st.srcType === "file" && st.fileKind !== "world") {
@@ -413,7 +423,7 @@ function mountSuture(page, app) {
       const it = srcList._items.find((x) => x.id === r.dataset.wid);
       if (peekBtn) return st.srcType === "file" ? editFileWorldEntry(it) : editWorldEntry(st.srcWorld, it.uid, it.name, it.content);
       st.picked.has(it.id) ? st.picked.delete(it.id) : st.picked.set(it.id, { name: it.name, content: it.content, prompt: null, from: srcList._from, raw: it.raw });
-      return renderSrc();
+      return paintPicked();
     }
     const d = srcList._draft;
     const head = e.target.closest(".pa-ghead");
@@ -430,9 +440,9 @@ function mountSuture(page, app) {
             st.picked.set(k2, { name: p2.name, content: p2.content, prompt: p2, from: d.name, srcDraft: d, srcId: id2 });
           }
         }
-      } else {
-        toggleOpen(d, st.srcFoldKey, gid);
+        return paintPicked();
       }
+      toggleOpen(d, st.srcFoldKey, gid);
       return renderSrc();
     }
     const row = e.target.closest(".pa-row");
@@ -443,8 +453,28 @@ function mountSuture(page, app) {
     if (d.isMarker(id)) return toast("系统位置条目不能缝合");
     const k = srcList._keyOf(id);
     st.picked.has(k) ? st.picked.delete(k) : st.picked.set(k, { name: p.name, content: p.content, prompt: p, from: d.name, srcDraft: d, srcId: id });
-    renderSrc();
+    paintPicked();
   });
+  // 2.11.36 点选条目、整组选择只改列表里的勾选状态，不重画整个来源列表：
+  // 1200 条的预设每点一下要重新生成、排版一遍，手机上一次 200 多毫秒，连着点就卡
+  function paintPicked() {
+    const d = srcList._draft;
+    if (srcList.dataset.kind === "world") {
+      for (const r of srcList.querySelectorAll(".pa-row[data-wid]")) r.classList.toggle("pa-sel", st.picked.has(r.dataset.wid));
+    } else if (srcList.dataset.kind === "draft" && d) {
+      for (const r of srcList.querySelectorAll(".pa-row[data-id]")) r.classList.toggle("pa-sel", st.picked.has(srcList._keyOf(r.dataset.id)));
+      // 整组都选上时组头打勾（和 renderList 的算法一样：这一段的条目全在已选里）
+      const blocks = d.blocks();
+      for (const sec of srcList.querySelectorAll(".pa-group")) {
+        const head = sec.querySelector(":scope > .pa-ghead");
+        const b = blocks.find((x) => x.groupId === sec.dataset.gid && (x.ids[0] || "") === head?.dataset.first);
+        const all = !!b && !b.empty && b.ids.length > 0 && b.ids.every((x) => st.picked.has(srcList._keyOf(x)));
+        sec.classList.toggle("pa-gsel", all);
+        head?.querySelector("[data-act=gselect]")?.setAttribute("aria-pressed", String(all));
+      }
+    } else return renderSrc();
+    renderBar();
+  }
   // 「查看」弹窗可以直接改（和整理页一样，点了正文才弹键盘）：
   // 已安装预设存回预设（可撤销），文件只改这次读入的内容，世界书写回世界书（写前备份）。已选的条目跟着更新
   function syncPicked(test, patch, rawPatch) {
@@ -615,7 +645,7 @@ function mountSuture(page, app) {
       const m2 = placeFromClick(d2, e, false);
       if (!m2) return;
       st.wbMarker = m2;
-      return renderDst();
+      return moveMark(m2) ? renderBar() : renderDst();
     }
     const d = target();
     const act = e.target.closest("[data-act]")?.dataset.act;
@@ -644,8 +674,45 @@ function mountSuture(page, app) {
       return;
     }
     st.marker = m;
-    renderDst();
+    if (moveMark(m)) renderBar();
+    else renderDst();
   });
+  // 2.11.36 换缝合位置只挪「缝合位置」标记，不重画整个目标列表。
+  // 要放的地方不在列表里（被搜索筛掉、分组收着）时返回 false，照旧整个重画
+  function moveMark(m) {
+    const el2 = (h) => { const t = document.createElement("template"); t.innerHTML = h; return t.content.firstElementChild; };
+    let anchor = null;
+    if (m.at === "top") anchor = dstList.querySelector('.pa-slot[data-act="top"]');
+    else if (m.at === "gstart") anchor = dstList.querySelector(`.pa-slot-in[data-gid="${CSS.escape(m.gid)}"]`);
+    else if (m.at === "row") anchor = dstList.querySelector(`.pa-row[data-id="${CSS.escape(m.id)}"]`);
+    else if (m.at === "block") anchor = m.id ? dstList.querySelector(`.pa-ghead[data-last="${CSS.escape(m.id)}"]`)?.closest(".pa-group") : dstList.querySelector(`.pa-group.pa-gempty-box[data-gid="${CSS.escape(m.gid)}"]`);
+    if (!anchor) return false;
+    // 撤掉旧标记；它占着「↑ 最前面」「↑ 组内最前」的位置时，把按钮放回去
+    for (const mk of dstList.querySelectorAll(".pa-insert-mark")) {
+      const prev = mk.previousElementSibling;
+      if (mk.parentElement.classList.contains("pa-gbody") && !prev) {
+        const sec = mk.closest(".pa-group");
+        mk.replaceWith(el2(`<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(sec.dataset.gid)}">${sec.classList.contains("pa-gempty-box") ? "↓ 放入此组" : "↑ 组内最前"}</button>`));
+      } else if (!prev?.matches(".pa-row, .pa-group")) mk.replaceWith(el2('<button class="pa-slot" data-act="top">↑ 最前面</button>'));
+      else mk.remove();
+    }
+    dstList.querySelectorAll(".pa-row.pa-at").forEach((x) => x.classList.remove("pa-at"));
+    dstList.querySelectorAll(".pa-has-at, .pa-after-at").forEach((x) => x.classList.remove("pa-has-at", "pa-after-at"));
+    dstList.querySelectorAll(".pa-at-chip").forEach((x) => x.remove());
+    const mark = el2('<div class="pa-insert-mark">缝合位置</div>');
+    if (m.at === "top" || m.at === "gstart") {
+      if (m.at === "gstart") anchor.closest(".pa-group")?.classList.add("pa-has-at");
+      anchor.replaceWith(mark);
+    } else if (m.at === "row") {
+      anchor.classList.add("pa-at");
+      anchor.closest(".pa-group")?.classList.add("pa-has-at");
+      anchor.after(mark);
+    } else {
+      anchor.classList.add("pa-after-at");
+      anchor.after(mark);
+    }
+    return true;
+  }
   // ---- 🔍 搜索：点放大镜在栏头下方展开输入框，边打边在「从」「到」的列表里筛出来（和预设页一样）；
   // 搜的词存进设置，关掉面板后列表仍按它筛；点输入框右侧 ✕ 或再点放大镜清除
   const qStore = () => {
@@ -705,6 +772,12 @@ function mountSuture(page, app) {
     pn.disabled = !n;
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」一栏点条目选位置" : "在「到」一栏点组名或条目选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
+    bar.querySelector("[data-st=aiplace]").hidden = !(n && st.dstType === "preset" && d);
+    const qn = st.aiQueue?.[0]?.items.length || 0;
+    const qb = bar.querySelector("[data-st=aiqueue]");
+    qb.hidden = !(qn && !n && st.dstType === "preset");
+    qb.textContent = `接着缝 ${qn} 条`;
+    if (!qb.hidden) bar.querySelector(".pa-where").textContent = "AI 推荐的下一组";
     swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
     swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";
     if (layout() === "switch" && !(d && m) && n) bar.querySelector(".pa-where").textContent = "切到「到」，点组名或条目选位置";
@@ -712,6 +785,217 @@ function mountSuture(page, app) {
     const undo = bar.querySelector("[data-st=wbundo]");
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);
     if (!undo.hidden) undo.textContent = `撤销刚缝的 ${st.lastWb.uids.length} 条`;
+  }
+  // 2.11.23 AI 推荐位置：把目标预设的目录和已选条目经「连接 → 副 API」发给模型，点「放这里」就选上。
+  // 2.11.31 按作用分组，每组写明条目、位置、原因；有几组时一次缝一组：点「放这里」只留这一组，
+  // 其余各组带着推荐位置排队，缝完后底栏「接着缝」。关掉窗口即取消请求。
+  // 2.11.35 推荐记录：同一批条目、同一个目标预设（发出去的内容一样）每次推荐都留下，最多 5 次，窗口顶部切换对照；
+  // 有两次以上时每组写明「几次里有几次推荐这里」。存在本浏览器，留最近 10 批。再打开时用的 API 和最近一次一样就直接显示，不一样就重新推荐
+  st.aiQueue = [];
+  const AIP_KEY = "mcdonalds:aiplace", AIP_RUNS = 5, AIP_BATCHES = 10;
+  let aipMem = null;
+  const aipAll = () => {
+    if (!aipMem) {
+      try { aipMem = JSON.parse(localStorage.getItem(AIP_KEY) || "{}"); } catch { aipMem = {}; }
+      if (!aipMem || typeof aipMem !== "object" || Array.isArray(aipMem)) aipMem = {};
+    }
+    return aipMem;
+  };
+  const aipRuns = (sig) => (Array.isArray(aipAll()[sig]?.runs) ? aipAll()[sig].runs : []).filter((x) => x && Array.isArray(x.result?.groups));
+  function aipSave(sig, runs) {
+    const all = aipAll();
+    all[sig] = { at: Date.now(), runs: runs.slice(-AIP_RUNS) };
+    aipMem = Object.fromEntries(Object.entries(all).sort((a, b) => (b[1]?.at || 0) - (a[1]?.at || 0)).slice(0, AIP_BATCHES));
+    try { localStorage.setItem(AIP_KEY, JSON.stringify(aipMem)); } catch {}
+  }
+  const aipTime = (t) => {
+    const x = new Date(t), p = (n) => String(n).padStart(2, "0"), hm = `${p(x.getHours())}:${p(x.getMinutes())}`;
+    return x.toDateString() === new Date().toDateString() ? hm : `${x.getMonth() + 1}-${x.getDate()} ${hm}`;
+  };
+  async function aiPlace() {
+    if (st.dstType !== "preset" || !st.picked.size) return;
+    let d;
+    try { d = target(); } catch (e) { return toast(e.message, "warning"); }
+    const keys = [...st.picked.keys()];
+    const items = keys.map((k) => st.picked.get(k));
+    const req = buildPlaceRequest(d, items);
+    const sig = hashStr(JSON.stringify([d.name, req.messages[1].content]));
+    const size = req.chars >= 1e4 ? `${(req.chars / 1e4).toFixed(1).replace(/\.0$/, "")} 万字` : `${req.chars} 字`;
+    const body = el(`<div class="pa-aip">
+        <p class="pa-hint pa-aux-use"><span data-x="label">${esc(auxTarget("suture").name)}</span><span class="pa-aip-size"> · 约 ${size}</span><button class="pa-link" data-x="aux" type="button">更改</button></p>
+        <div class="pa-aip-res" aria-live="polite"></div>
+      </div>`);
+    const res = body.querySelector(".pa-aip-res");
+    let controller = null, tick = 0, views = [], win = null, runs = aipRuns(sig), cur = -1;
+    const close = () => win?.querySelector(".pa-sheet-x")?.click();
+    // 推荐记录：两次以上（或这次没推荐成、之前有）时显示「第 1 次 / 第 2 次」，下面小字是时间；换过模型时再写一行这次用的模型
+    const runsRow = () => {
+      if (runs.length < 2 && !(runs.length && cur < 0)) return "";
+      const tabs = runs.map((r, i) => `<button type="button" role="tab" aria-selected="${i === cur}" data-x="run" data-r="${i}" title="${esc(r.label || "")}"><span>第 ${i + 1} 次</span><small>${esc(aipTime(r.at))}</small></button>`).join("");
+      const mixed = new Set(runs.map((r) => r.label)).size > 1;
+      return `<div class="pa-aip-runs" role="tablist" aria-label="推荐记录">${tabs}</div>${mixed && runs[cur] ? `<p class="pa-aip-runmeta">${esc(runs[cur].label || "")}</p>` : ""}`;
+    };
+    // 每条条目在某一次推荐里排到的第一个位置
+    const posKey = (m) => {
+      const f = m && fixPlace(d, m);
+      return f ? JSON.stringify(f) : "";
+    };
+    const bestByEntry = (r) => {
+      const map = new Map();
+      for (const g of r.result.groups) {
+        const k = (g.places || []).map((p) => posKey(p.marker)).find(Boolean) || "";
+        for (const n of g.entries) map.set(n, k);
+      }
+      return map;
+    };
+    // 这一组的位置在几次推荐里出现：一次推荐里这组过半的条目排到同一个位置就算
+    const agreeText = (v) => {
+      if (runs.length < 2 || !v.places[0]) return "";
+      const k = JSON.stringify(v.places[0].marker);
+      const n = runs.map(bestByEntry).filter((m) => v.entries.filter((e) => m.get(e) === k).length * 2 > v.entries.length).length;
+      return n === runs.length ? `<p class="pa-aip-agree pa-aip-all">${n} 次都推荐这里</p>` : `<p class="pa-aip-agree">${runs.length} 次里 ${n} 次推荐这里</p>`;
+    };
+    // 2.11.33 一组一段：组名和条数（点开看全部条目，点「收起」合上）→ 放到哪（加粗）和原因、「放这里」→ 其他位置收起
+    const CHEV = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 9 6 6 6-6"/></svg>';
+    const TO = '<svg class="pa-aip-ic" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 4v7a4 4 0 0 0 4 4h9"/><path d="m15 11 4 4-4 4"/></svg>';
+    // 组名：模型起的 → 第一条分隔条目的标题 → 来源预设里共同的分组 → 第一条的名字
+    const groupName = (v) => {
+      if (v.name) return v.name.replace(/^[「『"]+|[」』"]+$/g, "");
+      const dv = v.names.map(placeDivider).find((x) => x && x.kind !== "close");
+      if (dv) return dv.title.split(/[·・｜|]/)[0].trim() || dv.title;
+      const gs = new Set(v.items.map((it) => {
+        const g = it?.srcDraft && it.srcId ? it.srcDraft.groupOf(it.srcId) : null;
+        return g ? placeFlat(it.srcDraft.group(g)?.name) : "";
+      }));
+      const g = gs.size === 1 ? [...gs][0] : "";
+      return g || (v.names.length > 1 ? `${v.names[0]} 等` : v.names[0]);
+    };
+    // 条目一行一条；分隔条目（┌──本体文风──┐ 之类）只留标题，当小标题
+    const listHtml = (v) => v.names.map((n) => {
+      const dv = placeDivider(n);
+      return dv ? `<li class="pa-aip-div${dv.kind === "close" ? " pa-aip-end" : ""}" title="${esc(n)}">${esc(dv.title)}</li>` : `<li>${esc(n)}</li>`;
+    }).join("");
+    const placeRow = (gi, p, i) => `<div class="pa-aip-place${i ? "" : " pa-aip-best"}">${i ? "" : TO}
+        <div class="pa-aip-pt"><p class="pa-aip-pos">${esc(placeText(d, p.marker))}</p>${p.reason ? `<p class="pa-aip-why">${esc(p.reason)}</p>` : ""}${i ? "" : agreeText(views[gi])}</div>
+        <button class="pa-btn pa-btn-s${!i && gi === 0 ? " pa-btn-primary" : ""}" data-x="use" data-g="${gi}" data-i="${i}" type="button">放这里</button>
+      </div>`;
+    const card = (v, gi) => {
+      const best = v.places[0], alt = v.places.slice(1), few = v.names.length <= 3, name = groupName(v);
+      return `<section class="pa-aip-grp" data-g="${gi}">
+          <div class="pa-aip-head">
+            <h3 class="pa-aip-name" title="${esc(name)}">${esc(name)}</h3>
+            ${few ? `<span class="pa-aip-n">${v.names.length} 条</span>` : `<button class="pa-aip-n pa-aip-tog" data-x="list" data-g="${gi}" type="button" aria-expanded="false" aria-controls="pa-aip-l${gi}"><span>${v.names.length} 条</span>${CHEV}</button>`}
+          </div>
+          ${few ? `<p class="pa-aip-few">${v.names.map(esc).join("、")}</p>` : `<ol class="pa-aip-list" id="pa-aip-l${gi}" hidden>${listHtml(v)}</ol>`}
+          ${best ? placeRow(gi, best, 0) : `<div class="pa-aip-place"><span class="pa-aip-ic"></span><div class="pa-aip-pt"><p class="pa-aip-pos pa-aip-none">没有推荐位置</p></div><button class="pa-btn pa-btn-s" data-x="only" data-g="${gi}" type="button">只选这几条</button></div>`}
+          ${alt.length ? `<button class="pa-link pa-aip-more" data-x="alt" data-g="${gi}" type="button" aria-expanded="false" aria-controls="pa-aip-a${gi}"><span>其他位置 ${alt.length}</span>${CHEV}</button>
+          <div class="pa-aip-alt" id="pa-aip-a${gi}" hidden>${alt.map((p, i) => placeRow(gi, p, i + 1)).join("")}</div>` : ""}
+        </section>`;
+    };
+    const againBtn = (text) => `<button class="pa-link pa-aip-again" data-x="again" type="button"${runs.length >= AIP_RUNS ? ` title="最多留 ${AIP_RUNS} 次，再推荐会去掉最早的一次"` : ""}>${text}</button>`;
+    const showRun = (i) => d.withReadIndex(() => {
+      cur = i;
+      const r = runs[i].result;
+      views = r.groups.map((g) => ({ name: g.name || "", entries: g.entries, keys: g.entries.map((n) => keys[n - 1]), items: g.entries.map((n) => items[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
+      res.innerHTML = runsRow() + views.map(card).join("") + againBtn("重新推荐");
+    });
+    const run = async () => {
+      controller = new AbortController();
+      cur = -1;
+      const label = auxLabel(auxTarget("suture"));
+      body.querySelector('[data-x="label"]').textContent = auxTarget("suture").name;
+      const t0 = Date.now();
+      res.innerHTML = '<div class="pa-aip-wait"><span class="pa-spin" aria-hidden="true">' + ICON.refresh + '</span><span>正在推荐… <span data-x="sec">0</span> 秒</span><button class="pa-btn pa-btn-s" data-x="cancel" type="button">取消</button></div>';
+      tick = setInterval(() => { const x = res.querySelector('[data-x="sec"]'); if (x) x.textContent = String(Math.round((Date.now() - t0) / 1e3)); }, 1e3);
+      try {
+        const r = await auxRequest("suture", req.messages, { signal: controller.signal, maxTokens: 4e3, timeout: 12e4 });
+        const parsed = parsePlaceReply(r.text, req.map, items.length);
+        runs = [...aipRuns(sig), { at: Date.now(), label, result: parsed }].slice(-AIP_RUNS);
+        aipSave(sig, runs);
+        if (body.isConnected) showRun(runs.length - 1);
+      } catch (e) {
+        if (!body.isConnected) return;
+        res.innerHTML = runsRow() + (/已取消$/.test(e.message) ? `<p class="pa-hint">已取消。</p>${againBtn("重新推荐")}`
+          : `<p class="pa-warn"${e.raw ? ` title="${esc(e.raw)}"` : ""}>${esc(e.message)}</p>${againBtn("重试")}`);
+      } finally {
+        clearInterval(tick);
+        controller = null;
+      }
+    };
+    // 只留这一组的条目；其余各组带着各自最好的位置排队，缝完这组后在底栏「接着缝」
+    const keepGroup = (gi) => {
+      const v = views[gi];
+      if (views.length < 2) return 0;
+      const keep = new Set(v.keys);
+      st.aiQueue = views.filter((_, j) => j !== gi).map((w) => ({ target: d.name, marker: w.places[0]?.marker || null, items: w.keys.filter((k) => st.picked.has(k)).map((k) => [k, st.picked.get(k)]) })).filter((q) => q.items.length);
+      for (const k of [...st.picked.keys()]) if (!keep.has(k)) st.picked.delete(k);
+      renderSrc();
+      return st.aiQueue.reduce((n, q) => n + q.items.length, 0);
+    };
+    body.addEventListener("click", (e) => {
+      const btn = e.target.closest("[data-x]");
+      const x = btn?.dataset.x;
+      if (x === "cancel") return controller?.abort();
+      if (x === "again") return run();
+      if (x === "aux") { close(); return app.show?.("aux"); }
+      if (x === "run") return showRun(Number(btn.dataset.r));
+      const gi = Number(btn?.dataset.g);
+      const v = views[gi];
+      // 条目列表、其他位置：再点一下收起
+      if ((x === "list" || x === "alt") && v) {
+        const box = body.querySelector(`#${btn.getAttribute("aria-controls")}`);
+        box.hidden = !box.hidden;
+        btn.setAttribute("aria-expanded", String(!box.hidden));
+        btn.firstElementChild.textContent = !box.hidden ? "收起" : x === "list" ? `${v.names.length} 条` : `其他位置 ${v.places.length - 1}`;
+        return;
+      }
+      if (x === "only" && v) {
+        const rest = keepGroup(gi);
+        close();
+        return toast(`已选这 ${v.keys.length} 条，到「到」一栏选位置${rest ? `；其余 ${rest} 条稍后「接着缝」` : ""}`);
+      }
+      if (x !== "use" || !v) return;
+      const p = v.places[Number(btn.dataset.i)];
+      let cur;
+      try { cur = target(); } catch { cur = null; }
+      const m = cur && cur.name === d.name ? fixPlace(cur, p.marker) : null;
+      if (!m) return toast("目标预设变了，这个位置已经不在了，请重新推荐", "warning");
+      const rest = keepGroup(gi);
+      st.marker = m;
+      // 组内的位置：先把那一组展开，才看得见位置标记
+      const gid = m.at === "gstart" ? m.gid : m.at === "row" ? cur.groupOf(m.id) : null;
+      if (gid && st.dstFoldKey) toggleOpen(cur, st.dstFoldKey, gid, true);
+      close();
+      if (layout() === "switch") setSide("dst");
+      renderDst();
+      scrollToView(dstList.querySelector(".pa-insert-mark"));
+      toast(rest ? `已选这 ${v.keys.length} 条和位置，其余 ${rest} 条稍后「接着缝」` : `位置：${placeText(cur, m)}`, "success");
+    });
+    await sheet({ title: "AI 推荐位置", body, actions: [], onMount: (w) => {
+      win = w;
+      if (runs.length && runs.at(-1).label === auxLabel(auxTarget("suture"))) showRun(runs.length - 1);
+      else run();
+    } });
+    controller?.abort();
+    clearInterval(tick);
+  }
+  // 2.11.31 接着缝：选上排队的下一组和它推荐的位置
+  function aiQueueNext() {
+    const q = st.aiQueue.shift();
+    if (!q) return;
+    st.picked.clear();
+    for (const [k, v] of q.items) st.picked.set(k, v);
+    let d = null;
+    try { d = target(); } catch {}
+    st.marker = d && d.name === q.target && q.marker ? fixPlace(d, q.marker) : null;
+    if (st.marker) {
+      const gid = st.marker.at === "gstart" ? st.marker.gid : st.marker.at === "row" ? d.groupOf(st.marker.id) : null;
+      if (gid && st.dstFoldKey) toggleOpen(d, st.dstFoldKey, gid, true);
+    }
+    renderSrc();
+    renderDst();
+    if (st.marker) scrollToView(dstList.querySelector(".pa-insert-mark"));
+    toast(`已选 ${q.items.length} 条${st.marker ? `，位置：${placeText(d, st.marker)}` : "，在「到」一栏选位置"}`, "success");
   }
   // ask：来源不是预设或含正则的文件时（世界书、粘贴等），先问从哪个预设缝
   async function regexSuture({ ask = false } = {}) {
@@ -734,12 +1018,15 @@ function mountSuture(page, app) {
     // 取消：清掉已选的条目和缝合位置
     if (a === "clear") {
       st.picked.clear();
+      st.aiQueue = [];
       st.marker = null;
       st.wbMarker = null;
       renderSrc();
       renderDst();
     }
     if (a === "go") st.dstType === "world" ? reviewWorld() : review();
+    if (a === "aiplace") return aiPlace();
+    if (a === "aiqueue") return aiQueueNext();
     if (a === "regex") return regexSuture();
     if (a === "migrate") migrate();
     if (a === "picked") return pickedSheet();

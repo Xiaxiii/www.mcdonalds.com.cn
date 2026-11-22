@@ -14,7 +14,7 @@ export async function choose(page, btnSel, value) {
 export const chooseSrcType = (page, type) => choose(page, '[data-st="srctype"]', type);
 export const chooseDstType = (page, type) => choose(page, '[data-st="dsttype"]', type);
 // 整理页工具栏：宽屏直接点按钮；窄屏（< 1100px，iPad 也算）按钮收在 ⋯ 和 ＋ 菜单里
-const MENU_OF = { newentry: ["add", "＋ 新建条目"], newgroup: ["add", "＋ 新建分组"], smart: ["menu", "智能分组"], fold: ["menu", /全部展开|全部折叠/], clickorder: ["menu", "多选排列"] };
+const MENU_OF = { newentry: ["add", "新建条目"], newgroup: ["add", "新建分组"], smart: ["menu", "智能分组"], fold: ["menu", /全部展开|全部折叠/], clickorder: ["menu", "多选排列"] };
 export async function organizeTool(page, tool) {
   const btn = page.locator(`[data-page=organize] [data-tool="${tool}"]`);
   if (await btn.isVisible()) return btn.click();
@@ -31,7 +31,7 @@ export async function expandAll(page) {
     await page.click("[data-page=organize] [data-tool=menu]");
     const item = page.locator(".pa-sheet-mask:not(.pa-out) .pa-pick-item").filter({ hasText: "全部展开" });
     if (await item.count()) await item.click();
-    else await page.click(".pa-sheet-mask:not(.pa-out) .pa-sheet-x");
+    else await page.keyboard.press("Escape");
   }
   await page.waitForTimeout(250);
 }

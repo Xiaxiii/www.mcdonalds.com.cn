@@ -1,11 +1,20 @@
 const assert = require('node:assert/strict');
 const fs = require('node:fs'), path = require('node:path');
 const { hashStr } = require('./core.cjs');
-const code = ['core/replycheck.js', 'core/semanticreview.js', 'maintenance/semanticreview.js'].map(f => fs.readFileSync(path.join(__dirname, '../src', f), 'utf8')).join('\n');
+const code = ['core/replycheck.js', 'core/semanticreview.js', 'maintenance/semanticreview.js', 'maintenance/auxapi.js'].map(f => fs.readFileSync(path.join(__dirname, '../src', f), 'utf8')).join('\n');
 const events = Object.fromEntries(['GENERATION_STARTED', 'GENERATION_AFTER_COMMANDS', 'GENERATION_ENDED', 'GENERATION_STOPPED', 'CHAT_CHANGED', 'PRESET_CHANGED'].map(k => [k, k]));
 function fixture() {
   const context = { mainApi: 'openai', onlineStatus: 'Valid', getChatCompletionModel: ()=>'current-model', chat: [{ is_user: true, mes: '你好' }, { is_user: false, mes: '我需要先检查用户给我的写作要求。正文开始。' }] };
   const calls = [], hooks = {}, cleanups = [], notices = [], config = {};
+  // 2.11.23 副 API：站点、密钥库的替身
+  const store = { sites: [{ id: 'hs', name: '火山', source: 'custom', url: 'https://ark.example/v3', secretId: 'k-hs', model: 'ds-flash' }] };
+  const secrets = { api_key_custom: [{ id: 'k-main', active: true }, { id: 'k-hs', active: false }] };
+  const mods = { secrets: { rotateSecret() {} } };
+  const host = {
+    settings: () => store, saveSettings: () => {}, liveConnection: () => ({ model: 'current-model' }), SOURCES: { custom: { secret: 'api_key_custom' } }, keyView: (site) => site, mods, getLocalKey: () => null,
+    activateSecret: async (k, id) => { secrets[k].forEach((x) => { x.active = x.id === id; }); }, readSecretState: async () => secrets,
+    explainApiError: (st, t) => t, errStatus: () => 0, apiErrorText: () => ''
+  };
   let key = 'chat/preset';
   const latest = () => ({ index: context.chat.length - 1, message: context.chat.at(-1) });
   const json = JSON.stringify({ verdict: 'suspected', confidence: .85, findings: [{ excerpt: '我需要先检查用户给我的写作要求。', reason: '在对写作任务进行自我指令。' }] });
@@ -13,11 +22,11 @@ function fixture() {
     async presetToGeneratePayload(a, b, payload) { calls.push(structuredClone(payload)); return { ...payload, model: 'current-model' }; },
     async sendRequest(payload, extract, signal) { signal.throwIfAborted(); return { content: json }; }
   };
-  const F = new Function('ctx','variableContextKey','hashStr','latestReplyForCheck','replyGuardConfig','toast','cleanups', code + '\nreturn {semanticReviewMessages,parseSemanticReview,reviewReplySemantics,bindSemanticReview,semanticReviewResults,semanticReplyIdentity,semanticReviewSeen};')(
-    () => context, () => key, hashStr, latest, () => config, (...a) => notices.push(a), cleanups
+  const F = new Function('ctx','variableContextKey','hashStr','latestReplyForCheck','replyGuardConfig','toast','cleanups', ...Object.keys(host), code + '\nreturn {semanticReviewMessages,parseSemanticReview,reviewReplySemantics,bindSemanticReview,semanticReviewResults,semanticReplyIdentity,semanticReviewSeen};')(
+    () => context, () => key, hashStr, latest, () => config, (...a) => notices.push(a), cleanups, ...Object.values(host)
   );
   F.bindSemanticReview((e, fn) => { if (e) hooks[e] = fn; }, events);
-  return { ...F, context, config, calls, notices, cleanups, json, emit(e,...args) { hooks[e]?.(...args); }, changeKey() { key = 'other-chat'; }, latest };
+  return { ...F, context, config, calls, notices, cleanups, json, store, secrets, emit(e,...args) { hooks[e]?.(...args); }, changeKey() { key = 'other-chat'; }, latest };
 }
 let passed = 0;
 async function test(name, run) {
@@ -99,6 +108,18 @@ module.exports = (async () => {
     f.context.ChatCompletionService.sendRequest=async()=>{sent++;return {content:f.json};};
     const controller=new AbortController();const pending=f.reviewReplySemantics('正文',{signal:controller.signal});await tick();
     controller.abort();await assert.rejects(pending,/已取消/);finish({});await tick();assert.equal(sent,0);
+  });
+  await test('副 API 给语义审查选了渠道：改发到渠道的网址和模型，用渠道的密钥，完成后换回', async () => {
+    const f = fixture(); let sent = null;
+    f.store.aux = { channels: [{ id: 'c1', name: '火山', site: 'hs', model: 'doubao-pro' }], use: { review: 'c1' } };
+    f.context.mainApi = 'textgenerationwebui';
+    f.context.ChatCompletionService.presetToGeneratePayload = async (a, b, p) => ({ ...p, chat_completion_source: 'claude', reverse_proxy: 'https://rp.example' });
+    f.context.ChatCompletionService.sendRequest = async (payload) => { sent = { ...payload, active: f.secrets.api_key_custom.find((x) => x.active).id }; return async function* () { yield { text: f.json }; }; };
+    const report = await f.reviewReplySemantics(f.context.chat.at(-1).mes);
+    assert.equal(report.verdict, 'suspected');
+    assert.equal(sent.chat_completion_source, 'custom'); assert.equal(sent.custom_url, 'https://ark.example/v3'); assert.equal(sent.model, 'doubao-pro');
+    assert.equal(sent.reverse_proxy, undefined); assert.equal(sent.active, 'k-hs'); assert.equal(sent.stream, true);
+    assert.equal(f.secrets.api_key_custom.find((x) => x.active).id, 'k-main');
   });
   console.log(`${passed} 项语义审查检查通过`);
 })();

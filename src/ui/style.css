@@ -1589,7 +1589,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-savebar { background: var(--pa-tint); }
 #mcd-root .pa-dirty-text::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--pa-ok); vertical-align: 1px; }
 #mcd-root .pa-savebar.pa-save-err .pa-dirty-text::before { background: var(--pa-warn); }
-#mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { background: transparent; box-shadow: inset 0 0 0 1.5px var(--pa-dim); }
+/* 2.11.22 保存中：红色呼吸灯（亮→暗→亮），保存完变回绿色实心圆点。手机上圆点所在的框只有 8px 宽，外发光会被裁掉，只变明暗 */
+#mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { background: #cf3434; background: color-mix(in srgb, #dc2626 78%, var(--pa-text)); animation: pa-breathe 1.2s ease-in-out infinite; }
+@keyframes pa-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .28; } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { animation: pa-breathe 1.6s ease-in-out infinite !important; } }
 
 /* 按钮 */
 #mcd-root .pa-btn { border: 1px solid var(--pa-line-strong, var(--pa-line)); border-radius: var(--pa-r); background: var(--pa-tint); font-weight: 500; transition: transform .1s ease-out; touch-action: manipulation; }
@@ -2252,7 +2255,6 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-acct-row .pa-input:disabled { opacity: .5; }
 #mcd-root .pa-acct .pa-keyhead { justify-content: space-between; }
 #mcd-root .pa-acct .pa-hint { margin: 0; }
-/* =====================================================================
    2.12.0 预设 → 世界书、正则。分段沿用分组卡片（组头 + 组内行），开关在行右；
    世界书的条目页：手机上盖住列表，宽屏在右边一栏（与条目编辑栏同宽）
    ===================================================================== */
@@ -2318,3 +2320,163 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-rx-kv dt { color: var(--pa-dim); font-size: .9em; }
 #mcd-root .pa-rx-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 #mcd-root .pa-rx-code { margin: 4px 0 10px; padding: 8px 10px; border-radius: 8px; background: var(--pa-card); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 13px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40vh; overflow-y: auto; }
+=======
+/* 2.11.20 批量用变量接入：勾选列表，组名一行可整组勾选 */
+#mcd-root .pa-vb { display: grid; border-top: 1px solid var(--pa-line); }
+#mcd-root .pa-vb-row { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; align-items: center; gap: 10px; min-height: 44px; padding: 4px 4px 4px 20px; border-bottom: 1px solid var(--pa-line); cursor: pointer; }
+#mcd-root .pa-vb-row.pa-vb-ghead { padding-left: 4px; font-weight: 600; color: var(--pa-em); }
+#mcd-root .pa-vb-row input[type=checkbox] { width: 18px; height: 18px; margin: 0; accent-color: var(--pa-thread); }
+#mcd-root .pa-vb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcd-root .pa-vb-row > small { color: var(--pa-dim); font-weight: 400; font-size: max(11px, .85em); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#mcd-root .pa-vb-row > .pa-lv { flex: none; font-size: max(11px, .82em); }
+/* 2.11.24 连接 → 副 API：「用途」「渠道」各一张卡片，一行一项。用途行：名称 | 渠道、模型 ›；渠道行：名称、来源 | 模型 | 闪电 */
+#mcd-root .pa-aux .pa-row-head { margin-top: 14px; }
+#mcd-root .pa-aux .pa-whynote p { margin: 0 0 4px; }
+#mcd-root .pa-aux-list { padding: 0; overflow: hidden; }
+#mcd-root .pa-aux-row, #mcd-root .pa-aux-chmain { display: flex; align-items: center; gap: 12px; width: 100%; min-width: 0; min-height: 56px; padding: 9px 12px 9px 14px; border: 0; background: none; color: inherit; font: inherit; text-align: left; cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; }
+#mcd-root .pa-aux-row { border-bottom: 1px solid var(--pa-line); }
+#mcd-root .pa-aux-row:last-child { border-bottom: 0; }
+#mcd-root .pa-aux-ch { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; padding-right: 6px; border-bottom: 1px solid var(--pa-line); }
+#mcd-root .pa-aux-ch:last-child { border-bottom: 0; }
+#mcd-root .pa-aux-chmain { padding-right: 4px; }
+#mcd-root .pa-aux-k { flex: 1 1 auto; min-width: 0; font-weight: 600; }
+#mcd-root .pa-aux-chmain .pa-aux-k, #mcd-root .pa-aux-v { display: grid; gap: 2px; line-height: 1.35; }
+#mcd-root .pa-aux-v { flex: 0 1 auto; min-width: 0; max-width: 58%; text-align: right; }
+#mcd-root .pa-aux-v b { font-weight: 500; }
+#mcd-root .pa-aux-k, #mcd-root .pa-aux-k > *, #mcd-root .pa-aux-v > *, #mcd-root .pa-aux-m { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcd-root .pa-aux-k small, #mcd-root .pa-aux-v small { color: var(--pa-dim); font-size: max(11px, .8em); font-weight: 400; }
+#mcd-root .pa-aux-m { flex: 0 1 auto; min-width: 0; max-width: 52%; color: var(--pa-em); font-size: .86em; }
+#mcd-root .pa-aux .pa-aux-bad { color: var(--pa-warn); }
+#mcd-root .pa-aux-caret { flex: none; display: inline-flex; color: var(--pa-dim); }
+#mcd-root .pa-aux-caret svg { width: 14px; height: 14px; stroke-width: 2; }
+#mcd-root .pa-aux-test { width: 40px; height: 40px; min-height: 0; color: var(--pa-dim); }
+#mcd-root .pa-aux-test svg { width: 17px; height: 17px; }
+#mcd-root .pa-aux-ch > .pa-live-res { grid-column: 1 / -1; margin: -6px 0 10px 14px; }
+#mcd-root .pa-aux-mrow { display: flex; gap: 6px; min-width: 0; }
+#mcd-root .pa-aux-mrow .pa-input { flex: 1 1 auto; min-width: 0; }
+#mcd-root .pa-aux-mrow .pa-btn { flex: none; }
+@media (hover: hover) { #mcd-root .pa-aux-row:hover, #mcd-root .pa-aux-chmain:hover { background: var(--pa-card); } }
+#mcd-root .pa-aux-row:focus-visible, #mcd-root .pa-aux-chmain:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
+#mcd-root .pa-aux-use { display: flex; flex-wrap: wrap; align-items: baseline; }
+#mcd-root .pa-aux-use .pa-link { margin-left: 6px; padding: 4px 2px; font-size: 1em; }
+/* 2.11.23 缝合页底栏：位置说明后面的「AI 推荐」；推荐窗口：候选位置一行一个，第一个的「放这里」为主按钮 */
+#mcd-root .pa-where-row { display: flex; align-items: flex-end; gap: 2px; min-width: 0; }
+#mcd-root .pa-where-row .pa-where { flex: 0 1 auto; min-width: 0; }
+#mcd-root .pa-stitchbar .pa-aiplace { flex: none; margin: -8px 0; padding: 8px 4px; font-size: .84em; line-height: 1.3; }
+#mcd-root .pa-aip .pa-hint { margin: 0 0 6px; }
+#mcd-root .pa-aip-res { margin-top: 10px; }
+#mcd-root .pa-aip-wait { display: flex; align-items: center; gap: 8px; min-height: 44px; color: var(--pa-em); font-size: .92em; font-variant-numeric: tabular-nums; }
+#mcd-root .pa-aip-wait .pa-btn { margin-left: auto; }
+#mcd-root .pa-aip-wait .pa-spin { display: inline-flex; color: var(--pa-dim); }
+#mcd-root .pa-aip-wait .pa-spin svg { width: 16px; height: 16px; }
+#mcd-root .pa-aip-size { white-space: pre; }
+/* 2.11.33 AI 推荐位置：每组一段，组之间一条细线。组名一行（条数在右，点开看全部条目，列表限高、自己滚动）；
+   位置一行（↳ 图标、加粗）和原因，「放这里」在右；其他位置收起，展开后同样一行一个 */
+#mcd-root .pa-aip { --pa-aip-sub: var(--pa-dim); }
+@supports (color: color-mix(in srgb, red 50%, blue)) { #mcd-root .pa-aip { --pa-aip-sub: color-mix(in srgb, var(--pa-text) 68%, transparent); } }
+#mcd-root .pa-aip-grp { padding: 16px 0 14px; border-top: 1px solid var(--pa-line); }
+#mcd-root .pa-aip-grp:first-of-type { border-top: 0; padding-top: 0; }
+#mcd-root .pa-aip-head { display: flex; align-items: center; gap: 12px; min-height: 32px; }
+#mcd-root h3.pa-aip-name { flex: 1 1 auto; min-width: 0; margin: 0; padding: 0; font: inherit; font-size: 1.12em; font-weight: 700; line-height: 1.35; letter-spacing: 0; text-transform: none; color: var(--pa-text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mcd-root .pa-aip-n { flex: none; display: inline-flex; align-items: center; gap: 2px; color: var(--pa-aip-sub); font-size: .86em; font-variant-numeric: tabular-nums; white-space: nowrap; }
+#mcd-root .pa-aip-tog { min-height: 32px; margin-right: -8px; padding: 0 6px 0 10px; border: 0; border-radius: var(--pa-r, 8px); background: none; cursor: pointer; touch-action: manipulation; }
+#mcd-root .pa-aip-tog:hover, #mcd-root .pa-aip-more:hover { color: var(--pa-text); }
+#mcd-root .pa-aip-tog:focus-visible, #mcd-root .pa-aip-more:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }
+#mcd-root .pa-aip-tog svg, #mcd-root .pa-aip-more svg { width: 16px; height: 16px; flex: none; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: transform .2s cubic-bezier(.22, 1, .36, 1); }
+#mcd-root .pa-aip [aria-expanded="true"] > svg { transform: rotate(180deg); }
+#mcd-root .pa-aip-few { margin: 0; color: var(--pa-aip-sub); font-size: .86em; line-height: 1.45; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-list { list-style: none; margin: 4px 0 2px; padding: 8px 12px; max-height: min(40vh, 18em); overflow-y: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; border-radius: var(--pa-r, 8px); background: var(--pa-card); font-size: .88em; line-height: 1.4; scrollbar-width: thin; scrollbar-color: var(--pa-line) transparent; }
+#mcd-root .pa-aip-list li { padding: 3px 0; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-list .pa-aip-div { margin-top: 8px; color: var(--pa-aip-sub); font-size: .9em; font-weight: 600; }
+#mcd-root .pa-aip-list .pa-aip-div:first-child { margin-top: 0; }
+#mcd-root .pa-aip-list .pa-aip-end { margin: 0 0 4px; font-weight: 400; }
+#mcd-root .pa-aip-place { display: grid; grid-template-columns: 18px minmax(0, 1fr) auto; column-gap: 8px; align-items: center; margin-top: 10px; }
+#mcd-root .pa-aip-ic { align-self: start; width: 18px; height: 18px; margin-top: .12em; color: var(--pa-thread); fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+#mcd-root .pa-aip-pt { min-width: 0; }
+#mcd-root .pa-aip-pt p { margin: 0; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-pos { line-height: 1.4; text-wrap: pretty; }
+#mcd-root .pa-aip-best .pa-aip-pos { font-weight: 600; }
+#mcd-root .pa-aip-pos.pa-aip-none { color: var(--pa-aip-sub); font-weight: 400; }
+#mcd-root .pa-aip-pt .pa-aip-why { margin-top: 2px; color: var(--pa-aip-sub); font-size: .86em; line-height: 1.45; text-wrap: pretty; }
+#mcd-root .pa-aip-place > .pa-btn { min-height: 36px; white-space: nowrap; }
+#mcd-root .pa-aip-more { display: inline-flex; align-items: center; gap: 2px; min-height: 32px; margin: 2px 0 0 20px; padding: 0 6px; color: var(--pa-aip-sub); font-size: .84em; text-decoration: none; touch-action: manipulation; }
+#mcd-root .pa-aip-alt { margin-left: 26px; }
+#mcd-root .pa-aip-alt .pa-aip-place { grid-template-columns: minmax(0, 1fr) auto; margin-top: 0; padding: 6px 0; }
+#mcd-root .pa-aip-alt .pa-aip-place:last-child { padding-bottom: 0; }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-aip-tog svg, #mcd-root .pa-aip-more svg { transition: none; } }
+/* 2.11.35 推荐记录：「第 1 次 / 第 2 次」分段切换，选中的一段浮起；每组位置下面一行小字「几次里有几次推荐这里」，次次一致时用绿色 */
+#mcd-root .pa-aip-runs { display: flex; gap: 2px; margin: 0 0 16px; padding: 3px; border-radius: calc(var(--pa-r, 8px) + 3px); background: var(--pa-card); }
+#mcd-root .pa-aip-runs [role="tab"] { flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; min-height: 42px; padding: 4px 6px; border: 0; border-radius: var(--pa-r, 8px); background: none; color: var(--pa-aip-sub); font-size: .86em; line-height: 1.2; white-space: nowrap; cursor: pointer; touch-action: manipulation; transition: background-color .15s, color .15s; }
+#mcd-root .pa-aip-runs [role="tab"] small { font-size: .84em; font-variant-numeric: tabular-nums; }
+#mcd-root .pa-aip-runs [role="tab"]:hover { color: var(--pa-text); }
+#mcd-root .pa-aip-runs [aria-selected="true"] { background: var(--pa-input-bg, var(--pa-tint)); color: var(--pa-text); font-weight: 600; box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 1px var(--pa-line); }
+#mcd-root .pa-aip-runs [aria-selected="true"] small { font-weight: 400; color: var(--pa-aip-sub); }
+#mcd-root .pa-aip-runs [role="tab"]:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 1px; }
+#mcd-root .pa-aip-runmeta { margin: -10px 0 16px; color: var(--pa-aip-sub); font-size: .82em; overflow-wrap: anywhere; }
+#mcd-root .pa-aip-pt .pa-aip-agree { margin-top: 3px; color: var(--pa-aip-sub); font-size: .8em; font-variant-numeric: tabular-nums; }
+#mcd-root .pa-aip-pt .pa-aip-agree.pa-aip-all { color: var(--pa-ok); }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-aip-runs [role="tab"] { transition: none; } }
+#mcd-root .pa-aip-again { margin-top: 6px; padding: 8px 2px; font-size: .88em; }
+/* 2.11.26 贴着按钮弹出的菜单，按系统上下文菜单的结构重做：
+   - 页面压一层淡遮罩，菜单明显浮在上面，压住下面的行也不像排版错位；
+   - 外圈 14px = 选项 8px + 内边距 6px；浅色白底三层阴影，深色比页面亮一档、一圈细亮边；
+   - 标题只在说明「是哪一个」时出现（分组「剧情规范」），一行小字，下面一条细线；和点的那行说的一样就不显示；
+   - 选项一行名称，说明另起一行小字；当前选中的在右边打勾，不再整块灰底；图标画在右边，成对的选项做成一条两格的分段；
+   - 删除类选项红字，前面隔一条线；从按钮那一角浮出 0.18 秒 */
+#mcd-root .pa-sheet-mask.pa-mask-pop { background: rgba(18, 18, 22, .16) !important; }
+#mcd-root.pa-dark .pa-sheet-mask.pa-mask-pop { background: rgba(0, 0, 0, .36) !important; }
+#mcd-root .pa-sheet.pa-sheet-pop { width: max-content; min-width: 208px; max-width: min(296px, calc(100% - 16px)); border: 0; border-radius: 14px; overflow: hidden;
+    box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), 0 4px 10px rgba(0, 0, 0, .06), 0 20px 44px -12px rgba(0, 0, 0, .3);
+    animation: pa-menu-in .18s cubic-bezier(.16, 1, .3, 1); }
+#mcd-root.pa-dark .pa-sheet.pa-sheet-pop { box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 22px 50px -12px rgba(0, 0, 0, .7); }
+#mcd-root.pa-dark:not(.pa-has-bg) .pa-sheet.pa-sheet-pop, #mcd-root.pa-dark:not(.pa-has-bg) .pa-sheet.pa-sheet-pop::before { background: #2f343b; background: color-mix(in srgb, var(--pa-tint) 90%, #fff); }
+@keyframes pa-menu-in { from { opacity: 0; transform: translateY(var(--pa-pop-dy, -6px)) scale(.97); } }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-head { margin: 0 6px; padding: 10px 8px 8px; border: 0; border-bottom: 1px solid var(--pa-line); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-head b { font-size: max(11px, .78em); font-weight: 500; color: var(--pa-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mcd-root .pa-sheet.pa-sheet-pop.pa-pop-plain .pa-sheet-head { display: none; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-x { display: none; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-body { padding: 6px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list { gap: 2px; }
+/* 选项：块排版（iPad Safari 的按钮做弹性、网格容器时高度会算错），图标绝对定位在右边 */
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item {
+    --pa-row-bg: transparent; position: relative; display: block; width: 100%; min-height: 44px; padding: 10px 12px; border: 0; border-radius: 8px; background: none;
+    text-align: left; font-size: .95em; font-weight: 400; line-height: 1.35; color: var(--pa-text); transition: background-color .12s ease-out; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item.pa-has-mi, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item.pa-has-mi { padding-right: 40px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-label, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item > span:first-child { display: block; overflow-wrap: anywhere; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item small, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item small { display: block; margin-top: 2px; color: var(--pa-dim); font-size: max(11px, .82em); line-height: 1.4; overflow-wrap: anywhere; text-wrap: pretty; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item .pa-mi, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item .pa-mi { position: absolute; right: 12px; top: 50%; display: inline-flex; margin-top: -8px; color: var(--pa-dim); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-mi svg { width: 16px; height: 16px; stroke-width: 2; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item .pa-mi-check { color: var(--pa-thread); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item.on { --pa-row-bg: transparent; background: none; font-weight: 600; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item.on small { font-weight: 400; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item:active, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item:active { --pa-row-bg: var(--pa-card-2); background: var(--pa-card-2); background: color-mix(in srgb, var(--pa-text) 10%, transparent); }
+@media (hover: hover) {
+    #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item:hover, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item:hover { --pa-row-bg: var(--pa-card); background: var(--pa-card); background: color-mix(in srgb, var(--pa-text) 6%, transparent); }
+}
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item:focus-visible, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
+/* 成对的选项：一条两格的分段，格子居中，中间一条细线 */
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-pair { display: flex; gap: 0; margin: 2px 0; border: 0; border-radius: 8px; overflow: hidden; background: var(--pa-card); background: color-mix(in srgb, var(--pa-text) 5%, transparent); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-pair > .pa-pick-item { flex: 1 1 0; min-width: 0; min-height: 42px; padding: 10px 8px; border-radius: 0; text-align: center; white-space: nowrap; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-pair > .pa-pick-item + .pa-pick-item { border-left: 1px solid var(--pa-line); border-left-color: color-mix(in srgb, var(--pa-text) 14%, transparent); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-pair > .pa-pick-item .pa-mi { position: static; float: none; margin: 0 5px 0 0; vertical-align: -3px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-pair > .pa-pick-item .pa-pick-label { display: inline; }
+/* 删除类 */
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-danger { color: var(--pa-warn); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger:not(:first-child) { margin-top: 11px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger:not(:first-child)::before { content: ""; position: absolute; left: 6px; right: 6px; top: -6px; height: 1px; background: var(--pa-line); }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger + .pa-pick-danger { margin-top: 2px; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick > .pa-pick-danger + .pa-pick-danger::before { content: none; }
+@media (pointer: fine) {
+    #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item { min-height: 38px; padding-top: 8px; padding-bottom: 8px; }
+    #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-pair > .pa-pick-item { min-height: 36px; }
+}
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-sheet.pa-sheet-pop { animation: pa-fade .12s ease-out !important; } }
+/* 不贴按钮时（没有可贴的按钮、或选项多）的列表：勾和图标不撑开，排在最右 */
+#mcd-root .pa-npick-item .pa-mi, #mcd-root .pa-pick-item .pa-mi { flex: none; display: inline-flex; color: var(--pa-dim); }
+#mcd-root .pa-npick-item .pa-mi-check { color: var(--pa-thread); }
+#mcd-root .pa-npick-item .pa-mi svg, #mcd-root .pa-pick-item .pa-mi svg { width: 16px; height: 16px; stroke-width: 2; }
+#mcd-root .pa-pick-item > .pa-mi { float: right; margin: 2px 0 0 8px; }
+/* 2.11.29 取消接入：列出要去掉的宏，长的折行 */
+#mcd-root .pa-unhook li { margin: 2px 0; line-height: 1.5; }
+#mcd-root .pa-unhook code { font-size: .92em; overflow-wrap: anywhere; }
+/* ==============================================================

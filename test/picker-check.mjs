@@ -23,7 +23,9 @@ await page.click(".pa-sheet-x"); await page.waitForTimeout(250);
 // 来源类型这种几个固定选项的，不带搜索
 await page.click('[data-st="srctype"]'); await page.waitForSelector(".pa-npick-item");
 assert.equal(await page.$(".pa-npick-q"), null, "来源类型不带搜索");
-await page.click(".pa-sheet-x"); await page.waitForTimeout(250);
+// 2.11.25 贴着按钮的菜单没有 ✕，按 Esc 关
+await page.keyboard.press("Escape"); await page.waitForTimeout(250);
+assert.equal(await page.locator(".pa-sheet-mask:not(.pa-out)").count(), 0, "Esc 关掉菜单");
 assert.deepEqual(errs, []);
 console.log("选择列表检查全部通过");
 await browser.close();

@@ -18,10 +18,11 @@ var NAV = [
   ["schemes", "方案", "tool"], ["clean", "清理", "tool"], ["health", "体检", "tool"], ["look", "设置", "tool"]
 ];
 // 各页面所属栏目；「检查」「更多」在页头下方分页
-var SECTION_OF = { organize: "preset", books: "preset", rx: "preset", suture: "suture", reply: "check", cot: "check", vars: "check", conn: "conn", schemes: "more", clean: "more", health: "more", look: "more" };
+var SECTION_OF = { organize: "preset", books: "preset", rx: "preset", suture: "suture", reply: "check", cot: "check", vars: "check", conn: "conn", aux: "conn", schemes: "more", clean: "more", health: "more", look: "more" };
+// 2.11.23 连接分「主 API」（酒馆当前连接、站点）和「副 API」（麦当劳自己的 AI 功能用哪个 API）
 // 2.12.0 预设下分「条目」「世界书」「正则」
-var SUBNAV = { preset: [["organize", "条目"], ["books", "世界书"], ["rx", "正则"]], check: [["cot", "思维链"], ["vars", "变量"], ["reply", "回复"]], more: [["schemes", "方案"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
-var PAGE_TITLE = { organize: "预设", books: "预设", rx: "预设", suture: "缝合", reply: "检查", cot: "检查", vars: "检查", conn: "连接", schemes: "方案", clean: "清理", health: "体检", look: "设置" };
+var SUBNAV = { preset: [["organize", "条目"], ["books", "世界书"], ["rx", "正则"]], check: [["cot", "思维链"], ["vars", "变量"], ["reply", "回复"]], conn: [["conn", "主 API"], ["aux", "副 API"]], more: [["schemes", "方案"], ["clean", "清理"], ["health", "体检"], ["look", "设置"]] };
+var PAGE_TITLE = { organize: "预设", books: "预设", rx: "预设", suture: "缝合", reply: "检查", cot: "检查", vars: "检查", conn: "连接", aux: "连接", schemes: "方案", clean: "清理", health: "体检", look: "设置" };
 var PAGE_EL = {};
 var navSvg = (k) => `<svg viewBox="0 0 24 24" aria-hidden="true">${NAV_ICON[k]}</svg>`;
 var rootEl2;
@@ -109,7 +110,8 @@ function buildRoot() {
     showOrganize(ids) {
       show("organize");
       pages.organize.focusIds?.(ids);
-    }
+    },
+    show: (k) => show(k)
   };
   const pageEl = (k) => rootEl2.querySelector(`[data-page="${k}"]`);
   const plan = mountPlan(pageEl("schemes"), pageEl("conn"));
@@ -121,6 +123,7 @@ function buildRoot() {
     vars: mountVariables(pageEl("vars")),
     schemes: plan.schemes,
     conn: plan.conn,
+    aux: mountAux(pageEl("aux"), app),
     reply: mountReply(pageEl("reply"), { go: (k) => show(k) }),
     suture: mountSuture(pageEl("suture"), app),
     clean: mountCleanup(pageEl("clean")),
@@ -196,17 +199,19 @@ function updateSavebar() {
   } catch {
   }
   // 修改即时自动保存；有未确认的修改时显示「撤销」「确认」
-  const err = saveErrors.has(d?.name);
+  // 2.11.21 上次保存失败、这次正在重试（再改一下、点了「完成」）：显示保存中，不显示上次的失败和「重试保存」
+  const err = saveErrors.has(d?.name) && !saveJobs.has(d?.name) && !d?.confirming;
   const blocked = d ? saveBlocked.get(d.name) : null;
-  const pending = !!d?.history.length;
-  bar.hidden = !d || !pending && !err && !saveJobs.has(d.name);
+  // 2.11.21 点了「完成」正在保存（confirming）：按钮先收起，只留保存状态
+  const pending = !!d?.history.length && !d.confirming;
+  bar.hidden = !d || !pending && !err && !saveJobs.has(d.name) && !d.confirming;
   bar.classList.toggle("pa-save-err", !!(err || blocked));
-  // 2.11.17 保存中显示空心圆点，手机上只剩圆点时也能和「已自动保存」区分
-  bar.classList.toggle("pa-saving", !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty));
+  // 2.11.22 保存中显示红色呼吸灯，手机上只剩圆点时也能和「已自动保存」的绿点区分
+  bar.classList.toggle("pa-saving", !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty || d?.confirming));
   const dirtyText = rootEl2.querySelector(".pa-dirty-text");
   dirtyText.textContent = blocked
     ? (blocked.kind === "conflict" ? "已暂停保存：预设在别处被改过" : "已暂停保存：备份失败")
-    : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty ? "保存中…" : "已自动保存";
+    : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty || d?.confirming ? "保存中…" : "已自动保存";
   dirtyText.title = dirtyText.textContent;
   const saveBtn = rootEl2.querySelector("[data-g=save]");
   saveBtn.hidden = !err;
@@ -919,6 +924,7 @@ function bindEvents() {
   bindReplyGuard(on, et2);
   bindVariableWatch(on, et2);
   bindSemanticReview(on, et2);
+  bindAuxApi(on, et2);
   bindBalanceWatch(on, et2);
 }
 async function start() {
@@ -994,7 +1000,8 @@ async function start() {
 async function backupsSheet(name) {
   let list = [];
   try {
-    list = await backupList(name);
+    // 旧备份在保存之后才清理（2.11.21），清理前可能多出一份：只列最近的 backupMax() 份
+    list = (await backupList(name)).slice(0, backupMax());
   } catch (e) {
     return toast("读取备份失败：" + e.message, "error");
   }

@@ -27,7 +27,7 @@ const toasts = () => page.evaluate(() => window.__toasts.splice(0));
 await page.click('[data-st="srctype"]');
 await page.waitForSelector(".pa-npick-item");
 assert.deepEqual(await page.locator(".pa-npick-item").evaluateAll((x) => x.map((b) => b.dataset.v)), ["preset", "regex", "world", "file", "paste"]);
-await page.click(".pa-sheet-mask:not(.pa-out) .pa-sheet-x"); await page.waitForTimeout(250);
+await page.keyboard.press("Escape"); await page.waitForTimeout(250);
 ok("来源类型菜单：预设、正则、世界书、文件、粘贴");
 
 await chooseSrcType(page, "file");
