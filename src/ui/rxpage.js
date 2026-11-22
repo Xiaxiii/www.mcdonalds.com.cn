@@ -1,6 +1,26 @@
 // 2.12.0 预设 → 正则：开关预设、角色卡、全局三处的正则，可搜索；点眼睛看查找和替换内容。
 // 预设的正则走预设的草稿（自动保存、可撤销）；角色卡的写回角色卡；全局的写回酒馆设置。
 var RX_PLACE = { 1: "用户输入", 2: "AI 输出", 3: "快捷命令", 5: "世界书", 6: "推理" };
+// 柏宝箱保存在预设里的正则分组（只读）：[{ id, name, collapsed, idx: 规则下标 }]，没有分组时返回 null
+function regexSubgroups(d, rules) {
+  let v;
+  try { v = presetRegexGroupValue(d); } catch { return null; }
+  if (!v || !Array.isArray(v.groups) || !v.groups.length) return null;
+  const groups = v.groups.map((g, i) => ({ id: g.id, name: String(g.name || "").trim() || "未命名分组", collapsed: g.collapsed === true, o: g.order === undefined ? i : Number(g.order), idx: [] }))
+    .sort((a, b) => a.o - b.o);
+  const byId = new Map(groups.map((g) => [g.id, g]));
+  const rest = { id: "__ungrouped", name: String(v.ungrouped?.name || "").trim() || "未分组", collapsed: v.ungrouped?.collapsed === true, idx: [] };
+  const orderOf = new Map();
+  rules.forEach((r, i) => {
+    if (!r || typeof r !== "object") return;
+    const m = typeof r.id === "string" && Object.hasOwn(v.scripts, r.id) ? v.scripts[r.id] : null;
+    (m?.groupId && byId.get(m.groupId) || rest).idx.push(i);
+    orderOf.set(i, m?.order === undefined || m?.order === null ? i : Number(m.order));
+  });
+  for (const g of [...groups, rest]) g.idx.sort((a, b) => orderOf.get(a) - orderOf.get(b) || a - b);
+  const out = [...groups, rest].filter((g) => g.idx.length);
+  return out.length > 1 || out[0]?.id !== "__ungrouped" ? out : null;
+}
 function mountRegexPage(page) {
   const st = { query: "" };
   page.innerHTML = `
@@ -23,7 +43,7 @@ function mountRegexPage(page) {
       try { rules = presetRegexList(d); } catch (e) { bad = e.message; }
       const act = presetRegexActivationInfo(d.name);
       const note = bad || (act.extensionDisabled ? "酒馆的正则扩展已停用，这里的开关暂不生效。" : rules.length && !act.allowed ? "酒馆还没允许这个预设的正则，现在都不生效。" : "");
-      out.push({ kind: "preset", title: `预设「${d.name}」`, rules, note, allow: rules.length && !act.allowed && !act.extensionDisabled && !bad ? "preset" : "", empty: "这个预设没有自带正则。" });
+      out.push({ kind: "preset", title: `预设「${d.name}」`, rules, d, note, allow: rules.length && !act.allowed && !act.extensionDisabled && !bad ? "preset" : "", empty: "这个预设没有自带正则。" });
     }
     const ci = currentChar();
     if (ci) {
@@ -42,25 +62,43 @@ function mountRegexPage(page) {
     const q = st.query.trim().toLowerCase();
     const top = list.scrollTop;
     let html = "", shownAny = false;
+    const rowHtml = (g, i) => {
+      const r = g.rules[i];
+      const name = presetRegexRuleName(r);
+      const on = !r.disabled;
+      const where = (Array.isArray(r.placement) ? r.placement : []).map((p) => RX_PLACE[p]).filter(Boolean);
+      return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
+          <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
+          <button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看「${esc(name)}」" title="查看">${ICON.eye}</button>
+          <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
+        </div>`;
+    };
+    const onCount = (g, idx) => idx.filter((i) => g.rules[i] && !g.rules[i].disabled).length;
     for (const g of groups()) {
       const idx = g.rules.map((r, i) => i).filter((i) => g.rules[i] && typeof g.rules[i] === "object" && hit(g.rules[i], q));
       if (q && !idx.length) continue;
       shownAny = shownAny || idx.length > 0;
       const onN = g.rules.filter((r) => r && !r.disabled).length;
-      const rows = idx.map((i) => {
-        const r = g.rules[i];
-        const name = presetRegexRuleName(r);
-        const on = !r.disabled;
-        const where = (Array.isArray(r.placement) ? r.placement : []).map((p) => RX_PLACE[p]).filter(Boolean);
-        return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
-          <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
-          <button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看「${esc(name)}」" title="查看">${ICON.eye}</button>
-          <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
-        </div>`;
-      }).join("");
+      // 2.12.1 预设带柏宝箱的正则分组时，段内按分组列出，每组可折叠
+      const subs = g.kind === "preset" ? regexSubgroups(g.d, g.rules) : null;
+      let rows;
+      if (subs) {
+        const shownSet = new Set(idx);
+        rows = subs.map((sg) => {
+          const mine = sg.idx.filter((i) => shownSet.has(i));
+          if (!mine.length) return "";
+          const fk = `${g.d.name}::${sg.id}`;
+          const col = !q && !foldGet("rx", fk, !sg.collapsed);
+          return `<div class="pa-rx-grp${col ? " pa-collapsed" : ""}" data-fk="${esc(fk)}">
+            <div class="pa-rx-ghead" data-r="gfold" role="button" tabindex="0" aria-expanded="${!col}"><span class="pa-icon-btn pa-caret" aria-hidden="true">${ICON.caret}</span><span class="pa-rx-gname">${markText(sg.name, q)}</span><span class="pa-count">${onCount(g, sg.idx)}/${sg.idx.length}</span></div>
+            <div class="pa-rx-gbody">${mine.map((i) => rowHtml(g, i)).join("")}</div>
+          </div>`;
+        }).join("");
+      } else rows = idx.map((i) => rowHtml(g, i)).join("");
       const note = g.note ? `<p class="pa-gnote pa-gnote-warn">${esc(g.note)}${g.allow ? ` <button class="pa-link" data-r="allow" data-kind="${g.allow}">允许</button>` : ""}</p>` : "";
-      html += `<section class="pa-group pa-rx-sec" data-kind="${g.kind}">
-        <header class="pa-ghead"><span class="pa-gname">${esc(g.title)}</span>${g.rules.length ? `<span class="pa-count">${onN}/${g.rules.length}</span>` : ""}</header>
+      const col = !q && !foldGet("rx", g.kind, true);
+      html += `<section class="pa-group pa-rx-sec${col ? " pa-collapsed" : ""}" data-kind="${g.kind}">
+        <header class="pa-ghead" data-r="fold" role="button" tabindex="0" aria-expanded="${!col}"><span class="pa-icon-btn pa-caret" aria-hidden="true">${ICON.caret}</span><span class="pa-gname">${esc(g.title)}</span>${g.rules.length ? `<span class="pa-count">${onN}/${g.rules.length}</span>` : ""}</header>
         <div class="pa-gbody" style="--n:${idx.length}">${note}${rows || (g.rules.length ? "" : `<p class="pa-gnote">${esc(g.empty)}</p>`)}</div>
       </section>`;
     }
@@ -106,6 +144,16 @@ function mountRegexPage(page) {
   }
   list.addEventListener("click", (e) => {
     const a = e.target.closest("[data-r]");
+    if (a?.dataset.r === "fold") {
+      const sec = a.closest(".pa-rx-sec");
+      foldSet("rx", sec.dataset.kind, sec.classList.contains("pa-collapsed"));
+      return render();
+    }
+    if (a?.dataset.r === "gfold") {
+      const grp = a.closest(".pa-rx-grp");
+      foldSet("rx", grp.dataset.fk, grp.classList.contains("pa-collapsed"), 400);
+      return render();
+    }
     if (a?.dataset.r === "allow") {
       if (a.dataset.kind === "preset") allowPresetRegex(focusPreset());
       else { const ci = currentChar(); if (ci) allowCharRegex(ci); }

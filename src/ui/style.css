@@ -2264,12 +2264,22 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-gnote-warn { color: var(--pa-warn); color: color-mix(in srgb, var(--pa-warn) 72%, var(--pa-text)); }
 #mcd-root .pa-gnote .pa-link { padding: 0 2px; font-size: 1em; }
 #mcd-root .pa-bk-none { margin: 4px calc(14px + env(safe-area-inset-right)) 6px calc(14px + env(safe-area-inset-left)); }
-#mcd-root .pa-bk-sec > .pa-ghead[data-b=fold] { cursor: pointer; }
-#mcd-root .pa-bk-sec > .pa-ghead .pa-caret { width: 28px; height: 28px; }
-#mcd-root :is(.pa-bk-sec, .pa-rx-sec) > .pa-ghead .pa-gname { padding-left: 10px; }
-#mcd-root .pa-bk-sec > .pa-ghead[data-b=fold] .pa-gname { padding-left: 0; }
-#mcd-root .pa-bk-sec:not(.pa-collapsed) > .pa-ghead .pa-caret svg { transform: rotate(90deg); }
-#mcd-root .pa-bk-sec.pa-collapsed > .pa-ghead .pa-caret svg { transform: none; }
+/* 2.12.1 世界书、正则的每段都能折叠：组头左边一个箭头，整行可点 */
+#mcd-root :is(.pa-bk-sec, .pa-rx-sec) > .pa-ghead { cursor: pointer; -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+#mcd-root :is(.pa-bk-sec, .pa-rx-sec) > .pa-ghead .pa-caret, #mcd-root .pa-rx-ghead .pa-caret { width: 28px; height: 28px; flex: none; }
+#mcd-root :is(.pa-bk-sec, .pa-rx-sec, .pa-rx-grp) .pa-caret svg { transition: transform .15s ease-out; }
+#mcd-root :is(.pa-bk-sec, .pa-rx-sec):not(.pa-collapsed) > .pa-ghead .pa-caret svg, #mcd-root .pa-rx-grp:not(.pa-collapsed) > .pa-rx-ghead .pa-caret svg { transform: rotate(90deg); }
+#mcd-root :is(.pa-bk-sec, .pa-rx-sec).pa-collapsed > .pa-ghead .pa-caret svg, #mcd-root .pa-rx-grp.pa-collapsed > .pa-rx-ghead .pa-caret svg { transform: none; }
+@media (hover: hover) { #mcd-root :is(.pa-bk-sec, .pa-rx-sec) > .pa-ghead:hover, #mcd-root .pa-rx-ghead:hover { background: var(--pa-card); } }
+@media (prefers-reduced-motion: reduce) { #mcd-root :is(.pa-bk-sec, .pa-rx-sec, .pa-rx-grp) .pa-caret svg { transition: none; } }
+/* 正则段内的柏宝箱分组：比段头轻一级，组内的行与组名对齐 */
+#mcd-root .pa-rx-ghead { display: flex; align-items: center; gap: 4px; min-height: 40px; padding: 2px 8px 2px 6px; border-bottom: 1px solid var(--pa-line); cursor: pointer; color: var(--pa-em); font-size: .92em; font-weight: 600; -webkit-tap-highlight-color: transparent; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+#mcd-root .pa-rx-ghead:focus-visible { outline: 2px solid var(--pa-info, var(--pa-thread)); outline-offset: -2px; }
+#mcd-root .pa-rx-gname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#mcd-root .pa-rx-ghead .pa-count { font-weight: 400; }
+#mcd-root .pa-rx-grp.pa-collapsed > .pa-rx-gbody { display: none; }
+#mcd-root .pa-rx-gbody > .pa-row { padding-left: 34px; }
+#mcd-root .pa-gbody > .pa-rx-grp:last-child > .pa-rx-gbody > .pa-row:last-child, #mcd-root .pa-gbody > .pa-rx-grp.pa-collapsed:last-child > .pa-rx-ghead { border-bottom: 0; }
 #mcd-root .pa-bk-row .pa-meta, #mcd-root .pa-wbe-row .pa-meta, #mcd-root .pa-rx-row .pa-meta { font-size: .84em; }
 #mcd-root .pa-meta > span + span:not(.pa-chip)::before { content: "·"; margin-right: 6px; color: var(--pa-dim); }
 #mcd-root .pa-meta .pa-chip + span:not(.pa-chip)::before { content: none; }
@@ -2284,7 +2294,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 世界书页：列表 + 条目 */
 #mcd-root .pa-bk { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; }
 #mcd-root .pa-bk > .pa-bk-list { flex: 1 1 auto; }
-#mcd-root .pa-bk-detail { flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--pa-tint); }
+#mcd-root .pa-bk-detail { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--pa-tint); }
 #mcd-root .pa-bk-detail[hidden] { display: none; }
 @media (max-width: 999px) { #mcd-root [data-page="books"].pa-bk-open > .pa-bk-bar, #mcd-root [data-page="books"].pa-bk-open .pa-bk > .pa-bk-list { display: none; } }
 #mcd-root .pa-bk-dhead { flex: none; display: flex; align-items: center; gap: 4px; min-height: 50px; padding: 4px calc(8px + env(safe-area-inset-right)) 4px calc(4px + env(safe-area-inset-left)); border-bottom: 1px solid var(--pa-line); }
@@ -2296,7 +2306,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-scoperow .pa-seg button:disabled { opacity: .45; cursor: default; }
 #mcd-root .pa-bk-scope .pa-hint { margin: 0; line-height: 1.5; text-wrap: pretty; }
 #mcd-root .pa-bk-chatnote .pa-link { padding: 0 2px; font-size: 1em; }
-#mcd-root .pa-bk-q { flex: none; display: flex; padding: 6px calc(12px + env(safe-area-inset-right)) 4px calc(12px + env(safe-area-inset-left)); }
+#mcd-root .pa-bk-q { flex: none; padding: 8px calc(8px + env(safe-area-inset-right)) 4px calc(12px + env(safe-area-inset-left)); }
+#mcd-root .pa-bk-q[hidden] { display: none; }
+#mcd-root .pa-bk-q > .pa-qrow { display: flex; align-items: center; gap: 2px; }
+#mcd-root .pa-bk-q .pa-input { flex: 1 1 auto; min-width: 0; }
 #mcd-root .pa-bk-q .pa-input { min-height: 36px; padding: 4px 10px; }
 #mcd-root .pa-bk-entries { flex: 1 1 auto; padding-left: 0; padding-right: 0; padding-top: 2px; }
 #mcd-root .pa-bk-sum { padding: 2px calc(12px + env(safe-area-inset-left)) 6px; margin: 0; }
@@ -2312,7 +2325,16 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
     #mcd-root .pa-bk-dhead { padding-left: 16px; }
     #mcd-root .pa-bk-detail .pa-bk-scope, #mcd-root .pa-bk-detail .pa-bk-q { padding-left: 16px; padding-right: 16px; }
 }
-/* 世界书条目编辑：设置一行排满，正文随内容增高 */
+/* 世界书条目编辑：设置一行排满，正文随内容增高。
+   2.12.1 触发与关键词同一行；关键词平时一行（左右滑动看），点展开后占满一行、自动换行、全部显示 */
+#mcd-root .pa-wb-trig { display: grid; grid-template-columns: minmax(6.5em, max-content) minmax(0, 1fr); gap: 8px; align-items: end; }
+#mcd-root .pa-wb-trig.pa-kw-none { grid-template-columns: minmax(6.5em, max-content); }
+#mcd-root .pa-wb-trig.pa-kw-open > .pa-wb-kw { grid-column: 1 / -1; }
+#mcd-root .pa-wb-kwhead { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 22px; }
+#mcd-root .pa-wb-kwhead .pa-expand { width: 30px; height: 26px; margin: -4px -4px -4px 0; }
+#mcd-root .pa-wb-kwtext { resize: none; min-height: 38px; height: auto; line-height: 1.45; white-space: pre; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+#mcd-root .pa-wb-kwtext::-webkit-scrollbar { display: none; }
+#mcd-root .pa-wb-trig.pa-kw-open .pa-wb-kwtext { white-space: pre-wrap; overflow-x: hidden; overflow-wrap: anywhere; }
 #mcd-root .pa-sheet-wbentry .pa-wbset { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 #mcd-root .pa-sheet-wbentry .pa-sheet-actions .pa-btn-danger-soft { margin-right: auto; }
 /* 正则：查看查找、替换内容（原样显示，不执行） */
@@ -2479,4 +2501,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 2.11.29 取消接入：列出要去掉的宏，长的折行 */
 #mcd-root .pa-unhook li { margin: 2px 0; line-height: 1.5; }
 #mcd-root .pa-unhook code { font-size: .92em; overflow-wrap: anywhere; }
-/* ==============================================================
+/* ==============================================================/* 2.12.1 滚动引导条：滚动时右边出现，停下后淡出；不挡点击 */
+#mcd-root .pa-scrollhint { position: absolute; top: 0; right: 3px; width: 4px; height: 0; border-radius: 2px; background: var(--pa-text); opacity: 0; pointer-events: none; z-index: 6; transition: opacity .3s ease-out; }
+#mcd-root .pa-scrollhint.on { opacity: .3; transition-duration: .1s; }
+#mcd-root .pa-bk-dhead [data-e="search"][aria-expanded="true"] { color: var(--pa-text); background: var(--pa-card-2); }

@@ -16,9 +16,11 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
   const body = el(`<div class="pa-form">
       ${hint ? `<p class="pa-hint pa-edit-where">${esc(hint)}</p>` : ""}
       <label class="pa-field"><span>名称</span><input class="pa-input" data-w="comment" autocomplete="off" value="${esc(e.comment || "")}"></label>
+      <div class="pa-wb-trig${e.constant ? " pa-kw-none" : ""}">
+        <label class="pa-field"><span>触发</span><select class="pa-select" data-w="constant"><option value="1" ${e.constant ? "selected" : ""}>常驻</option><option value="0" ${e.constant ? "" : "selected"}>关键词</option></select></label>
+        <div class="pa-field pa-wb-kw" data-show="keys" ${e.constant ? "hidden" : ""}><span class="pa-wb-kwhead"><span>关键词</span><button type="button" class="pa-icon-btn pa-expand" data-w="kwexpand" aria-label="展开关键词" aria-expanded="false" title="展开关键词">${ICON.expand}</button></span><textarea class="pa-input pa-wb-kwtext" data-w="key" rows="1" wrap="off" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="逗号分隔，如：雾港, 港口" aria-label="关键词，逗号分隔">${esc(keys)}</textarea></div>
+      </div>
       <div class="pa-item-ctl pa-wbset">
-        <label class="pa-field"><span>触发</span><select class="pa-select" data-w="constant"><option value="1" ${e.constant ? "selected" : ""}>常驻（一直生效）</option><option value="0" ${e.constant ? "" : "selected"}>按关键词触发</option></select></label>
-        <label class="pa-field pa-field-wide" data-show="keys" ${e.constant ? "hidden" : ""}><span>关键词（逗号分隔）</span><input class="pa-input" data-w="key" autocomplete="off" value="${esc(keys)}"></label>
         <label class="pa-field"><span>插入位置</span><select class="pa-select" data-w="position">${WI_POS.map(([k, l]) => `<option value="${k}" ${pos === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
         <label class="pa-field" data-show="depth" ${pos === 4 ? "" : "hidden"}><span>深度</span><input class="pa-input" type="number" min="0" inputmode="numeric" autocomplete="off" data-w="depth" value="${esc(e.depth ?? 4)}"></label>
         <label class="pa-field" data-show="depth" ${pos === 4 ? "" : "hidden"}><span>角色</span><select class="pa-select" data-w="role">${[[0, "系统"], [1, "用户"], [2, "AI"]].map(([k, l]) => `<option value="${k}" ${Number(e.role ?? 0) === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -41,6 +43,31 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
   setTimeout(fit, 350);
   body.querySelector("[data-w=constant]").addEventListener("change", (ev) => {
     body.querySelector("[data-show=keys]").hidden = ev.target.value === "1";
+    body.querySelector(".pa-wb-trig").classList.toggle("pa-kw-none", ev.target.value === "1");
+  });
+  // 关键词：平时一行（左右滑动看），展开后占满一行、自动换行、全部显示
+  const kw = body.querySelector("[data-w=key]");
+  const fitKw = () => {
+    const open = body.querySelector(".pa-wb-trig").classList.contains("pa-kw-open");
+    kw.style.height = "auto";
+    if (open) kw.style.height = kw.scrollHeight + 2 + "px";
+  };
+  kw.addEventListener("input", fitKw);
+  kw.addEventListener("keydown", (ev) => {
+    // 一行时回车不换行（关键词用逗号分隔）
+    if (ev.key === "Enter" && !imeEnter(ev) && !body.querySelector(".pa-wb-trig").classList.contains("pa-kw-open")) ev.preventDefault();
+  });
+  body.querySelector("[data-w=kwexpand]").addEventListener("click", (ev) => {
+    const row = body.querySelector(".pa-wb-trig");
+    const on = !row.classList.contains("pa-kw-open");
+    row.classList.toggle("pa-kw-open", on);
+    kw.setAttribute("wrap", on ? "soft" : "off");
+    const b = ev.currentTarget;
+    b.innerHTML = on ? ICON.collapse : ICON.expand;
+    b.setAttribute("aria-expanded", String(on));
+    b.setAttribute("aria-label", on ? "收起关键词" : "展开关键词");
+    b.title = on ? "收起关键词" : "展开关键词";
+    fitKw();
   });
   body.querySelector("[data-w=position]").addEventListener("change", (ev) => {
     body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = ev.target.value !== "4"; });
@@ -62,7 +89,7 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
     if (v("content") !== String(e.content || "")) out.content = v("content");
     const constant = v("constant") === "1";
     if (constant !== !!e.constant) out.constant = constant;
-    const key = v("key").split(/[,，]/).map((x) => x.trim()).filter(Boolean);
+    const key = v("key").split(/[,，\n]/).map((x) => x.trim()).filter(Boolean);
     if (JSON.stringify(key) !== JSON.stringify(wbKeysText(e))) out.key = key;
     const p = Number(v("position"));
     if (p !== Number(e.position ?? 0)) out.position = p;
@@ -80,7 +107,12 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
   if (canDelete) acts.unshift({ label: "删除", kind: "danger-soft", value: "delete" });
   return sheet({
     title, body, wide: true, noFocus: true, guardDirty: true, actions: acts,
-    onMount: (w) => w.querySelector(".pa-sheet").classList.add("pa-sheet-edit", "pa-sheet-wbentry")
+    onMount: (w) => {
+      const sh = w.querySelector(".pa-sheet");
+      sh.classList.add("pa-sheet-edit", "pa-sheet-wbentry");
+      const flash = scrollHint(w.querySelector(".pa-sheet-body"), sh);
+      setTimeout(() => flash(1500), 400);
+    }
   });
 }
 function mountBooks(page) {
@@ -203,11 +235,11 @@ function mountBooks(page) {
     if (q && !shown.length) return "";
     if (!names.length && !empty) return "";
     const onN = names.filter((n) => rowOn(ci, sec, n)).length;
-    const foldKey = `${sec}`;
-    const col = !q && sec === "other" && !foldGet("books", foldKey, true);
+    // 2.12.1 每段都能折叠，记住最后一次的状态；搜索时全部展开
+    const col = !q && !foldGet("books", sec, true);
     return `<section class="pa-group pa-bk-sec${col ? " pa-collapsed" : ""}" data-sec="${sec}">
-      <header class="pa-ghead" ${sec === "other" ? `data-b="fold" role="button" tabindex="0" aria-expanded="${!col}"` : ""}>
-        ${sec === "other" ? `<span class="pa-icon-btn pa-caret" aria-hidden="true">${ICON.caret}</span>` : ""}
+      <header class="pa-ghead" data-b="fold" role="button" tabindex="0" aria-expanded="${!col}">
+        <span class="pa-icon-btn pa-caret" aria-hidden="true">${ICON.caret}</span>
         <span class="pa-gname">${esc(title)}</span>
         ${count && names.length ? `<span class="pa-count">${sec === "other" ? names.length : `${onN}/${names.length}`}</span>` : ""}
       </header>
@@ -360,13 +392,14 @@ function mountBooks(page) {
     detail.innerHTML = `<div class="pa-bk-dhead">
         <button class="pa-icon-btn pa-bk-back" data-e="back" data-esc-back aria-label="返回世界书列表" title="返回">${BACK_ICON}</button>
         <b class="pa-bk-dname" title="${esc(n)}">${esc(n)}</b>
+        <button class="pa-icon-btn" data-e="search" aria-label="搜索条目" aria-expanded="false" title="搜索条目">${ICON.search}</button>
         <button class="pa-icon-btn" data-e="new" aria-label="新建条目" title="新建条目">${ICON.plus}</button>
       </div>
-      <div class="pa-bk-scope"></div>
-      <div class="pa-bk-q"><input class="pa-input" data-e="q" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜条目名称、关键词或正文" aria-label="搜索条目"></div>
-      <div class="pa-scroll pa-bk-entries" role="list" aria-label="条目"><p class="pa-empty">正在读取…</p></div>`;
+      <div class="pa-bk-q" hidden><div class="pa-findrow pa-qrow" style="${BOX_STYLE}"><input class="pa-input" data-e="q" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜条目名称、关键词或正文" aria-label="搜索条目"><button type="button" class="pa-icon-btn pa-qx" data-e="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
+      <div class="pa-scroll pa-bk-entries"><div class="pa-bk-scope"></div><div class="pa-bk-rows" role="list" aria-label="条目"><p class="pa-empty">正在读取…</p></div></div>`;
     const q = detail.querySelector("[data-e=q]");
     onSearchInput(q, () => { st.equery = q.value; paintEntries(); });
+    scrollHint(detail.querySelector(".pa-bk-entries"), detail);
     paintScope();
     if (focus && !wide()) detail.querySelector("[data-e=back]")?.focus({ preventScroll: true });
     await loadEntries(n);
@@ -381,7 +414,7 @@ function mountBooks(page) {
     } catch (e) {
       if (st.open !== n) return;
       st.entries = null;
-      const box = detail.querySelector(".pa-bk-entries");
+      const box = detail.querySelector(".pa-bk-rows");
       if (box) box.innerHTML = `<p class="pa-empty">读取失败：${esc(e.message)}<br><button class="pa-btn pa-btn-s" data-e="retry">重试</button></p>`;
       return;
     }
@@ -406,7 +439,7 @@ function mountBooks(page) {
       <p class="pa-hint pa-bk-scopenote">${esc(note)}</p>${chat}`;
   }
   function paintEntries() {
-    const box = detail.querySelector(".pa-bk-entries");
+    const box = detail.querySelector(".pa-bk-rows");
     if (!box || !st.entries) return;
     const q = st.equery.trim().toLowerCase();
     const all = st.entries;
@@ -419,7 +452,8 @@ function mountBooks(page) {
       box.innerHTML = '<p class="pa-empty">这本世界书还没有条目。<br><button class="pa-btn pa-btn-s" data-e="new">＋ 新建条目</button></p>';
       return;
     }
-    const top = box.scrollTop;
+    const sc = detail.querySelector(".pa-bk-entries");
+    const top = sc.scrollTop;
     box.innerHTML = head + (shown.length ? shown.map((e) => {
       const on = !e.disable;
       const name = wbEntryName(e);
@@ -432,7 +466,7 @@ function mountBooks(page) {
         <label class="pa-switch"><input type="checkbox" data-e="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
       </div>`;
     }).join("") : '<p class="pa-empty">没有匹配的条目</p>');
-    box.scrollTop = top;
+    sc.scrollTop = top;
   }
   // 每打开一本书，第一次写入前备份一次
   async function backupOnce(n) {
@@ -510,6 +544,17 @@ function mountBooks(page) {
     }
     const act = a?.dataset.e;
     if (act === "back") return backToList();
+    if (act === "search" || act === "searchclose") {
+      const qbox = detail.querySelector(".pa-bk-q");
+      const q = detail.querySelector("[data-e=q]");
+      const open = act === "search" && qbox.hidden;
+      qbox.hidden = !open;
+      detail.querySelector("[data-e=search]").setAttribute("aria-expanded", String(open));
+      if (open) return q.focus();
+      if (q.value || st.equery) { q.value = ""; st.equery = ""; paintEntries(); }
+      detail.querySelector("[data-e=search]").focus({ preventScroll: true });
+      return;
+    }
     if (act === "new") return newEntry();
     if (act === "retry") return st.open && loadEntries(st.open);
     if (act === "unchat") {
