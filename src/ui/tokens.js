@@ -5,7 +5,9 @@ var TK_KEY = "mcdonalds:tk";
 var TK_PER_MODEL = 4000;
 var TK_MODELS = 3;
 var TK_PARALLEL = 4;
-var tkS = { model: null, fn: null, mem: new Map(), queue: [], queued: new Set(), failed: new Set(), running: 0, subs: new Set(), notifyT: 0, saveT: 0, disk: null };
+var tkS = { model: null, fn: null, mem: new Map(), queue: [], queued: new Set(), failed: new Set(), running: 0, subs: new Set(), notifyT: 0, saveT: 0, disk: null, lastDone: 0, watchT: 0 };
+// 2.12.15 分词器 10 秒没有数完一条，页签行写「数不出来」，不再一直显示「正在数」
+var TK_STALL_MS = 1e4;
 // 分词器的标识：API 类型 + 酒馆选的分词模型（或当前模型），换模型后重新数
 function tkModelKey(c) {
   let m = "";
@@ -67,6 +69,7 @@ function tkGet(text) {
     return n;
   }
   if (!tkS.queued.has(t)) {
+    if (!tkS.queued.size) tkS.lastDone = Date.now();
     tkS.queued.add(t);
     tkS.queue.push(t);
     queueMicrotask(tkPump);
@@ -89,6 +92,7 @@ function tkPump() {
     }).finally(() => {
       tkS.running--;
       tkS.queued.delete(t);
+      tkS.lastDone = Date.now();
       tkNotify();
       tkPump();
     });
@@ -107,6 +111,10 @@ function tkSubscribe(f) {
   tkS.subs.add(f);
   return () => tkS.subs.delete(f);
 }
+/** 还有没数完的，且 10 秒没有进展 */
+function tkStalled() {
+  return tkS.queued.size > 0 && Date.now() - tkS.lastDone > TK_STALL_MS;
+}
 /** 还在排队、正在数的条数 */
 function tkPending() {
   return tkS.queued.size;
@@ -121,17 +129,26 @@ function tkFmt(n) {
 // 2.12.8 页签行右侧：一个按钮「● 共 N tk」。圆点和保存状态那颗一样：关时空心，开（每条显示 token 数）时实心绿点，
 // 还在数时呼吸
 const tkEach = () => settings().tkEach === true;
-/** 画页签行右侧：label 是合计那句（undefined＝不显示），title 是说明 */
-function tkPaintBar(label, title = "") {
+/** 画页签行右侧：what 是「共」「常驻」，sum 是合计（undefined＝还没数完，null＝不显示），title 是说明。
+ *  2.12.15 没数完时写「统计 tk 中」（悬停看还剩几条），卡住时写「tk 数不出来」，不用「…」（像在算，其实可能没动） */
+function tkPaintBar(what, sum, title = "") {
   const bar = rootEl?.querySelector(".pa-tkbar");
   if (!bar) return;
-  bar.hidden = label === void 0 || !tkS.fn;
+  bar.hidden = sum === null || what === void 0 || !tkS.fn;
   if (bar.hidden) return;
-  const t = bar.querySelector("[data-tktotal]"), on = tkEach(), busy = /…/.test(label);
+  const busy = sum === void 0, stalled = busy && tkStalled();
+  const label = !busy ? `${what} ${tkFmt(sum)} tk` : stalled ? "tk 数不出来" : "统计 tk 中";
+  if (stalled) title = "酒馆的分词器 10 秒没有回应，可换个模型或刷新页面后再看";
+  else if (busy) title = tkPending() ? `正在数 token，还剩 ${tkPending()} 条` : "正在读取，稍后显示 token 数";
+  if (busy && !stalled) {
+    clearTimeout(tkS.watchT);
+    tkS.watchT = setTimeout(tkNotify, TK_STALL_MS + 200);
+  }
+  const t = bar.querySelector("[data-tktotal]"), on = tkEach();
   if (t.textContent !== label) t.textContent = label;
   bar.setAttribute("aria-pressed", String(on));
   bar.setAttribute("aria-busy", String(busy));
-  bar.classList.toggle("pa-tk-busy", busy);
+  bar.classList.toggle("pa-tk-busy", busy && !stalled);
   bar.setAttribute("aria-label", `${label}，每条显示 token 数`);
   bar.title = `${title}。点按${on ? "收起" : "显示"}每条的 token 数`;
 }

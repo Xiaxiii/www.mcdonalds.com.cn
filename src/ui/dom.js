@@ -280,10 +280,22 @@ function sheet(opt) {
   });
 }
 // 2.5.0 原地改名：把这段文字换成输入框，回车或点别处保存，Esc 取消。返回新名字，没改返回 null
-function inlineEdit(target, value, { placeholder = "", selectAll = true } = {}) {
+// 2.12.15 wrap：长名称折行、框随内容变高，手机上改长名称也看得到全文（单行框只露出一截）。回车仍是保存
+function inlineEdit(target, value, { placeholder = "", selectAll = true, wrap = false } = {}) {
   return new Promise((resolve) => {
     const old = target.innerHTML;
-    const input = el(`<input class="pa-input pa-inline-input" value="${esc(value)}" placeholder="${esc(placeholder)}" maxlength="120" aria-label="新名称">`);
+    const input = wrap
+      ? el(`<textarea class="pa-input pa-inline-input pa-inline-wrap" rows="1" placeholder="${esc(placeholder)}" maxlength="120" aria-label="新名称" autocomplete="off" spellcheck="false"></textarea>`)
+      : el(`<input class="pa-input pa-inline-input" value="${esc(value)}" placeholder="${esc(placeholder)}" maxlength="120" aria-label="新名称">`);
+    if (wrap) {
+      input.value = value;
+      const fit = () => { input.style.height = "auto"; input.style.height = input.scrollHeight + 2 + "px"; };
+      input.addEventListener("input", () => {
+        if (/[\r\n]/.test(input.value)) input.value = input.value.replace(/[\r\n]+/g, "");
+        fit();
+      });
+      requestAnimationFrame(fit);
+    }
     target.innerHTML = "";
     target.append(input);
     target.classList.add("pa-inline-editing");
@@ -355,6 +367,88 @@ async function confirmDeleteOfferBackup(title, html, download) {
     if (v === "del") return true;
     if (v !== "dl") return false;
     note = await download();
+  }
+}
+// 2.12.15 宽屏左右两栏中间的拖动条：拖动或用方向键调右栏宽度（占 host 宽度的百分比），按 key 记在设置里。
+// host 的样式用 --pa-pane 定右栏宽度
+function paneSplit(host, splitter, key, def = 44) {
+  const clamp = (v) => Math.min(72, Math.max(28, Number(v) || def));
+  const apply = (v) => { const r = clamp(v); host.style.setProperty("--pa-pane", r + "%"); splitter.setAttribute("aria-valuenow", String(Math.round(100 - r))); return r; };
+  const saved = () => settings().paneSplit?.[key] ?? def;
+  const save = (v) => { (settings().paneSplit ||= {})[key] = Math.round(v); saveSettings(); };
+  splitter.setAttribute("aria-orientation", "vertical");
+  splitter.setAttribute("aria-valuemin", "28");
+  splitter.setAttribute("aria-valuemax", "72");
+  apply(saved());
+  splitter.addEventListener("pointerdown", (e) => {
+    if (e.button > 0) return;
+    e.preventDefault();
+    splitter.setPointerCapture(e.pointerId);
+    splitter.classList.add("pa-dragging");
+    const rect = host.getBoundingClientRect();
+    let last = null;
+    const move = (ev) => { last = apply((rect.right - ev.clientX) / rect.width * 100); };
+    const up = () => {
+      splitter.classList.remove("pa-dragging");
+      splitter.removeEventListener("pointermove", move);
+      splitter.removeEventListener("pointerup", up);
+      splitter.removeEventListener("pointercancel", up);
+      if (last != null) save(last);
+    };
+    splitter.addEventListener("pointermove", move);
+    splitter.addEventListener("pointerup", up);
+    splitter.addEventListener("pointercancel", up);
+  });
+  splitter.addEventListener("keydown", (e) => {
+    const k = { ArrowLeft: 4, ArrowRight: -4 }[e.key];
+    if (!k) return;
+    e.preventDefault();
+    save(apply(saved() + k));
+  });
+  splitter.addEventListener("dblclick", () => save(apply(def)));
+}
+const splitterHtml = (label) => `<div class="pa-splitter pa-vsplit" role="separator" tabindex="0" aria-label="${esc(label)}" title="拖动调整两栏宽度，双击恢复"><span></span></div>`;
+// 2.12.15 删除多选：列出能删的，勾选后一起删。items：[{ label, sub, checked, disabled, why }]。
+// download(选中的项) 给了就有「下载备份」：下载后弹窗留着、勾选不变，写明下载了什么。返回选中的项，取消返回 null
+async function pickDeleteMany({ title, items, unit = "个", hint = "", download = null }) {
+  let note = "";
+  const on = new Set(items.map((x, i) => x.checked && !x.disabled ? i : -1).filter((i) => i >= 0));
+  const can = items.map((x, i) => x.disabled ? -1 : i).filter((i) => i >= 0);
+  for (;;) {
+    const body = `${hint ? `<p class="pa-hint">${hint}</p>` : ""}
+      <label class="pa-dm-all"><input type="checkbox" data-dm="all" ${can.length && can.every((i) => on.has(i)) ? "checked" : ""} ${can.length ? "" : "disabled"}><span>全选</span></label>
+      <div class="pa-dm-list" role="group" aria-label="${esc(title)}">${items.map((x, i) => `<label class="pa-dm-row${x.disabled ? " pa-off" : ""}"><input type="checkbox" data-dm="${i}" ${on.has(i) ? "checked" : ""} ${x.disabled ? "disabled" : ""}><span class="pa-dm-t"><span class="pa-dm-name">${esc(x.label)}</span>${x.sub || x.why ? `<small>${esc(x.why || x.sub)}</small>` : ""}</span></label>`).join("")}</div>
+      ${note ? `<p class="pa-hint pa-dl-note">${note}</p>` : ""}`;
+    const v = await sheet({
+      title, body, cls: "pa-sheet-delmany",
+      actions: [{ label: "取消", value: null }, ...(download ? [{ label: note ? "重新下载" : "下载备份", value: "dl" }] : []), { label: "删除", kind: "danger", value: "del" }],
+      onMount: (w) => {
+        const paint = () => {
+          const n = on.size;
+          const del = w.querySelector(".pa-sheet-actions .pa-btn-danger");
+          del.textContent = n ? `删除 ${n} ${unit}` : "删除";
+          del.disabled = !n;
+          const dl = [...w.querySelectorAll(".pa-sheet-actions .pa-btn")].find((b) => /下载/.test(b.textContent));
+          if (dl) dl.disabled = !n;
+          const all = w.querySelector("[data-dm=all]");
+          all.checked = can.length > 0 && can.every((i) => on.has(i));
+          all.indeterminate = n > 0 && !all.checked;
+        };
+        w.querySelector(".pa-sheet-body").addEventListener("change", (e) => {
+          const k = e.target.dataset?.dm;
+          if (k === void 0) return;
+          if (k === "all") {
+            for (const i of can) e.target.checked ? on.add(i) : on.delete(i);
+            w.querySelectorAll(".pa-dm-list input:not(:disabled)").forEach((x) => { x.checked = e.target.checked; });
+          } else e.target.checked ? on.add(Number(k)) : on.delete(Number(k));
+          paint();
+        });
+        paint();
+      }
+    });
+    if (v === "del") return items.filter((x, i) => on.has(i));
+    if (v !== "dl") return null;
+    note = await download(items.filter((x, i) => on.has(i)));
   }
 }
 async function promptBox(title, value = "", placeholder = "") {

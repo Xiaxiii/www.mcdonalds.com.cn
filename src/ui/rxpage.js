@@ -27,7 +27,8 @@ function rxScopeNote(md, pr) {
   const s = presetRegexRuleScope({ markdownOnly: md, promptOnly: pr });
   return md || pr ? `现在：${s}` : `现在：${s}，直接改聊天记录里的原文`;
 }
-async function regexEditSheet(rule) {
+// 2.12.15 表单单独拿出来：手机上放进弹窗，宽屏放在列表右边的编辑栏
+function regexEditForm(rule) {
   const place = new Set(Array.isArray(rule.placement) ? rule.placement : []);
   const sub = rule.substituteRegex === true ? 1 : Number(rule.substituteRegex) || 0;
   const num = (v) => typeof v === "number" && Number.isFinite(v) && v >= 0 ? String(v) : "";
@@ -57,7 +58,7 @@ async function regexEditSheet(rule) {
     </div>`);
   const q = (k) => body.querySelector(`[data-x=${k}]`);
   const grow = (ta) => {
-    const box = ta.closest(".pa-sheet-body");
+    const box = ta.closest(".pa-sheet-body, .pa-editpane-body");
     const top = box?.scrollTop;
     ta.style.height = "auto";
     ta.style.height = ta.scrollHeight + 2 + "px";
@@ -109,6 +110,10 @@ async function regexEditSheet(rule) {
     errs[0]?.focus();
     return !errs.length;
   };
+  return { body, read, validate };
+}
+async function regexEditSheet(rule) {
+  const { body, read, validate } = regexEditForm(rule);
   return sheet({
     title: rule.scriptName || "编辑正则", body, wide: true, noFocus: true, guardDirty: true,
     actions: [{ label: "删除", kind: "danger-soft", value: "delete" }, { label: "取消", value: null }, { label: "保存", kind: "primary", value: read, validate }],
@@ -125,11 +130,64 @@ function mountRegexPage(page) {
     <div class="pa-toolbar">
       <div class="pa-picker-slot"></div>
       <button class="pa-icon-btn" data-r="search" aria-label="搜索正则" title="搜索正则">${ICON.search}</button>
+      <button class="pa-icon-btn pa-del" data-r="delmany" aria-label="删除正则" title="删除正则（可多选）">${ICON.trash}</button>
       <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜正则名称或查找内容" aria-label="搜索正则"><button type="button" class="pa-icon-btn pa-qx" data-r="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     </div>
-    <div class="pa-scroll pa-rx-list" role="list" aria-label="正则"></div>`;
+    <div class="pa-scroll pa-rx-list" role="list" aria-label="正则"></div>
+    ${splitterHtml("拖动调整正则列表和编辑栏的宽度")}
+    <aside class="pa-editpane pa-rx-pane" aria-label="编辑正则" hidden></aside>`;
   const list = page.querySelector(".pa-rx-list");
+  const paneEl = page.querySelector(".pa-rx-pane");
+  paneSplit(page, page.querySelector(":scope > .pa-vsplit"), "rx");
   const search = page.querySelector(".pa-find");
+  // 2.12.15 宽屏：点一条正则在右边编辑栏里改，和条目、世界书一样左右两栏
+  const wide = () => window.matchMedia?.("(min-width: 1000px)").matches;
+  const pane = { kind: null, i: -1, rule: null, form: null, start: "" };
+  const paneDirty = () => !!pane.form && JSON.stringify(pane.form.read()) !== pane.start;
+  function closePane() {
+    pane.kind = null; pane.i = -1; pane.rule = null; pane.form = null;
+    paneEl.hidden = true;
+    paneEl.innerHTML = "";
+    page.classList.remove("pa-edit-open");
+    list.querySelectorAll(".pa-rx-row.pa-editing").forEach((x) => x.classList.remove("pa-editing"));
+  }
+  async function openPane(kind, i, r) {
+    if (paneDirty() && !(pane.kind === kind && pane.i === i) && !await confirmBox("放弃未保存的修改", `「${presetRegexRuleName(pane.rule)}」的修改尚未保存。`, "放弃修改", true, "继续编辑")) return;
+    const form = regexEditForm(r);
+    Object.assign(pane, { kind, i, rule: r, form, start: JSON.stringify(form.read()) });
+    paneEl.innerHTML = `<div class="pa-editpane-head"><b></b><button class="pa-icon-btn" data-ep="x" aria-label="关闭编辑栏" title="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="pa-editpane-body"></div>
+      <div class="pa-editpane-foot"><button class="pa-btn pa-btn-danger-soft pa-ep-del" data-ep="del">删除</button><button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
+    paneEl.querySelector(".pa-editpane-head b").textContent = presetRegexRuleName(r);
+    paneEl.querySelector(".pa-editpane-body").append(form.body);
+    paneEl.hidden = false;
+    page.classList.add("pa-edit-open");
+    list.querySelectorAll(".pa-rx-row").forEach((x) => x.classList.toggle("pa-editing", x.dataset.kind === kind && Number(x.dataset.i) === i));
+  }
+  paneEl.addEventListener("click", async (e) => {
+    const a = e.target.closest("[data-ep]")?.dataset.ep;
+    if (!a || !pane.form) return;
+    if (a === "x" || a === "close") {
+      if (paneDirty() && !await confirmBox("放弃未保存的修改", `「${presetRegexRuleName(pane.rule)}」的修改尚未保存。`, "放弃修改", true, "继续编辑")) return;
+      return closePane();
+    }
+    const { kind, i, rule } = pane;
+    if (a === "del") {
+      const before = ruleOf(kind, i);
+      await remove(kind, i, rule);
+      if (ruleOf(kind, i) !== before || !before) closePane();
+      return;
+    }
+    if (a === "save") {
+      if (!await pane.form.validate()) return;
+      const next = pane.form.read();
+      if (await applyEdit(kind, i, rule, next)) {
+        const cur = ruleOf(kind, i);
+        if (cur) openPane(kind, i, cur);
+        else closePane();
+      }
+    }
+  });
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (name) => setFocusPreset(name), { use: true });
   // 每段：{ kind, title, rules, note, allow }
   function groups() {
@@ -165,9 +223,8 @@ function mountRegexPage(page) {
       const name = presetRegexRuleName(r);
       const on = !r.disabled;
       const where = (Array.isArray(r.placement) ? r.placement : []).map((p) => RX_PLACE[p]).filter(Boolean);
-      return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
+      return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}${pane.kind === g.kind && pane.i === i ? " pa-editing" : ""}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
           <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
-          <button class="pa-icon-btn pa-del" data-r="del" aria-label="删除「${esc(name)}」" title="删除">${ICON.trash}</button>
           <button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
           <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
         </div>`;
@@ -225,7 +282,7 @@ function mountRegexPage(page) {
     }
     render();
   }
-  // 删除一条正则：编辑窗口里的「删除」和行上的垃圾桶都走这里。预设的可在页头撤销
+  // 删除一条正则：编辑窗口里的「删除」走这里。预设的可在页头撤销
   async function remove(kind, i, r = ruleOf(kind, i)) {
     if (!r) return;
     const name = presetRegexRuleName(r);
@@ -248,14 +305,18 @@ function mountRegexPage(page) {
   async function peek(kind, i) {
     const r = ruleOf(kind, i);
     if (!r) return;
-    const name = presetRegexRuleName(r);
+    if (wide()) return openPane(kind, i, r);
     const next = await regexEditSheet(r);
     if (!next) return;
+    return applyEdit(kind, i, r, next);
+  }
+  // 写回改好的正则。成功返回 true
+  async function applyEdit(kind, i, r, next) {
     // 编辑窗口开着时，预设、角色或列表可能变了：按同一个位置再取一次，对不上就不写
     const cur = ruleOf(kind, i);
-    if (cur !== r && !(kind === "preset" && cur && cur.id === r.id)) return toast("这条正则已变动，没有保存，请重新打开", "warning");
+    if (cur !== r && !(kind === "preset" && cur && cur.id === r.id)) { toast("这条正则已变动，没有保存，请重新打开", "warning"); return false; }
     try {
-      if (next === "delete") return remove(kind, i, r);
+      if (next === "delete") { await remove(kind, i, r); return false; }
       else {
         if (kind === "preset") {
           const d = getDraft(focusPreset());
@@ -264,11 +325,14 @@ function mountRegexPage(page) {
         } else if (kind === "char") await saveCharRegex(currentChar(), i, next);
         else saveGlobalRegex(i, next);
         toast("已保存", "success");
+        render();
+        return true;
       }
     } catch (e) {
       toast("保存失败：" + e.message, "error");
     }
     render();
+    return false;
   }
   list.addEventListener("click", (e) => {
     const a = e.target.closest("[data-r]");
@@ -293,12 +357,52 @@ function mountRegexPage(page) {
     if (!row) return;
     const kind = row.dataset.kind, i = Number(row.dataset.i);
     if (a?.dataset.r === "toggle") return void toggle(kind, i, a.checked);
-    if (a?.dataset.r === "del") return remove(kind, i);
     if (e.target.closest(".pa-switch")) return;
     peek(kind, i);
   });
+  // 2.12.15 搜索旁的垃圾桶：预设、角色卡、全局三处的正则一起列出，多选删除。预设的可在页头撤销
+  async function removeMany() {
+    const items = [];
+    for (const g of groups()) g.rules.forEach((r, i) => {
+      if (r && typeof r === "object") items.push({ kind: g.kind, rule: r, label: presetRegexRuleName(r), sub: g.title });
+    });
+    if (!items.length) return toast("没有可删的正则");
+    const pick = await pickDeleteMany({ title: "删除正则", items, unit: "条", hint: "预设里的正则删除后可在页头撤销，角色卡和全局的不能撤销。" });
+    if (!pick?.length) return;
+    let n = 0;
+    const fail = [];
+    for (const kind of ["preset", "char", "global"]) {
+      const mine = pick.filter((x) => x.kind === kind);
+      if (!mine.length) continue;
+      try {
+        if (kind === "preset") {
+          const d = getDraft(focusPreset());
+          const idx = mine.map((x) => presetRegexList(d).indexOf(x.rule)).filter((i) => i >= 0).sort((a, b) => b - a);
+          if (!idx.length) continue;
+          mutate(d, "删除正则", (x) => { for (const i of idx) presetRegexList(x).splice(i, 1); });
+          if (d.name === currentPresetName()) noteRegexDisplay({ markdownOnly: true });
+          n += idx.length;
+        } else {
+          const list = kind === "char" ? charRegexList(currentChar()) : globalRegexList();
+          const idx = mine.map((x) => list.indexOf(x.rule)).filter((i) => i >= 0).sort((a, b) => b - a);
+          for (const i of idx) {
+            if (kind === "char") await deleteCharRegex(currentChar(), i);
+            else deleteGlobalRegex(i);
+            n++;
+          }
+        }
+      } catch (e) {
+        fail.push(e.message);
+      }
+    }
+    if (n < pick.length && !fail.length) fail.push(`${pick.length - n} 条已变动`);
+    if (n) toast(`已删除 ${n} 条正则`, "success");
+    if (fail.length) toast("没删完：" + fail.join("；"), "error");
+    render();
+  }
   page.querySelector(".pa-toolbar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-r]")?.dataset.r;
+    if (b === "delmany") return void removeMany();
     if (b !== "search" && b !== "searchclose") return;
     const r = page.querySelector(".pa-findrow");
     r.hidden = b === "searchclose" || !r.hidden;

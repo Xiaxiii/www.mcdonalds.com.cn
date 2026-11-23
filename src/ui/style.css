@@ -1244,6 +1244,8 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 
 /* 1.8.0 缝合页：已选清单、目标列表里的新建分组、来源的更多操作 */
 #mcd-root .pa-stitch-info .pa-picked-n { padding: 0; text-align: left; font-weight: 600; color: var(--pa-text); text-decoration: none; }
+/* 2.12.15 「已选 N 条」压在下一行「AI 推荐」放大的点按范围之上，点得到 */
+#mcd-root .pa-stitch-info .pa-picked-n { position: relative; z-index: 1; justify-self: start; }
 #mcd-root .pa-stitch-info .pa-picked-n:disabled { color: var(--pa-dim); cursor: default; }
 #mcd-root .pa-picked-row { display: flex; align-items: center; gap: 8px; }
 #mcd-root .pa-picked-row > span { flex: 1 1 auto; min-width: 0; display: grid; }
@@ -1776,12 +1778,13 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 2.7.2 宽屏编辑栏：列表在左，编辑在右，保存前不写入 */
 #mcd-root .pa-editpane[hidden] { display: none; }
 @media (min-width: 1000px) {
-    #mcd-root [data-page="organize"].pa-edit-open { display: grid; grid-template-columns: minmax(0, 1fr) minmax(380px, 44%); grid-template-rows: auto auto minmax(0, 1fr) auto; }
+    #mcd-root [data-page="organize"].pa-edit-open { display: grid; grid-template-columns: minmax(0, 1fr) 12px minmax(340px, var(--pa-pane, 44%)); grid-template-rows: auto auto minmax(0, 1fr) auto; }
+    #mcd-root [data-page="organize"].pa-edit-open > .pa-vsplit { display: flex; grid-column: 2; grid-row: 1 / -1; }
     #mcd-root [data-page="organize"].pa-edit-open > .pa-toolbar { grid-column: 1; grid-row: 1; }
     #mcd-root [data-page="organize"].pa-edit-open > .pa-movebar { grid-column: 1; grid-row: 2; }
     #mcd-root [data-page="organize"].pa-edit-open > .pa-list { grid-column: 1; grid-row: 3; }
     #mcd-root [data-page="organize"].pa-edit-open > .pa-selbar { grid-column: 1; grid-row: 4; }
-    #mcd-root .pa-editpane { grid-column: 2; grid-row: 1 / -1; display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--pa-line); background: var(--pa-tint); }
+    #mcd-root .pa-editpane { grid-column: 3; grid-row: 1 / -1; display: flex; flex-direction: column; min-height: 0; min-width: 0; border-left: 1px solid var(--pa-line); background: var(--pa-tint); }
 }
 @media (max-width: 999px) { #mcd-root .pa-editpane { display: none; } }
 #mcd-root .pa-editpane-head { display: flex; align-items: center; gap: 8px; min-height: 52px; padding: 6px 8px 6px 16px; border-bottom: 1px solid var(--pa-line); }
@@ -2000,6 +2003,9 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-jank-h > .pa-link { font-size: max(11px, .82em); }
 #mcd-root .pa-jank { gap: 6px; }
 #mcd-root .pa-jank > .pa-p, #mcd-root .pa-jank > .pa-hint { margin: 0; overflow-wrap: anywhere; }
+/* 2.12.15 卡顿结论一行写完，放不下时省略；原因、建议收进「详情」 */
+#mcd-root .pa-jank-top { flex-wrap: wrap; align-items: center; gap: 2px 10px; }
+#mcd-root .pa-jank-line { flex: 1 1 0%; min-width: 0; margin: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #mcd-root .pa-jank details > summary { padding: 4px 0; }
 #mcd-root .pa-kvl { display: grid; margin: 2px 0 4px; font-size: .9em; }
 #mcd-root .pa-kvl > div { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: baseline; gap: 0 10px; padding: 5px 0; border-bottom: 1px solid var(--pa-line); }
@@ -2397,9 +2403,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-row .pa-meta { margin-top: 2px; }
 @media (pointer: coarse) { #mcd-root .pa-bk-dhead .pa-icon-btn { width: 42px; height: 42px; } #mcd-root .pa-bk-scoperow .pa-seg button { min-height: 36px; } }
 @media (min-width: 1000px) {
-    #mcd-root .pa-bk { display: grid; grid-template-columns: minmax(300px, 1fr) minmax(380px, 44%); }
+    #mcd-root .pa-bk { display: grid; grid-template-columns: minmax(260px, 1fr) 12px minmax(340px, var(--pa-pane, 44%)); }
+    #mcd-root .pa-bk > .pa-vsplit { display: flex; grid-column: 2; grid-row: 1; }
     #mcd-root .pa-bk > .pa-bk-list { grid-column: 1; min-height: 0; }
-    #mcd-root .pa-bk-detail { grid-column: 2; border-left: 1px solid var(--pa-line); }
+    #mcd-root .pa-bk-detail { grid-column: 3; grid-row: 1; border-left: 1px solid var(--pa-line); }
     #mcd-root .pa-bk-back { display: none; }
     #mcd-root .pa-bk-bar > .pa-char-picker { flex: 0 1 420px; }
     #mcd-root .pa-bk-dhead { padding-left: 16px; }
@@ -2610,6 +2617,9 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-dname:focus-visible { outline: 2px solid var(--pa-info, var(--pa-thread)); outline-offset: 2px; }
 #mcd-root .pa-bk-dname.pa-inline-editing { flex: 1 1 auto; cursor: auto; }
 #mcd-root .pa-bk-dname .pa-inline-input { width: 100%; min-height: 36px; font-weight: 500; }
+/* 2.12.15 改名框折行、随内容变高 */
+#mcd-root .pa-inline-wrap { display: block; resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; padding-top: 6px !important; padding-bottom: 6px !important; }
+#mcd-root .pa-bk-dname.pa-inline-editing { white-space: normal; }
 #mcd-root .pa-bk-dname { flex: 0 1 auto; }
 #mcd-root .pa-bk-dhead > .pa-bk-rename { color: var(--pa-dim); }
 #mcd-root .pa-bk-dhead > .pa-bk-rename svg, #mcd-root .pa-bk-dhead > .pa-del svg { width: 16px; height: 16px; }
@@ -2624,3 +2634,38 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-import .pa-pick-item { -webkit-tap-highlight-color: transparent; }
 #mcd-root .pa-import .pa-pick-item:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
 @media (hover: hover) and (pointer: fine) { #mcd-root .pa-import .pa-pick-item:hover { background: var(--pa-card-2); } }
+
+/* 2.12.15 删除多选窗口：全选在上，列表可滚动，不能删的灰着写原因 */
+#mcd-root .pa-dm-all { display: flex; align-items: center; gap: 10px; min-height: 40px; padding: 0 2px; font-weight: 600; cursor: pointer; }
+#mcd-root .pa-dm-list { display: grid; max-height: min(52vh, 420px); overflow-y: auto; overscroll-behavior: contain; border-top: 1px solid var(--pa-line); }
+#mcd-root .pa-dm-row { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 6px 2px; border-bottom: 1px solid var(--pa-line); cursor: pointer; }
+#mcd-root .pa-dm-row.pa-off { cursor: default; }
+#mcd-root .pa-dm-row.pa-off .pa-dm-name { color: var(--pa-dim); }
+#mcd-root .pa-dm-t { display: grid; min-width: 0; }
+#mcd-root .pa-dm-name { overflow-wrap: anywhere; }
+#mcd-root .pa-dm-t small { color: var(--pa-dim); font-size: max(12px, .84em); }
+#mcd-root .pa-sheet-delmany .pa-sheet-body > .pa-hint { margin: 0 0 6px; }
+/* 2.12.15 宽屏：条目、世界书、正则、检查几页的预设 / 角色下拉框一样宽 */
+@media (min-width: 1000px) {
+    #mcd-root .pa-toolbar > .pa-picker-slot, #mcd-root .pa-bk-bar > .pa-char-picker { flex: 0 1 480px; }
+}
+
+/* 2.12.15 宽屏两栏中间的拖动条（条目编辑栏、世界书、正则）：平时一条细线，悬停、拖动时变色；手机上不显示 */
+#mcd-root .pa-vsplit { display: none; align-self: stretch; min-height: 0; }
+#mcd-root .pa-vsplit span { width: 4px; height: 44px; }
+/* 正则页宽屏编辑栏：和条目页一样，列表在左、编辑在右 */
+@media (min-width: 1000px) {
+    #mcd-root [data-page="rx"].pa-edit-open { display: grid; grid-template-columns: minmax(0, 1fr) 12px minmax(340px, var(--pa-pane, 44%)); grid-template-rows: auto minmax(0, 1fr); }
+    #mcd-root [data-page="rx"].pa-edit-open > .pa-toolbar { grid-column: 1; grid-row: 1; }
+    #mcd-root [data-page="rx"].pa-edit-open > .pa-rx-list { grid-column: 1; grid-row: 2; }
+    #mcd-root [data-page="rx"].pa-edit-open > .pa-vsplit { display: flex; grid-column: 2; grid-row: 1 / -1; }
+    #mcd-root [data-page="rx"] > .pa-rx-pane { grid-column: 3; grid-row: 1 / -1; }
+    #mcd-root .pa-bk:has(> .pa-bk-detail[hidden]) > .pa-vsplit { display: none; }
+}
+#mcd-root .pa-rx-row.pa-editing { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-info, var(--pa-thread)); }
+#mcd-root .pa-editpane-foot .pa-ep-del { margin-right: auto; }
+@media (min-width: 1000px) {
+    /* 编辑栏开着时左栏窄，下拉框先缩，搜索、垃圾桶等图标留在同一行 */
+    #mcd-root .pa-edit-open > .pa-toolbar > .pa-picker-slot { flex: 1 1 0; }
+    #mcd-root .pa-edit-open > .pa-toolbar { flex-wrap: nowrap; }
+}

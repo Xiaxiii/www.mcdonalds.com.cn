@@ -343,7 +343,7 @@ async function quiesceDraft(name) {
 function dropClean() {
   for (const [n, d] of drafts) {
     if (d.dirty || saveJobs.has(n)) continue;
-    if (!d.history.length) { drafts.delete(n); continue; }
+    // 2.12.15 没改过的草稿也按同样办法核对：酒馆里没变就留着，重开面板不用重读、重画整个列表（大预设开面板会卡一下）
     // 1.1.3：本扩展保存之后，用户又在酒馆里直接改了预设（比如解除分组、开关条目），
     // 旧版会继续拿内存里的旧草稿干活，下一次自动保存就把这些改动盖回去。
     // 现在发现酒馆里的预设和上次保存的不一样，就丢掉旧草稿重新读。

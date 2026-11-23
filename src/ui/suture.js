@@ -770,7 +770,7 @@ function mountSuture(page, app) {
     const pn = bar.querySelector(".pa-picked-n");
     pn.textContent = n ? `已选 ${n} 条 ▸` : "未选条目";
     pn.disabled = !n;
-    bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」一栏点条目选位置" : "在「到」一栏点组名或条目选位置";
+    bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」点条目选位置" : "在「到」点选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
     bar.querySelector("[data-st=aiplace]").hidden = !(n && st.dstType === "preset" && d);
     const qn = st.aiQueue?.[0]?.items.length || 0;
@@ -780,7 +780,7 @@ function mountSuture(page, app) {
     if (!qb.hidden) bar.querySelector(".pa-where").textContent = "AI 推荐的下一组";
     swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
     swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";
-    if (layout() === "switch" && !(d && m) && n) bar.querySelector(".pa-where").textContent = "切到「到」，点组名或条目选位置";
+    if (layout() === "switch" && !(d && m) && n) bar.querySelector(".pa-where").textContent = "切到「到」点选位置";
     bar.querySelector("[data-st=clear]").hidden = !(n || m);
     const undo = bar.querySelector("[data-st=wbundo]");
     undo.hidden = !(st.dstType === "world" && st.lastWb && st.lastWb.name === st.dstWorld);

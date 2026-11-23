@@ -119,14 +119,17 @@ function mountBooks(page) {
     <div class="pa-toolbar pa-bk-bar">
       <div class="pa-picker pa-char-picker"><span>角色</span><button class="pa-namebtn" type="button" data-b="char" aria-label="选择角色"><img class="pa-ava" alt="" width="22" height="22" hidden><span></span><i aria-hidden="true">▾</i></button></div>
       <button class="pa-icon-btn" data-b="search" aria-label="搜索世界书" title="搜索世界书">${ICON.search}</button>
+      <button class="pa-icon-btn pa-del" data-b="delmany" aria-label="删除世界书" title="删除世界书（可多选）">${ICON.trash}</button>
       <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜世界书名称" aria-label="搜索世界书"><button type="button" class="pa-icon-btn pa-qx" data-b="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     </div>
     <div class="pa-bk">
       <div class="pa-scroll pa-bk-list" role="list" aria-label="世界书"></div>
+      ${splitterHtml("拖动调整世界书列表和条目的宽度")}
       <section class="pa-bk-detail" aria-label="世界书条目" hidden></section>
     </div>`;
   const list = page.querySelector(".pa-bk-list");
   const detail = page.querySelector(".pa-bk-detail");
+  paneSplit(page.querySelector(".pa-bk"), page.querySelector(".pa-bk > .pa-vsplit"), "books");
   const search = page.querySelector(".pa-find");
   const charBtn = page.querySelector("[data-b=char]");
   const wide = () => matchMedia("(min-width: 1000px)").matches;
@@ -278,7 +281,7 @@ function mountBooks(page) {
   // 2.12.7 页签行右侧：正在用的书（这个角色开着的、所有角色、本聊天）里，开着的常驻条目合计。关键词触发的不算
   function paintTkBar(ci, L) {
     if (page.hidden) return;
-    if (!tkS.fn) return tkPaintBar();
+    if (!tkS.fn) return tkPaintBar(void 0, null);
     const inUse = [...new Set([...L.char.filter((n) => rowOn(ci, "char", n)), ...L.all, ...L.chat])];
     let sum = 0;
     for (const n of inUse) {
@@ -286,7 +289,7 @@ function mountBooks(page) {
       if (v === void 0) { sum = void 0; break; }
       sum += v;
     }
-    tkPaintBar(`常驻 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `在用的 ${inUse.length} 本书里开着的常驻（蓝灯）条目合计`);
+    tkPaintBar("常驻", sum, `在用的 ${inUse.length} 本书里开着的常驻（蓝灯）条目合计`);
   }
   const tkOn = () => tkS.fn && tkEach();
   // 段里的书：条目数和开着的条数（酒馆读过的直接用缓存）
@@ -507,6 +510,44 @@ function mountBooks(page) {
     render();
     toast(`已删除世界书「${n}」`, "success");
   }
+  // 2.12.15 搜索旁的垃圾桶：多选删除世界书，默认勾着打开的那本。书名旁的垃圾桶仍是删这一本
+  async function deleteManyBooks() {
+    const glob = new Set(globalBooks());
+    const items = listWorldbooks().map((n) => ({ name: n, label: n, checked: n === st.open, sub: glob.has(n) ? "所有角色都在用" : "" }));
+    if (!items.length) return toast("还没有世界书");
+    const pick = await pickDeleteMany({
+      title: "删除世界书", items, unit: "本", hint: "删除后酒馆里找不回来，需要的话先下载备份。",
+      download: async (xs) => {
+        const ok = [], bad = [];
+        for (const x of xs) {
+          try {
+            const data = await mods.wi.loadWorldInfo(x.name);
+            if (!data || typeof data !== "object") throw new Error("读取结果为空");
+            downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `${x.name}.json`);
+            ok.push(`${x.name}.json`);
+          } catch (err) {
+            bad.push(`${x.name}（${err?.message || err}）`);
+          }
+        }
+        return `${ok.length ? `已让浏览器下载 ${ok.length} 个文件（${esc(ok.join("、"))}），可在下载记录里确认。` : ""}${bad.length ? `读取失败，没有下载：${esc(bad.join("、"))}` : ""}`;
+      }
+    });
+    if (!pick?.length) return;
+    const done = [], fail = [];
+    for (const x of pick) {
+      try {
+        await deleteWorldbook(x.name);
+        st.counts.delete(x.name);
+        done.push(x.name);
+      } catch (err) {
+        fail.push(`${x.name}：${err.message}`);
+      }
+    }
+    if (done.includes(st.open)) closeBook();
+    render();
+    if (done.length) toast(done.length === 1 ? `已删除世界书「${done[0]}」` : `已删除 ${done.length} 本世界书`, "success");
+    if (fail.length) toast("没删掉：" + fail.join("；"), "error");
+  }
   // 每打开一本书，第一次写入前备份一次
   // 2.12.3 改世界书名称：标题行原地改，回车保存、Esc 取消
   let renaming = false;
@@ -516,7 +557,7 @@ function mountBooks(page) {
     if (!n || !nameEl || renaming) return;
     renaming = true;
     try {
-      const v = await inlineEdit(nameEl, n, { placeholder: "世界书名称", selectAll: false });
+      const v = await inlineEdit(nameEl, n, { placeholder: "世界书名称", selectAll: false, wrap: true });
       if (!v || v === n || st.open !== n) return;
       const r = await renameWorldbook(n, v);
       if (!r) return;
@@ -659,6 +700,7 @@ function mountBooks(page) {
   // ---------- 工具栏
   page.querySelector(".pa-bk-bar").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-b]")?.dataset.b;
+    if (b === "delmany") return deleteManyBooks();
     if (b === "search" || b === "searchclose") {
       const r = page.querySelector(".pa-bk-bar .pa-findrow");
       r.hidden = b === "searchclose" || !r.hidden;
