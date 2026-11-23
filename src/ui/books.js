@@ -18,7 +18,7 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
       <label class="pa-field"><span>名称</span><input class="pa-input" data-w="comment" autocomplete="off" value="${esc(e.comment || "")}"></label>
       <div class="pa-wb-trig${e.constant ? " pa-kw-none" : ""}">
         <label class="pa-field"><span>触发</span><select class="pa-select" data-w="constant"><option value="1" ${e.constant ? "selected" : ""}>常驻</option><option value="0" ${e.constant ? "" : "selected"}>关键词</option></select></label>
-        <div class="pa-field pa-wb-kw" data-show="keys" ${e.constant ? "hidden" : ""}><span class="pa-wb-kwhead"><span>关键词</span><button type="button" class="pa-icon-btn pa-expand" data-w="kwexpand" aria-label="展开关键词" aria-expanded="false" title="展开关键词">${ICON.expand}</button></span><textarea class="pa-input pa-wb-kwtext" data-w="key" rows="1" wrap="off" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="逗号分隔，如：雾港, 港口" aria-label="关键词，逗号分隔">${esc(keys)}</textarea></div>
+        <label class="pa-field pa-wb-kw" data-show="keys" ${e.constant ? "hidden" : ""}><span>关键词</span><textarea class="pa-input pa-wb-kwtext" data-w="key" rows="1" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="逗号分隔，如：雾港, 港口" aria-label="关键词，逗号分隔">${esc(keys)}</textarea></label>
       </div>
       <div class="pa-item-ctl pa-wbset">
         <label class="pa-field"><span>插入位置</span><select class="pa-select" data-w="position">${WI_POS.map(([k, l]) => `<option value="${k}" ${pos === k ? "selected" : ""}>${l}</option>`).join("")}</select></label>
@@ -44,31 +44,18 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
   body.querySelector("[data-w=constant]").addEventListener("change", (ev) => {
     body.querySelector("[data-show=keys]").hidden = ev.target.value === "1";
     body.querySelector(".pa-wb-trig").classList.toggle("pa-kw-none", ev.target.value === "1");
+    requestAnimationFrame(fitKw);
   });
-  // 关键词：平时一行（左右滑动看），展开后占满一行、自动换行、全部显示
+  // 2.12.11 关键词：占满一行、自动换行，高度跟着内容（最多约 6 行，再多在框里滚）
   const kw = body.querySelector("[data-w=key]");
   const fitKw = () => {
-    const open = body.querySelector(".pa-wb-trig").classList.contains("pa-kw-open");
+    if (!kw.isConnected) return;
     kw.style.height = "auto";
-    if (open) kw.style.height = kw.scrollHeight + 2 + "px";
+    kw.style.height = kw.scrollHeight + 2 + "px";
   };
   kw.addEventListener("input", fitKw);
-  kw.addEventListener("keydown", (ev) => {
-    // 一行时回车不换行（关键词用逗号分隔）
-    if (ev.key === "Enter" && !imeEnter(ev) && !body.querySelector(".pa-wb-trig").classList.contains("pa-kw-open")) ev.preventDefault();
-  });
-  body.querySelector("[data-w=kwexpand]").addEventListener("click", (ev) => {
-    const row = body.querySelector(".pa-wb-trig");
-    const on = !row.classList.contains("pa-kw-open");
-    row.classList.toggle("pa-kw-open", on);
-    kw.setAttribute("wrap", on ? "soft" : "off");
-    const b = ev.currentTarget;
-    b.innerHTML = on ? ICON.collapse : ICON.expand;
-    b.setAttribute("aria-expanded", String(on));
-    b.setAttribute("aria-label", on ? "收起关键词" : "展开关键词");
-    b.title = on ? "收起关键词" : "展开关键词";
-    fitKw();
-  });
+  requestAnimationFrame(() => requestAnimationFrame(fitKw));
+  setTimeout(fitKw, 350);
   body.querySelector("[data-w=position]").addEventListener("change", (ev) => {
     body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = ev.target.value !== "4"; });
   });
@@ -196,7 +183,7 @@ function mountBooks(page) {
     if (sec !== "chat" && snap.chat === n) out.push('<span class="pa-chip">本聊天</span>');
     if (sec === "other" && ci && charOn(n)) out.push('<span class="pa-chip">这个角色</span>');
     const c = st.counts.get(n);
-    if (c?.total) out.push(`<span class="pa-num">${c.on === c.total ? `${c.total} 条` : `${c.on}/${c.total} 条开着`}${tkOn() && c.on ? ` · ${tkShort(bookTk(c)) || "…"} tk` : ""}</span>`);
+    if (c?.total) out.push(`<span class="pa-num">${c.on === c.total ? `${c.total} 条` : `${c.on}/${c.total} 条开着`}${tkOn() && c.on ? ` · ${tkFmt(bookTk(c)) || "…"} tk` : ""}</span>`);
     else if (c) out.push("<span>没有条目</span>");
     return out.join("");
   }
@@ -487,7 +474,7 @@ function mountBooks(page) {
       const snip = bodyHit(e) ? (() => { const c = String(e.content || ""); const i = c.toLowerCase().indexOf(q); return hitSnippet(c, i, q.length); })() : "";
       return `<div class="pa-row pa-wbe-row${on ? "" : " pa-off"}" data-uid="${esc(e.uid)}" tabindex="0">
         <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span>${snip ? `<small class="pa-hitline">正文：${snip}</small>` : ""}<small class="pa-meta">${meta.map((m) => `<span>${esc(m)}</span>`).join("")}</small></span>
-        ${tk ? `<small class="pa-tk">${tkShort(tkGet(e.content))}</small>` : ""}
+        ${tk ? `<small class="pa-tk">${tkFmt(tkGet(e.content))}</small>` : ""}
         <button class="pa-icon-btn pa-peek" data-e="edit" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
         <label class="pa-switch"><input type="checkbox" data-e="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
       </div>`;
@@ -503,7 +490,7 @@ function mountBooks(page) {
     if (!n || !nameEl || renaming) return;
     renaming = true;
     try {
-      const v = await inlineEdit(nameEl, n, { placeholder: "世界书名称" });
+      const v = await inlineEdit(nameEl, n, { placeholder: "世界书名称", selectAll: false });
       if (!v || v === n || st.open !== n) return;
       const r = await renameWorldbook(n, v);
       if (!r) return;
@@ -688,7 +675,7 @@ function mountBooks(page) {
     const byUid = new Map(st.entries.map((e) => [String(e.uid), e]));
     detail.querySelectorAll(".pa-wbe-row > .pa-tk").forEach((x) => {
       const e = byUid.get(x.parentElement.dataset.uid);
-      const t = e ? tkShort(tkGet(e.content)) : "";
+      const t = e ? tkFmt(tkGet(e.content)) : "";
       if (x.textContent !== t) x.textContent = t;
     });
     const sum = detail.querySelector(".pa-bk-sum");

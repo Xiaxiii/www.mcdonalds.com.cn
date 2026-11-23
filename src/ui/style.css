@@ -331,8 +331,8 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-gname { flex: 1 1 auto; min-width: 0; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mcd-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); margin-left: 6px; }
 #mcd-root .pa-count { color: var(--pa-dim); font-variant-numeric: tabular-nums; margin-right: 4px; }
-/* 2.12.6 每条的 token 数：眼睛左边一列小字，右对齐；1000 以上写 1.2k，列窄，手机上名字少被截断 */
-#mcd-root .pa-tk { flex: none; min-width: 2.6em; text-align: right; color: var(--pa-dim); font-size: max(11px, .78em); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+/* 2.12.6 每条的 token 数：眼睛左边一列小字，右对齐，写全数 */
+#mcd-root .pa-tk { flex: none; min-width: 3em; text-align: right; color: var(--pa-dim); font-size: max(11px, .78em); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
 /* 2.12.8 条目列表的分组头（带 data-gid；世界书、正则的分段标题不变）：开着几条（5/7）紧跟组名，后面一段空白把 token 合计、菜单、开关推到右边；
    合计和条目的数字右端对齐（条目的数字后面隔 8px 是眼睛，这里隔 4px 是菜单，再补 4px） */
 #mcd-root .pa-ghead[data-gid] > .pa-gname { flex: 0 1 auto; }
@@ -2371,8 +2371,9 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-sum { padding: 2px calc(12px + env(safe-area-inset-left)) 6px; margin: 0; }
 #mcd-root .pa-bk-entries .pa-empty .pa-btn { margin-top: 10px; }
 #mcd-root .pa-wbe-row .pa-namebox, #mcd-root .pa-bk-row .pa-namebox, #mcd-root .pa-rx-row .pa-namebox { padding: 5px 0; }
-/* 2.12.8 世界书一本一行，上下各多留 3px，书名和下面一行小字之间 2px，不挤 */
+/* 2.12.8 世界书一本一行，上下各多留 3px，书名和下面一行小字之间 2px。2.12.11 没有小字的行和预设条目一样高（45px） */
 #mcd-root .pa-bk-row .pa-namebox { padding: 8px 0; }
+#mcd-root .pa-bk-row { min-height: 45px; }
 #mcd-root .pa-bk-row .pa-meta { margin-top: 2px; }
 @media (pointer: coarse) { #mcd-root .pa-bk-dhead .pa-icon-btn { width: 42px; height: 42px; } #mcd-root .pa-bk-scoperow .pa-seg button { min-height: 36px; } }
 @media (min-width: 1000px) {
@@ -2386,14 +2387,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 }
 /* 世界书条目编辑：设置一行排满，正文随内容增高。
    2.12.1 触发与关键词同一行；关键词平时一行（左右滑动看），点展开后占满一行、自动换行、全部显示 */
-#mcd-root .pa-wb-trig { display: grid; grid-template-columns: minmax(6.5em, max-content) minmax(0, 1fr); gap: 8px; align-items: end; }
-#mcd-root .pa-wb-trig.pa-kw-none { grid-template-columns: minmax(6.5em, max-content); }
-#mcd-root .pa-wb-trig.pa-kw-open > .pa-wb-kw { grid-column: 1 / -1; }
-#mcd-root .pa-wb-kwhead { display: flex; align-items: center; justify-content: space-between; gap: 6px; min-height: 22px; }
-#mcd-root .pa-wb-kwhead .pa-expand { width: 30px; height: 26px; margin: -4px -4px -4px 0; }
-#mcd-root .pa-wb-kwtext { resize: none; min-height: 38px; height: auto; line-height: 1.45; white-space: pre; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
-#mcd-root .pa-wb-kwtext::-webkit-scrollbar { display: none; }
-#mcd-root .pa-wb-trig.pa-kw-open .pa-wb-kwtext { white-space: pre-wrap; overflow-x: hidden; overflow-wrap: anywhere; }
+/* 2.12.11 触发一行；关键词占满下一行，自动换行，高度跟着内容，最多约 6 行 */
+#mcd-root .pa-wb-trig { display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px; }
+#mcd-root .pa-wb-trig > .pa-field:first-child { max-width: 12em; }
+#mcd-root .pa-wb-kwtext { resize: none; min-height: 40px; max-height: calc(6 * 1.5em + 18px); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; overflow-y: auto; }
 #mcd-root .pa-sheet-wbentry .pa-wbset { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 #mcd-root .pa-sheet-wbentry .pa-sheet-actions .pa-btn-danger-soft { margin-right: auto; }
 /* 2.12.4 编辑正则：查找、替换、修剪用等宽字，随内容增高；作用于、改哪里两组勾选横排 */
@@ -2597,7 +2594,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 2.12.8 变量页：风险经过的几步、改法和一键挪动 */
 #mcd-root .pa-var-trail { color: var(--pa-dim); }
 #mcd-root .pa-var-fix { margin: 6px 0 2px; color: var(--pa-em); font-size: .9em; }
-#mcd-root .pa-var-fix .pa-btn { display: flex; width: fit-content; margin-top: 8px; }
+#mcd-root .pa-var-fixbtns { display: flex; flex-wrap: wrap; gap: 8px; margin: 8px 0 2px; }
 /* 2.12.8 导入：每一项本身就是选文件的按钮（label），和菜单项一样的样子 */
 #mcd-root .pa-import .pa-pick-item { -webkit-tap-highlight-color: transparent; }
 #mcd-root .pa-import .pa-pick-item:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }

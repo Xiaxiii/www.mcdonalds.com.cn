@@ -37,20 +37,24 @@ test('清空后读取：写明赋值、清空、读取三步；赋值那条只�
   let r = F.auditVariableFlow(d);
   const i = r.issues.find((x) => x.kind === 'cleared');
   assert.deepEqual(i.steps.map((x) => [x.op, x.id]), [['set', 'jb'], ['clear', 'init'], ['get', 'cot']]);
-  const f = F.planClearedFix(d, i, r.events);
-  assert.equal(f && f.id, 'jb');
+  const fs = F.planClearedFix(d, i, r.events);
+  assert.deepEqual(fs.map((x) => x.kind), ['move', 'unclear']);
+  const u = fs[1];
+  assert.equal(u.content, '{{setvar::别的::}}', '只去掉对「超级破甲」的清空');
+  const f = fs[0];
+  assert.equal(f.id, 'jb');
   assert.equal(f.gid, null, '不在分组里的条目挪到组后面，不进组');
   d.place([f.id], f.where, f.gid);
   assert.deepEqual(d.order.map((o) => o.identifier), ['init', 'h', 'jb', 'cot']);
   r = F.auditVariableFlow(d);
   assert.equal(r.issues.filter((x) => x.kind === 'cleared').length, 0, '挪完不再报');
-  // 赋值的条目有正文（会出字），或中间还有别处读取：不给按钮
+  // 赋值的条目有正文（会出字），或中间还有别处读取：不能挪，只给「去掉清空」
   const plain = draft(['破甲正文{{setvar::x::正文}}', '{{setvar::x::}}', '{{getvar::x}}']);
   let q = F.auditVariableFlow(plain);
-  assert.equal(F.planClearedFix(plain, q.issues.find((x) => x.kind === 'cleared'), q.events), null);
+  assert.deepEqual(F.planClearedFix(plain, q.issues.find((x) => x.kind === 'cleared'), q.events).map((x) => x.kind), ['unclear']);
   const mid = draft(['{{setvar::x::正文}}', '{{getvar::x}}', '{{setvar::x::}}', '{{getvar::x}}']);
   q = F.auditVariableFlow(mid);
-  assert.equal(F.planClearedFix(mid, q.issues.find((x) => x.kind === 'cleared'), q.events), null);
+  assert.deepEqual(F.planClearedFix(mid, q.issues.find((x) => x.kind === 'cleared'), q.events).map((x) => x.kind), ['unclear']);
 });
 test('未读即覆盖会提示，读取后覆盖与 add 追加不提示', () => {
   assert(kinds(draft(['{{setvar::x::甲}}{{setvar::x::乙}}{{getvar::x}}'])).includes('overwritten'));

@@ -16,11 +16,13 @@ function variableForm(d) {
     // 赋值那条整条只写这个变量时给一键挪动（planClearedFix）
     fixes = report.issues.map((i) => planClearedFix(d, i, report.events));
     const trail = (i) => i.steps.map((x) => `「${nm(x.id)}」${VAR_STEP[x.op] || ""}`).join(" → ");
-    const advice = (i, f, k) => {
+    const advice = (i, fs, k) => {
       if (i.kind !== "cleared") return "";
       const [a, b, c] = i.steps.length === 3 ? i.steps : [null, ...i.steps];
-      const move = f ? `把「${nm(f.id)}」挪到${esc(f.to)}` : a ? `把「${nm(a.id)}」挪到「${nm(b.id)}」和「${nm(c.id)}」之间` : `在「${nm(c.id)}」之前赋值`;
-      return `<p class="pa-var-fix">改法：${move}，或在「${nm(b.id)}」里去掉对「${esc(i.name)}」的清空${f ? `<button class="pa-btn pa-btn-s" data-vf="fix" data-i="${k}" type="button">挪到${esc(f.to)}</button>` : ""}</p>`;
+      const mv = fs.find((f) => f.kind === "move");
+      const move = mv ? `把「${nm(mv.id)}」挪到${esc(mv.to)}` : a ? `把「${nm(a.id)}」挪到「${nm(b.id)}」和「${nm(c.id)}」之间` : `在「${nm(c.id)}」之前赋值`;
+      const btns = fs.map((f, j) => `<button class="pa-btn pa-btn-s" data-vf="fix" data-i="${k}" data-j="${j}" type="button">${esc(f.label)}</button>`).join("");
+      return `<p class="pa-var-fix">改法：${move}，或在「${nm(b.id)}」里去掉对「${esc(i.name)}」的清空</p>${btns ? `<div class="pa-var-fixbtns">${btns}</div>` : ""}`;
     };
     if (report.issues.length) html += `<ul class="pa-notes">${report.issues.map((i, k) => `<li><b>${i.scope === "global" ? "全局" : "聊天"}变量「${esc(i.name)}」</b>：${esc(i.text)}<br><small class="pa-var-trail">${trail(i)}</small>${advice(i, fixes[k], k)}</li>`).join("")}</ul>`;
     if (report.unknown.length) html += `<details class="pa-card"><summary>未推演的条目（${report.unknown.length}）</summary><ul class="pa-notes">${report.unknown.map((i) => `<li>「${nm(i.id)}」：${esc(i.reasons.join("；"))}</li>`).join("")}</ul></details>`;
@@ -45,11 +47,12 @@ function variableForm(d) {
   body.addEventListener("click", (e) => {
     const fixBtn = e.target.closest('[data-vf="fix"]');
     if (fixBtn) {
-      const f = fixes[Number(fixBtn.dataset.i)];
+      const f = fixes[Number(fixBtn.dataset.i)]?.[Number(fixBtn.dataset.j)];
       if (!f) return;
       const name = d.prompt(f.id)?.name || f.id;
-      mutate(d, `挪动「${name}」`, (x) => x.place([f.id], f.where, f.gid));
-      toast(`已挪动「${name}」，可撤销`, "success");
+      if (f.kind === "move") mutate(d, `挪动「${name}」`, (x) => x.place([f.id], f.where, f.gid));
+      else mutate(d, `去掉「${name}」里的清空`, (x) => { x.prompt(f.id).content = f.content; });
+      toast(`已${f.label}，可撤销`, "success");
       return render();
     }
     if (e.target.closest('[data-vf="snapshot"]')) {

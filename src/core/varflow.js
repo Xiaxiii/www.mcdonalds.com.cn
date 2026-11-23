@@ -94,25 +94,43 @@ function auditVariableFlowIndexed(draft) {
   return { events, issues, unknown };
 }
 
-// 2.12.8「清空后读取」的一键改法：赋值的那条整条只写这一个变量（不出字），把它挪到清空之后、读取之前，
-// 发出去的文字不变。中间还有别处读这个变量、那条还写别的变量、或找不到这样的位置时不给改法
+// 2.12.8「清空后读取」的一键改法，返回能用的几种（没有就是空数组）：
+// move：赋值的那条整条只写这一个变量（不出字），挪到清空之后、读取之前，发出去的文字不变；
+//       中间还有别处读这个变量、那条还写别的变量、或找不到这样的位置时不给
+// unclear（2.12.11）：去掉清空那条里对这个变量的清空（清空宏不出字）；赋值那条会出字、挪不了时也能用
 function planClearedFix(draft, issue, events) {
-  if (issue.kind !== "cleared" || issue.steps.length !== 3 || issue.steps[0].op !== "set") return null;
+  if (issue.kind !== "cleared" || issue.steps.length !== 3 || issue.steps[0].op !== "set") return [];
   const [set, clear, read] = issue.steps;
-  if (set.id === clear.id || clear.id === read.id) return null;
-  if (detectShape(draft.prompt(set.id)?.content).shape !== "wrap") return null;
-  const key = variableIdentity(issue.scope, issue.name);
-  if (events.some((e) => e.id === set.id && variableIdentity(e.scope, e.name) !== key)) return null;
-  if (events.some((e) => e.index > set.index && e.index < clear.index && variableIdentity(e.scope, e.name) === key && (e.op === "get" || e.op === "has"))) return null;
-  const pos = (id) => draft.order.findIndex((o) => o.identifier === id);
-  if (!(pos(set.id) < pos(clear.id) && pos(clear.id) < pos(read.id))) return null;
+  if (set.id === clear.id || clear.id === read.id) return [];
+  const out = [];
   const name = (id) => draft.prompt(id)?.name || id;
-  const sg = draft.groupOf(set.id), cg = draft.groupOf(clear.id);
-  // 同组：放在清空那条后面；赋值那条不在组里：清空那条在组里就放在那一组后面（组外），读取不能在那一组里
-  if (sg) return sg === cg ? { id: set.id, where: { after: clear.id }, gid: cg, to: `「${name(clear.id)}」后面` } : null;
-  if (!cg) return { id: set.id, where: { after: clear.id }, gid: null, to: `「${name(clear.id)}」后面` };
-  const block = draft.blocks().find((b) => b.ids.includes(clear.id));
-  const last = block?.ids[block.ids.length - 1];
-  if (!last || pos(last) >= pos(read.id)) return null;
-  return { id: set.id, where: { after: last }, gid: null, to: `「${draft.group(cg)?.name || "分组"}」组后面` };
+  const key = variableIdentity(issue.scope, issue.name);
+  const move = (() => {
+    if (detectShape(draft.prompt(set.id)?.content).shape !== "wrap") return null;
+    if (events.some((e) => e.id === set.id && variableIdentity(e.scope, e.name) !== key)) return null;
+    if (events.some((e) => e.index > set.index && e.index < clear.index && variableIdentity(e.scope, e.name) === key && (e.op === "get" || e.op === "has"))) return null;
+    const pos = (id) => draft.order.findIndex((o) => o.identifier === id);
+    if (!(pos(set.id) < pos(clear.id) && pos(clear.id) < pos(read.id))) return null;
+    const sg = draft.groupOf(set.id), cg = draft.groupOf(clear.id);
+    // 同组：放在清空那条后面；赋值那条不在组里：清空那条在组里就放在那一组后面（组外），读取不能在那一组里
+    if (sg) return sg === cg ? { id: set.id, where: { after: clear.id }, gid: cg, to: `「${name(clear.id)}」后面` } : null;
+    if (!cg) return { id: set.id, where: { after: clear.id }, gid: null, to: `「${name(clear.id)}」后面` };
+    const block = draft.blocks().find((b) => b.ids.includes(clear.id));
+    const last = block?.ids[block.ids.length - 1];
+    if (!last || pos(last) >= pos(read.id)) return null;
+    return { id: set.id, where: { after: last }, gid: null, to: `「${draft.group(cg)?.name || "分组"}」组后面` };
+  })();
+  if (move) out.push({ kind: "move", ...move, label: `挪到${move.to}` });
+  // 清空那条里对这个变量的清空宏（顶层的 setvar 空值、flushvar、deletevar），整句去掉
+  const text = String(draft.prompt(clear.id)?.content || "");
+  const hits = scanTopMacros(text).filter((m) => {
+    const v = flowVariableMacro(m.inner);
+    return v && variableIdentity(v.scope, v.name) === key && (v.op === "flush" || v.op === "set" && isBlankValue(v.value));
+  });
+  if (hits.length) {
+    let content = text;
+    for (const m of [...hits].reverse()) content = content.slice(0, m.start) + content.slice(m.end);
+    out.push({ kind: "unclear", id: clear.id, content, label: `去掉「${name(clear.id)}」里的清空` });
+  }
+  return out;
 }

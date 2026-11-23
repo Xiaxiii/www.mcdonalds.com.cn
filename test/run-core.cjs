@@ -151,11 +151,10 @@ test("AI 推荐位置：模型回的组名留下，没分进组的条目另成�
   assert.equal(r.groups[0].places[0].reason, "接在「文风」后");
   assert.deepEqual(r.groups[1], { name: "", entries: [3], places: [] });
 });
-test("token 数的写法：列表里 1000 以上写 k，合计带千位逗号", () => {
-  assert.deepEqual([0, 9, 999, 1000, 1049, 1050, 1238, 9949, 9950, 12345].map(A.tkShort), ["0", "9", "999", "1k", "1k", "1.1k", "1.2k", "9.9k", "10k", "12k"]);
-  assert.equal(A.tkShort(void 0), "");
-  assert.equal(A.tkShort(NaN), "—");
-  assert.equal(A.tkFmt(35879), "35,879");
+test("token 数写全数，千位加逗号", () => {
+  assert.deepEqual([0, 999, 1238, 35879].map(A.tkFmt), ["0", "999", "1,238", "35,879"]);
+  assert.equal(A.tkFmt(void 0), "");
+  assert.equal(A.tkFmt(NaN), "—");
 });
 test("AI 推荐位置：回复被截断时，已完整的组照用，没收到的条目另成一组", () => {
   const map = { ids: new Map([["E1", "x"], ["E2", "y"]]), gids: new Map(), names: new Map([["E1", "文风"], ["E2", "收尾"]]) };

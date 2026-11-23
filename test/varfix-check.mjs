@@ -28,10 +28,10 @@ const trail = await page.$eval("[data-page=vars] .pa-var-trail", (x) => x.textCo
 assert.strictEqual(trail, "「超级破甲」赋值 → 「set-不要关」清空 → 「← 常规CoT」读取");
 const fix = await page.$eval("[data-page=vars] .pa-var-fix", (x) => x.firstChild.textContent);
 assert.strictEqual(fix, "改法：把「超级破甲」挪到「预设头部」组后面，或在「set-不要关」里去掉对「超级破甲」的清空");
-assert.strictEqual(await page.textContent("[data-vf=fix]"), "挪到「预设头部」组后面");
+assert.deepStrictEqual(await page.$$eval("[data-vf=fix]", (b) => b.map((x) => x.textContent)), ["挪到「预设头部」组后面", "去掉「set-不要关」里的清空"]);
 await page.screenshot({ path: S + "varfix-1.png" });
 console.log("✓ 写明赋值、清空、读取三步和改法");
-await page.click("[data-vf=fix]");
+await page.click('[data-vf=fix][data-j="0"]');
 await page.waitForTimeout(400);
 assert.match(await page.textContent("[data-page=vars] [data-vf=result] .pa-p"), /发现 0 项顺序风险/);
 // 面板里切到「预设 › 条目」（重新打开面板会回到酒馆正在用的预设）

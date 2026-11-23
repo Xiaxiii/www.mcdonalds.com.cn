@@ -265,7 +265,7 @@ function mountOrganize(page) {
       list.querySelectorAll(".pa-row[data-id] > .pa-tk").forEach((x) => {
         const id = x.parentElement.dataset.id;
         if (d.isMarker(id) || !String(d.prompt(id)?.content || "").trim()) return;
-        const t = tkShort(tkOfEntry(d, id));
+        const t = tkFmt(tkOfEntry(d, id));
         if (x.textContent !== t) x.textContent = t;
       });
       const heads = list.querySelectorAll(".pa-ghead > .pa-gtk");
@@ -273,7 +273,7 @@ function mountOrganize(page) {
       heads.forEach((x) => {
         const head = x.parentElement, b = blocks.get(`${head.dataset.gid}\u0001${head.dataset.last}`);
         if (!b) return;
-        const t = tkShort(tkSumOf(d, b.ids, (i) => en.get(i)));
+        const t = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
         if (x.textContent !== t) x.textContent = t;
       });
     });
@@ -982,7 +982,7 @@ function mountOrganize(page) {
     if (count) count.textContent = `${b.ids.filter((i) => en.get(i)).length}/${b.ids.length}`;
     // 开关改了合计：分组头和页签行的 token 数跟着改
     const gtk = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead > .pa-gtk");
-    if (gtk) gtk.textContent = tkShort(tkSumOf(d, b.ids, (i) => en.get(i)));
+    if (gtk) gtk.textContent = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
     paintTkTotal(d);
     return true;
   }

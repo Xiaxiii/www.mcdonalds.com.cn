@@ -135,14 +135,6 @@ function tkPaintBar(label, title = "") {
   bar.setAttribute("aria-label", `${label}，每条显示 token 数`);
   bar.title = `${title}。点按${on ? "收起" : "显示"}每条的 token 数`;
 }
-/** 列表里的短写法：1000 以上写成 1.2k、12k，列窄，手机上名字少被截断；完整数字在合计和提示里 */
-function tkShort(n) {
-  if (n === void 0) return "";
-  if (Number.isNaN(n)) return "—";
-  if (n < 1e3) return String(n);
-  const k = n / 1e3;
-  return `${k < 10 ? (Math.round(k * 10) / 10).toFixed(1).replace(/\.0$/, "") : Math.round(k)}k`;
-}
 /** 一条条目的 token 数（系统位置条目由酒馆填正文，不数，返回 null） */
 function tkOfEntry(d, id) {
   if (d.isMarker(id)) return null;
