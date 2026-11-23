@@ -12,3 +12,4 @@ dist/
 test/site/st/
 .taste-skill/
 __pycache__/
+dogfood-output/
