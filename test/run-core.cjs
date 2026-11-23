@@ -151,6 +151,22 @@ test("AI 推荐位置：模型回的组名留下，没分进组的条目另成�
   assert.equal(r.groups[0].places[0].reason, "接在「文风」后");
   assert.deepEqual(r.groups[1], { name: "", entries: [3], places: [] });
 });
+test("token 数的写法：列表里 1000 以上写 k，合计带千位逗号", () => {
+  assert.deepEqual([0, 9, 999, 1000, 1049, 1050, 1238, 9949, 9950, 12345].map(A.tkShort), ["0", "9", "999", "1k", "1k", "1.1k", "1.2k", "9.9k", "10k", "12k"]);
+  assert.equal(A.tkShort(void 0), "");
+  assert.equal(A.tkShort(NaN), "—");
+  assert.equal(A.tkFmt(35879), "35,879");
+});
+test("AI 推荐位置：回复被截断时，已完整的组照用，没收到的条目另成一组", () => {
+  const map = { ids: new Map([["E1", "x"], ["E2", "y"]]), gids: new Map(), names: new Map([["E1", "文风"], ["E2", "收尾"]]) };
+  const full = JSON.stringify({ groups: [{ name: "文风", entries: [1, 2], places: [{ type: "after", entry: "E1", reason: "放「文风」后，括号 } 也不算" }] }, { name: "收尾", entries: [3], places: [{ type: "after", entry: "E2", reason: "收尾" }] }] });
+  const r = A.parsePlaceReply("```json\n" + full.slice(0, full.indexOf('{"name":"收尾"') + 20), map, 4);
+  assert.equal(r.cut, 1);
+  assert.deepEqual(r.groups.map((g) => g.entries), [[1, 2], [3, 4]]);
+  assert.equal(r.groups[1].places.length, 0);
+  assert.throws(() => A.parsePlaceReply('{"groups":[{"name":"文风","entries":[1', map, 2), /截断/);
+  assert.equal(A.parsePlaceReply(full, map, 3).cut, undefined, "完整的回复不标截断");
+});
 test("来源自带问句：沿用，不重复；撞名自动换名", () => {
   const d = load("ako-stitched.json");
   const anchor = by(d, "🔔建议常驻选一·我是U嬷王").identifier, gid = d.groupOf(anchor);

@@ -118,6 +118,35 @@ function tkFmt(n) {
   if (Number.isNaN(n)) return "—";
   return TK_NF.format(n);
 }
+// 2.12.7 页签行右侧：合计是文字，旁边的眼睛才是开关。睁眼＝每条显示 token 数，带斜线＝不显示
+var TK_EYE_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7c1.6 0 3 .4 4.3 1.1M22 12s-3.6 7-10 7c-1.6 0-3-.4-4.3-1.1"/><path d="M9.9 14.1a3 3 0 0 1 4.2-4.2"/><path d="M4 20 20 4"/></svg>';
+const tkEach = () => settings().tkEach === true;
+/** 画页签行右侧：label 是合计那句（undefined＝不显示整条），title 是说明 */
+function tkPaintBar(label, title = "") {
+  const bar = rootEl?.querySelector(".pa-tkbar");
+  if (!bar) return;
+  bar.hidden = label === void 0 || !tkS.fn;
+  if (bar.hidden) return;
+  const t = bar.querySelector("[data-tktotal]"), eye = bar.querySelector("[data-tkeye]"), on = tkEach();
+  if (t.textContent !== label) t.textContent = label;
+  t.title = title;
+  t.setAttribute("aria-busy", String(/…/.test(label)));
+  eye.setAttribute("aria-pressed", String(on));
+  const icon = on ? ICON.eye : TK_EYE_OFF;
+  if (eye.dataset.on !== String(on)) {
+    eye.innerHTML = icon;
+    eye.dataset.on = String(on);
+  }
+  eye.title = on ? "收起每条的 token 数" : "每条显示 token 数";
+}
+/** 列表里的短写法：1000 以上写成 1.2k、12k，列窄，手机上名字少被截断；完整数字在合计和提示里 */
+function tkShort(n) {
+  if (n === void 0) return "";
+  if (Number.isNaN(n)) return "—";
+  if (n < 1e3) return String(n);
+  const k = n / 1e3;
+  return `${k < 10 ? (Math.round(k * 10) / 10).toFixed(1).replace(/\.0$/, "") : Math.round(k)}k`;
+}
 /** 一条条目的 token 数（系统位置条目由酒馆填正文，不数，返回 null） */
 function tkOfEntry(d, id) {
   if (d.isMarker(id)) return null;
@@ -131,6 +160,16 @@ function tkSumOf(d, ids, on) {
     const n = tkOfEntry(d, id);
     if (n === void 0) return void 0;
     if (n !== null && !Number.isNaN(n)) sum += n;
+  }
+  return sum;
+}
+/** 几段正文的合计（世界书用）；有没数完的返回 undefined */
+function tkSumTexts(texts) {
+  let sum = 0;
+  for (const t of texts) {
+    const n = tkGet(t);
+    if (n === void 0) return void 0;
+    if (!Number.isNaN(n)) sum += n;
   }
   return sum;
 }

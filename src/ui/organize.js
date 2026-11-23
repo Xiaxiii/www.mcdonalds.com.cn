@@ -248,19 +248,11 @@ function mountOrganize(page) {
     tg.dataset.sel = allOn ? "off" : "on";
     tg.textContent = allOn ? "关闭" : "开启";
   }
-  // 2.12.6 token 数：页签行右侧是生效条目的合计（点它在每条旁显示 token 数）；数字陆续数出来时就地改，不重画列表
-  const tkEach = () => settings().tkEach === true;
+  // 2.12.6 token 数：页签行右侧是生效条目的合计；数字陆续数出来时就地改，不重画列表。2.12.7 开关是合计旁的眼睛
   function paintTkTotal(d) {
-    const b = rootEl?.querySelector("[data-tktotal]");
-    if (!b || page.hidden) return;
-    b.hidden = !tkS.fn;
-    if (b.hidden) return;
+    if (page.hidden) return;
     const sum = tkPresetTotal(d);
-    const on = tkEach();
-    b.textContent = `共 ${sum === void 0 ? "…" : tkFmt(sum)} tk`;
-    b.setAttribute("aria-pressed", String(on));
-    b.setAttribute("aria-busy", String(sum === void 0));
-    b.title = `生效条目的 token 合计${sum === void 0 ? `（还在数，剩 ${tkPending()} 条）` : ""}，不含聊天记录、角色卡等系统位置。${on ? "点按收起每条的 token 数" : "点按在每条旁显示 token 数"}`;
+    tkPaintBar(`共 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `生效条目的 token 合计${sum === void 0 ? `（还在数，剩 ${tkPending()} 条）` : ""}，不含聊天记录、角色卡等系统位置`);
   }
   function paintTk() {
     let d;
@@ -272,15 +264,15 @@ function mountOrganize(page) {
       list.querySelectorAll(".pa-row[data-id] > .pa-tk").forEach((x) => {
         const id = x.parentElement.dataset.id;
         if (d.isMarker(id) || !String(d.prompt(id)?.content || "").trim()) return;
-        const t = tkFmt(tkOfEntry(d, id));
+        const t = tkShort(tkOfEntry(d, id));
         if (x.textContent !== t) x.textContent = t;
       });
-      const heads = list.querySelectorAll(".pa-ghead > .pa-tk");
+      const heads = list.querySelectorAll(".pa-ghead > .pa-gtk");
       const blocks = heads.length ? new Map(d.blocks().filter((k) => k.groupId).map((k) => [`${k.groupId}\u0001${k.ids.at(-1) || ""}`, k])) : null;
       heads.forEach((x) => {
         const head = x.parentElement, b = blocks.get(`${head.dataset.gid}\u0001${head.dataset.last}`);
         if (!b) return;
-        const t = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
+        const t = tkShort(tkSumOf(d, b.ids, (i) => en.get(i)));
         if (x.textContent !== t) x.textContent = t;
       });
     });
@@ -290,6 +282,8 @@ function mountOrganize(page) {
     saveSettings();
     render();
   }
+  // 页签行的眼睛改了设置之后
+  const tkRepaint = () => render();
   const offTk = tkSubscribe(() => { if (draftViewVisible(page)) paintTk(); });
   const visibleRows = () => [...list.querySelectorAll(".pa-row[data-id]")].filter((r) => !r.closest(".pa-collapsed")).map((r) => r.dataset.id);
   const ordered = () => {
@@ -984,8 +978,8 @@ function mountOrganize(page) {
     const count = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead .pa-count");
     if (count) count.textContent = `${b.ids.filter((i) => en.get(i)).length}/${b.ids.length}`;
     // 开关改了合计：分组头和页签行的 token 数跟着改
-    const gtk = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead > .pa-tk");
-    if (gtk) gtk.textContent = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
+    const gtk = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead > .pa-gtk");
+    if (gtk) gtk.textContent = tkShort(tkSumOf(d, b.ids, (i) => en.get(i)));
     paintTkTotal(d);
     return true;
   }
@@ -1000,7 +994,7 @@ function mountOrganize(page) {
   return { render: () => {
     picker.refresh();
     render();
-  }, destroy: () => { off(); offTk(); }, tkToggle, focusIds: (ids) => {
+  }, destroy: () => { off(); offTk(); }, tkToggle, tkRepaint, focusIds: (ids) => {
     const d = draft();
     ids.forEach((i) => {
       const g = d.groupOf(i);

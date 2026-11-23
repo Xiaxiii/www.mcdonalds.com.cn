@@ -144,6 +144,9 @@ function mountBooks(page) {
   const charBtn = page.querySelector("[data-b=char]");
   const wide = () => matchMedia("(min-width: 1000px)").matches;
   const char = () => (st.key ? charByKey(st.key) : null) || (st.key ? null : currentChar());
+  // 每本书的条目数、开着的条数；2.12.7 再记下每条的正文、开关、是否常驻，算 token 用
+  const bookCounts = (es) => ({ total: es.length, on: es.filter((e) => !e.disable).length, es: es.map((e) => ({ c: String(e.content || ""), on: !e.disable, k: !!e.constant })) });
+  const bookTk = (c, pick = (x) => x.on) => c?.es ? tkSumTexts(c.es.filter(pick).map((x) => x.c)) : void 0;
   // ---------- 列表
   // 2.12.2 分段随状态即时变化：给这个角色开的书马上挂到角色名下（角色卡自带的、开着的、名称像的依次排），
   // 关掉就回到「其他世界书」；角色卡自带的那本关了也留在角色名下。换了段的行闪一下，并提示去了哪里
@@ -193,7 +196,7 @@ function mountBooks(page) {
     if (sec !== "chat" && snap.chat === n) out.push('<span class="pa-chip">本聊天</span>');
     if (sec === "other" && ci && charOn(n)) out.push('<span class="pa-chip">这个角色</span>');
     const c = st.counts.get(n);
-    if (c?.total) out.push(`<span class="pa-num">${c.on === c.total ? `${c.total} 条` : `${c.on}/${c.total} 条开着`}</span>`);
+    if (c?.total) out.push(`<span class="pa-num">${c.on === c.total ? `${c.total} 条` : `${c.on}/${c.total} 条开着`}${tkOn() && c.on ? ` · ${tkShort(bookTk(c)) || "…"} tk` : ""}</span>`);
     else if (c) out.push("<span>没有条目</span>");
     return out.join("");
   }
@@ -278,12 +281,27 @@ function mountBooks(page) {
     if (st.query.trim() && !html.includes("pa-bk-row")) html += '<p class="pa-empty">没有匹配的世界书</p>';
     list.innerHTML = html;
     list.scrollTop = top;
+    paintTkBar(ci, L);
     loadCounts([...L.char, ...L.all, ...L.chat]);
     if (wide() && !st.open) {
       const first = L.char.find((n) => rowOn(ci, "char", n)) || L.char[0] || L.all[0] || L.chat[0];
       if (first) openBook(first, { focus: false });
     }
   }
+  // 2.12.7 页签行右侧：正在用的书（这个角色开着的、所有角色、本聊天）里，开着的常驻条目合计。关键词触发的不算
+  function paintTkBar(ci, L) {
+    if (page.hidden) return;
+    if (!tkS.fn) return tkPaintBar();
+    const inUse = [...new Set([...L.char.filter((n) => rowOn(ci, "char", n)), ...L.all, ...L.chat])];
+    let sum = 0;
+    for (const n of inUse) {
+      const v = bookTk(st.counts.get(n), (x) => x.on && x.k);
+      if (v === void 0) { sum = void 0; break; }
+      sum += v;
+    }
+    tkPaintBar(`常驻 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `正在用的 ${inUse.length} 本世界书里，开着的常驻（蓝灯）条目合计；关键词触发的条目不算`);
+  }
+  const tkOn = () => tkS.fn && tkEach();
   // 段里的书：条目数和开着的条数（酒馆读过的直接用缓存）
   let counting = false;
   async function loadCounts(names) {
@@ -295,7 +313,7 @@ function mountBooks(page) {
         try {
           const data = await mods.wi.loadWorldInfo(n);
           const es = Object.values(data?.entries || {});
-          st.counts.set(n, { total: es.length, on: es.filter((e) => !e.disable).length });
+          st.counts.set(n, bookCounts(es));
         } catch {
           st.counts.set(n, null);
         }
@@ -411,7 +429,7 @@ function mountBooks(page) {
       if (st.open !== n) return;
       if (!data?.entries) throw new Error(`读不到世界书「${n}」`);
       st.entries = wiSorted(data);
-      st.counts.set(n, { total: st.entries.length, on: st.entries.filter((e) => !e.disable).length });
+      st.counts.set(n, bookCounts(st.entries));
     } catch (e) {
       if (st.open !== n) return;
       st.entries = null;
@@ -439,6 +457,12 @@ function mountBooks(page) {
     box.innerHTML = `<div class="pa-bk-scoperow"><span>用在</span><div class="pa-seg pa-seg-s" role="group" aria-label="「${esc(n)}」用在">${opts.map(([k, l]) => `<button type="button" data-scope="${k}" class="${scope === k ? "on" : ""}" aria-pressed="${scope === k}" ${k === "none" && noOff ? "disabled" : ""}>${l}</button>`).join("")}</div></div>
       <p class="pa-hint pa-bk-scopenote">${esc(note)}</p>${chat}`;
   }
+  // 条目页顶部一句：共几条、开着几条；显示 token 时再写开着的条目合计
+  function entriesSum() {
+    const all = st.entries || [], onN = all.filter((e) => !e.disable).length;
+    const tk = tkOn() && onN ? `，${tkFmt(bookTk(bookCounts(all))) || "…"} tk` : "";
+    return `共 <b>${all.length}</b> 条，开着 ${onN} 条${tk}`;
+  }
   function paintEntries() {
     const box = detail.querySelector(".pa-bk-rows");
     if (!box || !st.entries) return;
@@ -447,8 +471,8 @@ function mountBooks(page) {
     const hit = (e) => !q || wbEntryName(e).toLowerCase().includes(q) || wbKeysText(e).some((k) => k.toLowerCase().includes(q));
     const bodyHit = (e) => q && !hit(e) && String(e.content || "").toLowerCase().includes(q);
     const shown = all.filter((e) => hit(e) || bodyHit(e));
-    const onN = all.filter((e) => !e.disable).length;
-    const head = `<p class="pa-qsum pa-bk-sum">${q ? `匹配 <b>${shown.length}</b> 条，共 ${all.length} 条` : all.length ? `共 <b>${all.length}</b> 条，开着 ${onN} 条` : ""}</p>`;
+    const head = `<p class="pa-qsum pa-bk-sum">${q ? `匹配 <b>${shown.length}</b> 条，共 ${all.length} 条` : all.length ? entriesSum() : ""}</p>`;
+    const tk = tkOn();
     if (!all.length) {
       box.innerHTML = '<p class="pa-empty">这本世界书还没有条目。<br><button class="pa-btn pa-btn-s" data-e="new">＋ 新建条目</button></p>';
       return;
@@ -463,6 +487,7 @@ function mountBooks(page) {
       const snip = bodyHit(e) ? (() => { const c = String(e.content || ""); const i = c.toLowerCase().indexOf(q); return hitSnippet(c, i, q.length); })() : "";
       return `<div class="pa-row pa-wbe-row${on ? "" : " pa-off"}" data-uid="${esc(e.uid)}" tabindex="0">
         <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span>${snip ? `<small class="pa-hitline">正文：${snip}</small>` : ""}<small class="pa-meta">${meta.map((m) => `<span>${esc(m)}</span>`).join("")}</small></span>
+        ${tk ? `<small class="pa-tk">${tkShort(tkGet(e.content))}</small>` : ""}
         <button class="pa-icon-btn pa-peek" data-e="edit" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
         <label class="pa-switch"><input type="checkbox" data-e="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
       </div>`;
@@ -608,9 +633,10 @@ function mountBooks(page) {
       const ent = st.entries?.find((x) => String(x.uid) === r.dataset.uid);
       if (ent) ent.disable = !on;
       r.classList.toggle("pa-off", !on);
-      st.counts.set(n, { total: st.entries.length, on: st.entries.filter((x) => !x.disable).length });
+      st.counts.set(n, bookCounts(st.entries));
       const sum = detail.querySelector(".pa-bk-sum");
-      if (sum && !st.equery.trim()) sum.innerHTML = `共 <b>${st.entries.length}</b> 条，开着 ${st.counts.get(n).on} 条`;
+      if (sum && !st.equery.trim()) sum.innerHTML = entriesSum();
+      render();
       return;
     }
     if (e.target.closest(".pa-switch")) return;
@@ -649,9 +675,30 @@ function mountBooks(page) {
     }
   });
   onSearchInput(search, () => { st.query = search.value; render(); });
+  const tkRepaint = () => {
+    tkSync();
+    render();
+    if (st.open) paintEntries();
+  };
+  // 数字陆续数出来时：书的列表很短，照常重画；打开的书只改数字和顶部一句，不重画条目（几百条时不卡）
+  tkSubscribe(() => {
+    if (!draftViewVisible(page)) return;
+    render();
+    if (!st.open || !st.entries) return;
+    const byUid = new Map(st.entries.map((e) => [String(e.uid), e]));
+    detail.querySelectorAll(".pa-wbe-row > .pa-tk").forEach((x) => {
+      const e = byUid.get(x.parentElement.dataset.uid);
+      const t = e ? tkShort(tkGet(e.content)) : "";
+      if (x.textContent !== t) x.textContent = t;
+    });
+    const sum = detail.querySelector(".pa-bk-sum");
+    if (sum && !st.equery.trim()) sum.innerHTML = entriesSum();
+  });
   return {
+    tkRepaint,
     render(_k, fresh) {
       if (fresh) st.counts.clear();
+      tkSync();
       render();
       if (st.open && !st.entries) loadEntries(st.open);
     },
