@@ -96,7 +96,7 @@ function mountSuture(page, app) {
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-link pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">AI 推荐</button><button class="pa-link pa-aiplace" data-st="aiqueue" type="button" hidden></button></div></div>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">${ICON.spark}AI 推荐</button><button class="pa-aiplace" data-st="aiqueue" type="button" hidden></button></div></div>
         <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
         <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
@@ -826,7 +826,8 @@ function mountSuture(page, app) {
         <div class="pa-aip-res" aria-live="polite"></div>
       </div>`);
     const res = body.querySelector(".pa-aip-res");
-    let controller = null, tick = 0, views = [], win = null, runs = aipRuns(sig), cur = -1;
+    // 2.12.6 点了「放这里」：窗口关上后直接打开缝合预览（写法、思维链接入），不停在缝合页让人以为已经缝好
+    let controller = null, tick = 0, views = [], win = null, runs = aipRuns(sig), cur = -1, next = false;
     const close = () => win?.querySelector(".pa-sheet-x")?.click();
     // 推荐记录：两次以上（或这次没推荐成、之前有）时显示「第 1 次 / 第 2 次」，下面小字是时间；换过模型时再写一行这次用的模型
     const runsRow = () => {
@@ -965,11 +966,12 @@ function mountSuture(page, app) {
       // 组内的位置：先把那一组展开，才看得见位置标记
       const gid = m.at === "gstart" ? m.gid : m.at === "row" ? cur.groupOf(m.id) : null;
       if (gid && st.dstFoldKey) toggleOpen(cur, st.dstFoldKey, gid, true);
+      next = true;
       close();
       if (layout() === "switch") setSide("dst");
       renderDst();
       scrollToView(dstList.querySelector(".pa-insert-mark"));
-      toast(rest ? `已选这 ${v.keys.length} 条和位置，其余 ${rest} 条稍后「接着缝」` : `位置：${placeText(cur, m)}`, "success");
+      if (rest) toast(`其余 ${rest} 条排队，缝完这 ${v.keys.length} 条后点底栏「接着缝」`);
     });
     await sheet({ title: "AI 推荐位置", body, actions: [], onMount: (w) => {
       win = w;
@@ -978,6 +980,7 @@ function mountSuture(page, app) {
     } });
     controller?.abort();
     clearInterval(tick);
+    if (next) await review();
   }
   // 2.11.31 接着缝：选上排队的下一组和它推荐的位置
   function aiQueueNext() {
@@ -994,8 +997,12 @@ function mountSuture(page, app) {
     }
     renderSrc();
     renderDst();
-    if (st.marker) scrollToView(dstList.querySelector(".pa-insert-mark"));
-    toast(`已选 ${q.items.length} 条${st.marker ? `，位置：${placeText(d, st.marker)}` : "，在「到」一栏选位置"}`, "success");
+    // 2.12.6 位置还在：直接打开缝合预览；位置没了才停在缝合页让人重选
+    if (st.marker) {
+      scrollToView(dstList.querySelector(".pa-insert-mark"));
+      return review();
+    }
+    toast(`已选 ${q.items.length} 条，在「到」一栏选位置`);
   }
   // ask：来源不是预设或含正则的文件时（世界书、粘贴等），先问从哪个预设缝
   async function regexSuture({ ask = false } = {}) {

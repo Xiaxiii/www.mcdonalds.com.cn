@@ -23,6 +23,7 @@
  "maintenance/balance.js",
  "maintenance/charbooks.js",
  "ui/list.js",
+ "ui/tokens.js",
  "ui/sorttags.js",
  "core/smartgroup.js",
  "ui/picker.js",

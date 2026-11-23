@@ -33,7 +33,10 @@ body{margin:0;font-family:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-se
     eventSource: { on(e, f) { (listeners[e] ||= []).push(f); }, removeListener() {}, async emit(e, ...a) { for (const f of listeners[e] || []) await f(...a); } },
     eventTypes: { APP_READY: "app_ready", PRESET_CHANGED: "preset_changed", CHAT_CHANGED: "chat_changed", OAI_PRESET_CHANGED_BEFORE: "oai_before", OAI_PRESET_CHANGED_AFTER: "oai_after", CHATCOMPLETION_MODEL_CHANGED: "cc_model_changed", GENERATION_STARTED: "generation_started", GENERATION_ENDED: "generation_ended", GENERATION_STOPPED: "generation_stopped", WORLDINFO_ENTRIES_LOADED: "wi_loaded", WORLDINFO_SETTINGS_UPDATED: "wi_settings" },
     chat: [{ is_user: true, mes: "你好" }, { is_user: false, mes: "回复到一半" }], generate: async (type) => { (window.__gen ||= []).push(type); },
-    chatMetadata: {}, powerUserSettings: { personas: { "u.png": "我" } }, mainApi: "openai", onlineStatus: "Valid", chatId: "c1"
+    chatMetadata: {}, powerUserSettings: { personas: { "u.png": "我" } }, mainApi: "openai", onlineStatus: "Valid", chatId: "c1",
+    // 酒馆的分词器：这里按字数算，每次稍等一下，像去服务器数；__tkCalls 记调用次数
+    getTokenizerModel: () => "claude",
+    getTokenCountAsync: async (t) => { window.__tkCalls = (window.__tkCalls || 0) + 1; await new Promise((r) => setTimeout(r, 4)); return [...String(t)].length; }
   };
   window.SillyTavern = { getContext: () => ctx };
   const s = document.createElement("script"); s.type = "module"; s.src = "../../index.js?" + Date.now(); document.head.append(s);

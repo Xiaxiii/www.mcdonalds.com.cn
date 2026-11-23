@@ -22,6 +22,8 @@ var ICON = {
   link: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3a4 4 0 0 0 5.7 5.7l1-1"/></svg>',
   folder: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6.5A1.5 1.5 0 0 1 4.5 5H9l2 2.5h8.5A1.5 1.5 0 0 1 21 9v9.5a1.5 1.5 0 0 1-1.5 1.5h-15A1.5 1.5 0 0 1 3 18.5z"/></svg>',
   needle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4 7 17"/><path d="M17 4h3v3"/><path d="M7 17c-2 2-4 2-4 2s0-2 2-4"/></svg>',
+  // 2.12.6 「AI 推荐」前的四角星，与其他线条图标同粗细
+  spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z"/></svg>',
   // 2.11.14 查全部站点的余额：小猪存钱罐，与铅笔、＋ 同为线条图标（描边跟随文字色）；圆身子、卷尾巴、投币口、豆豆眼
   piggy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6C5 9.2 8.1 6.6 12 6.6c1.2 0 2.3.2 3.3.6l1.7-1.9c.4-.4 1-.2 1 .3l.1 2.6c.7.7 1.3 1.5 1.6 2.5h.7a1 1 0 0 1 1 1v1.8a1 1 0 0 1-1 1h-.9c-.5 1.3-1.4 2.4-2.6 3.1V20h-2.4v-1.5c-.6.1-1.3.2-2 .2s-1.4-.1-2-.2V20H7.6v-2.6C6 16.3 5 14.6 5 12.6z"/><path d="M5.1 11.2c-1.2-.1-2-.9-2-2"/><path d="M10.2 9.7h2.6"/><circle cx="15.7" cy="11.5" r="1.15" fill="currentColor" stroke="none"/></svg>'
 };
@@ -42,6 +44,8 @@ function renderIndexedList(draft, o) {
   const inside = place && o.inside !== false;
   const showSwitch = o.mode === "organize" && !place;
   const showHandle = showSwitch;
+  // 2.12.6 每条的 token 数：小字在眼睛左边；分组头在计数右边写组内开着的条目合计
+  const showTk = !!o.tk && showSwitch;
   const m = o.marker || null;
   const mark = `<div class="pa-insert-mark">${esc(o.markLabel || "插入位置")}</div>`;
   // 搜索：先看看得见的（条目名、标签、分组名）；只在正文里出现的另算，默认不列出，
@@ -93,6 +97,7 @@ function renderIndexedList(draft, o) {
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}" tabindex="0">
             <span class="pa-check" aria-hidden="true"></span>
             <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${hits.get(id)?.body ? esc(name) : markText(name, q)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}</span>${hits.get(id)?.body ? `<small class="pa-hitline">正文：${hits.get(id).snip}</small>` : ""}${meta ? `<small class="pa-meta">${meta}</small>` : ""}</span>
+            ${showTk ? `<small class="pa-tk">${marker || empty ? "" : tkFmt(tkOfEntry(draft, id))}</small>` : ""}
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>` : ""}
             ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="拖动">${ICON.grip}</span>` : ""}
@@ -132,7 +137,7 @@ function renderIndexedList(draft, o) {
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠" aria-expanded="${!isCol}">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
                 <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>
-                ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>
+                ${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-count">${onCount}/${b.ids.length}</span>${showTk ? `<small class="pa-tk">${tkFmt(tkSumOf(draft, b.ids, (i) => enabledMap.get(i)))}</small>` : ""}
                 ${showSwitch ? `<label class="pa-switch pa-switch-s" title="分组开关（不修改内部条目）"><input type="checkbox" aria-label="分组开关" data-act="gtoggle" ${draft.groupOff(b.groupId) ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
                 <span class="pa-handle" data-act="gdrag" aria-label="拖动分组">${ICON.grip}</span>` : ""}

@@ -95,6 +95,7 @@ function buildRoot() {
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
             <div class="pa-subnav" role="tablist" hidden></div>
+            <button type="button" class="pa-tktotal" data-tktotal aria-pressed="false" hidden></button>
             <main class="pa-main">${Object.keys(SECTION_OF).filter((k) => !PAGE_EL[k]).map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
         </div>
     </div>`);
@@ -143,6 +144,7 @@ function buildRoot() {
     const t = e.target.closest("[data-nav]");
     if (t) show(t.dataset.nav);
   });
+  rootEl2.querySelector("[data-tktotal]").addEventListener("click", () => pages.organize.tkToggle?.());
   rootEl2.querySelector(".pa-subnav").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab], [data-m]");
     if (t) show(t.dataset.tab || t.dataset.m);
@@ -259,6 +261,8 @@ function show(key, sub) {
     const attr = sec === "more" ? "data-m" : "data-tab";
     subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("");
   }
+  // token 合计只在条目页，由条目页填数字时再显示
+  rootEl2.querySelector("[data-tktotal]").hidden = true;
   rootEl2.querySelector(".pa-title").textContent = PAGE_TITLE[k];
   paintSutureLayoutBtn(sec === "suture");
   const pk = PAGE_EL[k] || k;
