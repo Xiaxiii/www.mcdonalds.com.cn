@@ -260,7 +260,7 @@ function mountBooks(page) {
     if (ci) {
       html += section(ci, "char", ci.name, L.char, { note: L.char.length ? `只对「${esc(ci.name)}」生效：不进酒馆的全局世界书列表，在角色卡的世界书按钮（附加世界书）里。` : "", empty: "这个角色还没有绑世界书。在「其他世界书」里打开的书只给这个角色用。" });
     } else {
-      html += `<p class="pa-hint pa-bk-none">${inGroupChat() ? "群聊没有单个角色卡。" : "没有打开角色。"}点上方「角色」选一个角色来绑世界书；不选时，这里的开关对所有角色生效。</p>`;
+      html += `<p class="pa-hint pa-bk-none">${inGroupChat() ? "群聊没有单个角色卡。" : "没有打开角色。"}在上方选一个角色来绑世界书；不选时，这里的开关对所有角色生效。</p>`;
     }
     html += section(ci, "all", "所有角色", L.all, { note: L.all.length ? "即酒馆的「已启用的世界书（全局有效）」，换角色后仍然开着。" : "" });
     html += section(ci, "chat", "本聊天", L.chat);

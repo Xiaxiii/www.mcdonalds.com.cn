@@ -199,7 +199,8 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
     display: inline-flex; align-items: center; justify-content: center; gap: 6px; cursor: pointer; white-space: nowrap;
     -webkit-tap-highlight-color: transparent;
 }
-#mcd-root .pa-btn:disabled { opacity: .45; cursor: default; }
+/* 2.12.14 不能点的按钮：灰字，不再整体变淡（原来约 2.2–2.9:1，看不清），与不能点的主按钮一致 */
+#mcd-root .pa-btn:disabled { opacity: 1; color: var(--pa-dim); cursor: default; }
 /* 2.5.0 不能点的主按钮：描边、正文灰，字看得清，也不像能点的实心按钮 */
 #mcd-root .pa-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--pa-line); color: var(--pa-dim); }
 #mcd-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }
@@ -413,7 +414,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-stitchbar { display: flex; align-items: center; }
 #mcd-root .pa-stitchbar .pa-link, #mcd-root .pa-stitchbar .pa-btn { flex: none; white-space: nowrap; }
 #mcd-root .pa-stitch-info { flex: 1 1 auto; min-width: 0; display: grid; }
-#mcd-root .pa-stitch-info span { color: var(--pa-dim); font-size: .84em; line-height: 1.3; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
+#mcd-root .pa-stitch-info span { color: var(--pa-dim); font-size: max(12px, .88em); line-height: 1.35; text-wrap: pretty; overflow: hidden; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow-wrap: anywhere; }
 @media (max-width: 759px) {
     #mcd-root .pa-selbar, #mcd-root .pa-movebar, #mcd-root .pa-stitchbar { padding-bottom: 8px; }
 }
@@ -1317,9 +1318,11 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-bk-set.pa-off { border-left-color: var(--pa-line); }
 #mcd-root .pa-bk-set p { margin: 0; }
 #mcd-root .pa-bk-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; min-height: 32px; }
-#mcd-root .pa-bk-head { justify-content: flex-start; gap: 6px; cursor: pointer; }
+/* 2.12.14 「自动备份」和后面的小字按基线对齐；整行仍在行高内居中，开关单独居中 */
+#mcd-root .pa-bk-head { justify-content: flex-start; gap: 6px; cursor: pointer; flex-wrap: wrap; align-content: center; align-items: baseline; }
+#mcd-root .pa-bk-head .pa-switch { align-self: center; }
 #mcd-root .pa-bk-head .pa-sgcaret { color: var(--pa-dim); }
-#mcd-root .pa-bk-head .pa-bk-sum { flex: 1 1 auto; min-width: 0; color: var(--pa-dim); font-size: .84em; }
+#mcd-root .pa-bk-head .pa-bk-sum { flex: 1 1 0%; min-width: 0; color: var(--pa-dim); font-size: .84em; }
 #mcd-root .pa-bk-head .pa-switch { margin-left: auto; }
 #mcd-root .pa-bk-warn { color: var(--pa-warn); font-size: .88em; }
 #mcd-root .pa-bk-num { display: inline-flex; align-items: center; gap: 6px; }
@@ -1455,6 +1458,8 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-sghead { display: flex; align-items: center; gap: 8px; padding: 8px 10px; cursor: pointer; min-height: 40px; }
 #mcd-root .pa-sghead b { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mcd-root .pa-sghead small { margin-left: auto; color: var(--pa-dim); white-space: nowrap; }
+/* 2.12.14 组名、「当前」和方案数按文字基线对齐（居中对齐时小字会高出一截） */
+#mcd-root .pa-sgtitle { flex: 1 1 auto; min-width: 0; display: flex; align-items: baseline; gap: 8px; }
 #mcd-root .pa-sgcaret { color: var(--pa-thread); width: 1em; flex: none; }
 #mcd-root .pa-sgbody { border-top: 1px dashed var(--pa-line); padding: 2px 6px 4px; }
 #mcd-root .pa-srow { display: flex; align-items: center; gap: 6px; padding: 7px 4px; border-bottom: 1px solid var(--pa-line); }
@@ -1664,6 +1669,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-btn-danger-soft { border-color: var(--pa-line-strong, var(--pa-line)); background: var(--pa-tint); }
 #mcd-root .pa-btn-danger, #mcd-root .pa-btn-danger:active:not(:disabled) { background: var(--pa-warn); border-color: var(--pa-warn); color: var(--pa-on-accent, #fff); }
 #mcd-root .pa-btn-danger:active:not(:disabled) { opacity: .88; }
+#mcd-root .pa-btn-danger:disabled { background: transparent; border-color: var(--pa-line); color: var(--pa-dim); }
 #mcd-root .pa-mini { border: 1px solid var(--pa-line-strong, var(--pa-line)); color: var(--pa-text); background: var(--pa-tint); min-height: 30px; padding: 2px 12px; font-weight: 500; }
 #mcd-root .pa-link { text-decoration-style: solid; text-decoration-color: var(--pa-line-strong, var(--pa-line)); }
 #mcd-root .pa-icon-btn { border-radius: var(--pa-r); color: var(--pa-dim); }
@@ -1804,7 +1810,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-nowcard .pa-kv dt, #mcd-root .pa-live-kv dt { color: var(--pa-dim); font-size: .9em; }
 #mcd-root .pa-nowcard .pa-kv dd, #mcd-root .pa-live-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
 #mcd-root .pa-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
-#mcd-root .pa-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--pa-card-2); color: var(--pa-dim); font-size: .78em; font-weight: 600; white-space: nowrap; }
+#mcd-root .pa-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--pa-card-2); color: var(--pa-dim); font-size: max(11px, .78em); font-weight: 600; white-space: nowrap; }
 #mcd-root .pa-badge-ok { background: var(--pa-card); background: color-mix(in srgb, var(--pa-ok) 14%, transparent); color: var(--pa-ok); }
 
 /* 方案页：当前状态卡、工具行、方案列表 */
@@ -1827,6 +1833,8 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-srow-on { background: var(--pa-card); background: color-mix(in srgb, var(--pa-ok) 6%, transparent); }
 #mcd-root .pa-plan-schemes .pa-srow .pa-swpill { align-self: center; }
 #mcd-root .pa-plan-schemes .pa-srow .pa-icon-btn { align-self: center; }
+/* 2.12.14 勾选删除时，复选框与方案名第一行上下居中（行是顶端对齐的，复选框原来贴着行顶） */
+#mcd-root .pa-plan-schemes .pa-srow-pick > input[type=checkbox]:not(#pa-x) { margin-top: max(0px, calc((1.45em - 17px) / 2)) !important; }
 
 /* 连接页：当前连接卡、站点列表 */
 #mcd-root .pa-plan-live .pa-live { border: 1px solid var(--pa-line); border-radius: 14px; background: var(--pa-tint); }
@@ -1865,6 +1873,8 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-replyform > .pa-h small { font-weight: 400; font-size: .8em; }
 #mcd-root .pa-rcheck { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; padding: 0; border: 0; background: none; }
 #mcd-root .pa-rcheck .pa-tip, #mcd-root .pa-jank-head .pa-tip { margin-left: auto; }
+/* 2.12.14 勾选行在这一行里上下居中，不再带上边距往下沉，与右边「说明」对齐 */
+#mcd-root .pa-rcheck > .pa-field-row { margin: 0; }
 #mcd-root .pa-rcheck .pa-tip[open], #mcd-root .pa-jank-head .pa-tip[open] { flex-basis: 100%; margin-left: 0; }
 #mcd-root .pa-rtags { display: grid; }
 #mcd-root .pa-rtags .pa-field { margin: 0; }
@@ -1987,7 +1997,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-jank-h > .pa-h { flex: 1 1 auto; min-width: 0; margin: 0; }
 #mcd-root .pa-jank-h > .pa-h small { font-weight: 400; font-size: .82em; margin-left: 4px; }
 #mcd-root .pa-jank-h > .pa-tip[open] { order: 9; flex-basis: 100%; }
-#mcd-root .pa-jank-h > .pa-link { font-size: .86em; }
+#mcd-root .pa-jank-h > .pa-link { font-size: max(11px, .82em); }
 #mcd-root .pa-jank { gap: 6px; }
 #mcd-root .pa-jank > .pa-p, #mcd-root .pa-jank > .pa-hint { margin: 0; overflow-wrap: anywhere; }
 #mcd-root .pa-jank details > summary { padding: 4px 0; }
@@ -2047,8 +2057,9 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root :is(input, textarea)::placeholder { font-size: .86em; color: var(--pa-dim); opacity: .85; }
 #mcd-root textarea::placeholder { line-height: 1.5; }
 /* 2.8.5「说明」：按钮不动，说明在下方展开 */
-#mcd-root .pa-tip { flex: none; display: inline-flex; align-items: center; gap: 3px; min-height: 28px; padding: 0 2px; border: 0; background: none; color: var(--pa-dim); cursor: pointer; white-space: nowrap; }
-#mcd-root .pa-tip svg.pa-info { margin: 0; }
+/* 2.12.14 按钮的基线取文字（不取图标底边），和同一行按基线对齐的标题、「清空」等字对齐；图标仍上下居中 */
+#mcd-root .pa-tip { flex: none; display: inline-flex; flex-wrap: wrap; align-content: center; align-items: baseline; gap: 3px; min-height: 28px; padding: 0 2px; border: 0; background: none; color: var(--pa-dim); cursor: pointer; white-space: nowrap; }
+#mcd-root .pa-tip svg.pa-info { margin: 0; align-self: center; }
 #mcd-root .pa-tip[aria-expanded="true"] { color: var(--pa-text); }
 #mcd-root .pa-tip + .pa-tip-body { order: 99; flex: 1 0 100%; width: 100%; margin: 2px 0 4px; font-size: .86em; color: var(--pa-em); }
 #mcd-root .pa-tip + .pa-tip-body[hidden] { display: none; }
@@ -2168,7 +2179,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-mrow { display: flex; align-items: center; gap: 8px; min-width: 0; }
 /* 体检建议：标题与「详情」同一行 */
 #mcd-root .pa-tiphead { flex-wrap: wrap; align-items: center; gap: 4px 10px; }
-#mcd-root .pa-tiphead > .pa-tiptitle { flex: 1 1 60%; min-width: 0; margin: 0; }
+#mcd-root .pa-tiphead > .pa-tiptitle { flex: 1 1 60%; min-width: 0; margin: 0; text-wrap: pretty; }
 #mcd-root .pa-tiphead > .pa-tip-body { flex: 1 1 100%; }
 /* 正文框高度量小了时仍可在框内滚动 */
 #mcd-root .pa-edit-text { overflow-y: auto; }
@@ -2376,12 +2387,13 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-q .pa-input { flex: 1 1 auto; min-width: 0; }
 #mcd-root .pa-bk-q .pa-input { min-height: 36px; padding: 4px 10px; }
 #mcd-root .pa-bk-entries { flex: 1 1 auto; padding-left: 0; padding-right: 0; padding-top: 2px; }
-#mcd-root .pa-bk-sum { padding: 2px calc(12px + env(safe-area-inset-left)) 6px; margin: 0; }
+/* 2.12.14 只管世界书的「共 N 条」；本地备份「自动备份」后面的小字也叫 .pa-bk-sum，原来被套上内边距，往上跑、空出一截 */
+#mcd-root .pa-qsum.pa-bk-sum { padding: 2px calc(12px + env(safe-area-inset-left)) 6px; margin: 0; }
 #mcd-root .pa-bk-entries .pa-empty .pa-btn { margin-top: 10px; }
 #mcd-root .pa-wbe-row .pa-namebox, #mcd-root .pa-bk-row .pa-namebox, #mcd-root .pa-rx-row .pa-namebox { padding: 5px 0; }
 /* 2.12.8 世界书一本一行，上下各多留 3px，书名和下面一行小字之间 2px。2.12.11 没有小字的行和预设条目一样高（45px） */
 #mcd-root .pa-bk-row .pa-namebox { padding: 8px 0; }
-#mcd-root .pa-bk-row { min-height: 45px; }
+#mcd-root .pa-row.pa-bk-row { min-height: 45px; }
 #mcd-root .pa-bk-row .pa-meta { margin-top: 2px; }
 @media (pointer: coarse) { #mcd-root .pa-bk-dhead .pa-icon-btn { width: 42px; height: 42px; } #mcd-root .pa-bk-scoperow .pa-seg button { min-height: 36px; } }
 @media (min-width: 1000px) {
@@ -2392,6 +2404,8 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
     #mcd-root .pa-bk-bar > .pa-char-picker { flex: 0 1 420px; }
     #mcd-root .pa-bk-dhead { padding-left: 16px; }
     #mcd-root .pa-bk-detail .pa-bk-scope, #mcd-root .pa-bk-detail .pa-bk-q { padding-left: 16px; padding-right: 16px; }
+    /* 2.12.14 条目和「共 N 条」也从 16px 开始，与书名、「用在」对齐 */
+    #mcd-root .pa-bk-detail .pa-qsum.pa-bk-sum, #mcd-root .pa-bk-detail .pa-wbe-row { padding-left: 16px; }
 }
 /* 世界书条目编辑：设置一行排满，正文随内容增高。
    2.12.1 触发与关键词同一行；关键词平时一行（左右滑动看），点展开后占满一行、自动换行、全部显示 */
@@ -2452,14 +2466,15 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-aux-use { display: flex; flex-wrap: wrap; align-items: baseline; }
 #mcd-root .pa-aux-use .pa-link { margin-left: 6px; padding: 4px 2px; font-size: 1em; }
 /* 2.11.23 缝合页底栏：位置说明后面的「AI 推荐」；推荐窗口：候选位置一行一个，第一个的「放这里」为主按钮 */
-#mcd-root .pa-where-row { display: flex; align-items: flex-end; gap: 2px; min-width: 0; }
+/* 2.12.14 放不下时「AI 推荐」换到下一行，位置说明留在一行里（原来挤成两行、只剩一个字） */
+#mcd-root .pa-where-row { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 6px; min-width: 0; }
 #mcd-root .pa-where-row .pa-where { flex: 0 1 auto; min-width: 0; }
 /* 2.12.6 「AI 推荐」「接着缝」：主题色浅底的小按钮，字号与位置说明相同，靠底色和字重和旁边的灰字分开 */
 #mcd-root .pa-stitchbar .pa-aiplace {
     flex: none; position: relative; display: inline-flex; align-items: center; gap: 3px;
-    margin: 0 0 0 6px; padding: 2px 8px; border: 0; border-radius: 999px;
+    margin: 0; padding: 2px 8px; border: 0; border-radius: 999px;
     background: var(--pa-sel); color: var(--pa-text);
-    font-size: .84em; font-weight: 600; line-height: 1.3; white-space: nowrap; cursor: pointer;
+    font-size: max(12px, .88em); font-weight: 600; line-height: 1.35; white-space: nowrap; cursor: pointer;
     -webkit-tap-highlight-color: transparent; touch-action: manipulation;
     transition: transform .1s ease-out;
 }
