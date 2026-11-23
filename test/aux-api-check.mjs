@@ -171,23 +171,33 @@ await aiBtn.click();
 await page.waitForSelector(".pa-aip-grp");
 check(await page.evaluate(() => window.__sent.length) === n0 && await tabs() === "第 1 次,*第 2 次", "同一批条目再打开时显示最近一次的结果，不再发请求");
 await page.click('.pa-aip-runs [data-r="0"]');
-// 第二组「放这里」：只留这一组，第一组排队
+// 第二组「放这里」：只留这一组，第一组排队；2.12.6 起关掉推荐窗口后直接打开缝合预览（写法、思维链接入）
 await page.locator('.pa-aip-grp[data-g="1"] [data-x="use"]').click();
-await page.waitForTimeout(400);
-const w2 = await page.evaluate(() => ({ where: document.querySelector(".pa-sbar .pa-where").textContent, n: document.querySelector(".pa-sbar .pa-picked-n").textContent }));
-check(w2.where === "位置：「正文规则」组内最前" && w2.n.startsWith("已选 1 条") && await page.locator(".pa-sheet-mask:not(.pa-out)").count() === 0, "点第二组「放这里」：只留这一组、选上位置、关掉窗口：" + JSON.stringify(w2));
-check(await page.locator(".pa-dst-list .pa-insert-mark").isVisible(), "目标列表里看得见位置标记");
-// 缝完这一组，底栏「接着缝」选上第一组和它的位置
-await page.click('[data-st="go"]');
-await page.waitForTimeout(800);
+await page.waitForTimeout(600);
+const w2 = await page.evaluate(() => ({ where: document.querySelector(".pa-sbar .pa-where").textContent, n: document.querySelector(".pa-sbar .pa-picked-n").textContent, sheets: [...document.querySelectorAll(".pa-sheet-mask:not(.pa-out) .pa-sheet-head b")].map((b) => b.textContent) }));
+check(w2.where === "位置：「正文规则」组内最前" && w2.n.startsWith("已选 1 条") && w2.sheets.length === 1 && /^缝合 1 条到/.test(w2.sheets[0]), "点第二组「放这里」：只留这一组、选上位置，推荐窗口换成缝合预览：" + JSON.stringify(w2));
+check(await page.locator(".pa-dst-list .pa-insert-mark").count() === 1, "目标列表里有位置标记");
+await page.screenshot({ path: "test/shots/aux-suture-use-review.png" });
+// 2.12.7 缝完这一组：推荐窗口自动再打开，只列还没缝的那组，不再发请求
+const nSent = await page.evaluate(() => window.__sent.length);
 await page.locator(".pa-sheet-mask:not(.pa-out) .pa-sheet-actions .pa-btn-primary").last().click();
-await page.waitForTimeout(800);
+await page.waitForTimeout(900);
+const again2 = await page.evaluate(() => ({ title: [...document.querySelectorAll(".pa-sheet-mask:not(.pa-out) .pa-sheet-head b")].map((b) => b.textContent), groups: [...document.querySelectorAll(".pa-sheet-mask:not(.pa-out) .pa-aip-grp")].map((g) => g.querySelector(".pa-aip-name").textContent), primary: document.querySelectorAll(".pa-sheet-mask:not(.pa-out) .pa-aip-best .pa-btn-primary").length, sent: window.__sent.length }));
+check(again2.title.join() === "AI 推荐位置 · 还剩 1 组" && again2.groups.join() === "本体文风" && again2.primary === 1 && again2.sent === nSent, "缝完一组，推荐窗口自动再打开，只列剩下的组，不再请求：" + JSON.stringify(again2));
+await page.screenshot({ path: "test/shots/aux-suture-continue.png" });
+// 关掉窗口：其余的组在底栏「接着缝」
+await page.click(`${top} .pa-sheet-x`);
+await page.waitForTimeout(400);
 const qb = page.locator('[data-st="aiqueue"]');
 check(await qb.isVisible() && (await qb.textContent()) === "接着缝 5 条" && (await page.locator(".pa-sbar .pa-where").textContent()) === "AI 推荐的下一组", "缝完后底栏出现「接着缝 5 条」");
 await qb.click();
-await page.waitForTimeout(400);
-const w3 = await page.evaluate(() => ({ where: document.querySelector(".pa-sbar .pa-where").textContent, n: document.querySelector(".pa-sbar .pa-picked-n").textContent }));
-check(w3.where === "位置：「文风设定」组内，「✒️意识流」之后" && w3.n.startsWith("已选 5 条") && await qb.isHidden(), "点「接着缝」：选上排队的那一组和它的位置：" + JSON.stringify(w3));
+await page.waitForTimeout(600);
+const w3 = await page.evaluate(() => ({ where: document.querySelector(".pa-sbar .pa-where").textContent, n: document.querySelector(".pa-sbar .pa-picked-n").textContent, sheets: [...document.querySelectorAll(".pa-sheet-mask:not(.pa-out) .pa-sheet-head b")].map((b) => b.textContent) }));
+check(w3.where === "位置：「文风设定」组内，「✒️意识流」之后" && w3.n.startsWith("已选 5 条") && await qb.isHidden() && w3.sheets.length === 1 && /^缝合 5 条到/.test(w3.sheets[0]), "点「接着缝」：选上排队的那一组和它的位置，直接打开缝合预览：" + JSON.stringify(w3));
+// 预览里取消：回到缝合页，已选的条目和位置都还在
+await page.click(`${top} .pa-sheet-x`);
+await page.waitForTimeout(300);
+check(await page.locator(".pa-sheet-mask:not(.pa-out)").count() === 0 && (await page.locator(".pa-sbar .pa-picked-n").textContent()).startsWith("已选 5 条"), "预览里取消后，已选的条目和位置还在");
 // 换着密钥时酒馆开始生成：先换回主 API 的密钥
 await page.evaluate(() => { window.__hold = new Promise((r) => { window.__release = r; }); });
 await aiBtn.click();

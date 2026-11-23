@@ -138,13 +138,13 @@ assert.match(await page.$eval(".pa-bk-entries", (x) => x.innerText), /共 3 条/
 await page.click('.pa-wbe-row[data-uid="0"]');
 await page.waitForSelector(".pa-sheet-wbentry");
 await page.fill('.pa-sheet-wbentry [data-w=content]', "常年起雾的港口城市，码头在西边。");
-const trigRow = await page.$eval(".pa-wb-trig", (r) => { const a = r.querySelector("[data-w=constant]").getBoundingClientRect(), b = r.querySelector("[data-w=key]").getBoundingClientRect(); return Math.abs(a.top - b.top) < 4 && b.left > a.right; });
-assert.ok(trigRow, "关键词在触发旁边");
+// 2.12.11 关键词占满触发下面一行，自动换行、高度跟着内容
+const trigRow = await page.$eval(".pa-wb-trig", (r) => { const a = r.querySelector("[data-w=constant]").getBoundingClientRect(), b = r.querySelector("[data-w=key]").getBoundingClientRect(), w = r.getBoundingClientRect(); return b.top > a.bottom && b.width > w.width - 4; });
+assert.ok(trigRow, "关键词在触发下面，占满一行");
 await page.fill('.pa-sheet-wbentry [data-w=key]', "雾港，港口, 码头, 一个很长很长的关键词用来看能不能全部显示出来, 另一个很长的关键词, 第三个很长的关键词");
-await page.click('.pa-sheet-wbentry [data-w=kwexpand]');
 await page.waitForTimeout(150);
-const kwFull = await page.$eval('.pa-sheet-wbentry [data-w=key]', (x) => x.scrollWidth <= x.clientWidth + 1 && x.offsetHeight > 50);
-assert.ok(kwFull, "展开后关键词换行、全部显示");
+const kwFull = await page.$eval('.pa-sheet-wbentry [data-w=key]', (x) => x.scrollWidth <= x.clientWidth + 1 && x.offsetHeight > 50 && x.scrollHeight <= x.clientHeight + 2);
+assert.ok(kwFull, "关键词换行、全部显示");
 assert.ok(await page.$(".pa-sheet-wbentry .pa-scrollhint"), "编辑窗口有滚动引导条");
 await page.fill('.pa-sheet-wbentry [data-w=key]', "雾港，港口, 码头");
 await page.waitForTimeout(400);
@@ -171,6 +171,9 @@ assert.deepStrictEqual(g.lore, [], "改成全局后不再留在角色附加世�
 // 改世界书名称：全局列表跟着改，旧的删掉
 await page.click('.pa-bk-dhead [data-e="rename"].pa-bk-rename');
 await page.waitForSelector(".pa-bk-dname .pa-inline-input");
+await page.waitForTimeout(100);
+const sel = await page.$eval(".pa-bk-dname .pa-inline-input", (x) => [x.selectionStart, x.selectionEnd, x.value.length]);
+assert.ok(sel[0] === sel[1] && sel[1] === sel[2], "2.12.11 改名时不全选，光标在末尾：" + sel.join());
 await page.fill(".pa-bk-dname .pa-inline-input", "雾港设定");
 await page.keyboard.press("Enter");
 await page.waitForTimeout(600);

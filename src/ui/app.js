@@ -95,6 +95,7 @@ function buildRoot() {
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
             <div class="pa-subnav" role="tablist" hidden></div>
+            <button type="button" class="pa-tkbar" data-tkeye aria-pressed="false" hidden><i class="pa-tkdot" aria-hidden="true"></i><span class="pa-tktotal" data-tktotal></span></button>
             <main class="pa-main">${Object.keys(SECTION_OF).filter((k) => !PAGE_EL[k]).map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
         </div>
     </div>`);
@@ -142,6 +143,12 @@ function buildRoot() {
   rootEl2.querySelector(".pa-tabs").addEventListener("click", (e) => {
     const t = e.target.closest("[data-nav]");
     if (t) show(t.dataset.nav);
+  });
+  // 2.12.7 页签行右侧：token 合计＋开关（每条显示 token 数）；条目页、世界书页共用一个设置。2.12.8 圆点＋合计合成一个按钮
+  rootEl2.querySelector("[data-tkeye]").addEventListener("click", () => {
+    settings().tkEach = settings().tkEach !== true;
+    saveSettings();
+    pages[PAGE_EL[current] || current]?.tkRepaint?.();
   });
   rootEl2.querySelector(".pa-subnav").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab], [data-m]");
@@ -257,6 +264,8 @@ function show(key, sub) {
     const attr = sec === "more" ? "data-m" : "data-tab";
     subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("");
   }
+  // token 合计只在条目页、世界书页，由页面填数字时再显示
+  rootEl2.querySelector(".pa-tkbar").hidden = true;
   rootEl2.querySelector(".pa-title").textContent = PAGE_TITLE[k];
   paintSutureLayoutBtn(sec === "suture");
   const pk = PAGE_EL[k] || k;

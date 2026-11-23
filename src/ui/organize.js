@@ -125,6 +125,7 @@ function mountOrganize(page) {
                 <button class="pa-btn pa-btn-soft" data-tool="smart">智能分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="fold">全部折叠</button>
                 <button class="pa-btn pa-btn-soft" data-tool="clickorder"></button>
+                <button class="pa-btn pa-btn-soft" data-tool="import">导入…</button>
             </div>
         </div>
         <div class="pa-movebar" hidden><b class="pa-move-n"></b>
@@ -192,7 +193,10 @@ function mountOrganize(page) {
     const dupBanner = dups.length ? dupBannerHtml(d, dups) : "";
     const fragments = placing || st.query ? [] : fragmentedGroups(d);
     const repairBanner = fragments.length ? `<div class="pa-card pa-group-repair"><p><b>检测到 ${fragments.length} 个分区被拆成多段</b></p><small>${esc(fragments.slice(0, 4).map((g) => `${g.name}（${g.parts} 段）`).join("、"))}${fragments.length > 4 ? " 等" : ""}。可以按已有归属收拢到各组首段，先预览再应用。</small><div class="pa-card-act"><button class="pa-btn pa-btn-s" data-repair-groups>归整分区</button></div></div>` : "";
-    list.innerHTML = dupBanner + repairBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight });
+    const tk = tkSync() && tkEach();
+    list.innerHTML = dupBanner + repairBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight, tk });
+    list.classList.toggle("pa-tk-on", tk);
+    paintTkTotal(d);
     list.scrollTop = top;
     if (pane.id && (pane.preset !== d.name || !d.prompt(pane.id) || !wideEdit())) closePane();
     else markPaneRow();
@@ -245,6 +249,43 @@ function mountOrganize(page) {
     tg.dataset.sel = allOn ? "off" : "on";
     tg.textContent = allOn ? "关闭" : "开启";
   }
+  // 2.12.6 token 数：页签行右侧是生效条目的合计；数字陆续数出来时就地改，不重画列表。2.12.8 开关是「● 共 N tk」那个按钮
+  function paintTkTotal(d) {
+    if (page.hidden) return;
+    const sum = tkPresetTotal(d);
+    tkPaintBar(`共 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `开着的条目合计${sum === void 0 ? `，还剩 ${tkPending()} 条没数` : ""}，不含聊天记录等系统位置`);
+  }
+  function paintTk() {
+    let d;
+    try { d = draft(); } catch { return; }
+    paintTkTotal(d);
+    if (!list.classList.contains("pa-tk-on")) return;
+    d.withReadIndex(() => {
+      const en = new Map(d.order.map((x) => [x.identifier, x.enabled !== false]));
+      list.querySelectorAll(".pa-row[data-id] > .pa-tk").forEach((x) => {
+        const id = x.parentElement.dataset.id;
+        if (d.isMarker(id) || !String(d.prompt(id)?.content || "").trim()) return;
+        const t = tkFmt(tkOfEntry(d, id));
+        if (x.textContent !== t) x.textContent = t;
+      });
+      const heads = list.querySelectorAll(".pa-ghead > .pa-gtk");
+      const blocks = heads.length ? new Map(d.blocks().filter((k) => k.groupId).map((k) => [`${k.groupId}\u0001${k.ids.at(-1) || ""}`, k])) : null;
+      heads.forEach((x) => {
+        const head = x.parentElement, b = blocks.get(`${head.dataset.gid}\u0001${head.dataset.last}`);
+        if (!b) return;
+        const t = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
+        if (x.textContent !== t) x.textContent = t;
+      });
+    });
+  }
+  function tkToggle() {
+    settings().tkEach = !tkEach();
+    saveSettings();
+    render();
+  }
+  // 页签行的眼睛改了设置之后
+  const tkRepaint = () => render();
+  const offTk = tkSubscribe(() => { if (draftViewVisible(page)) paintTk(); });
   const visibleRows = () => [...list.querySelectorAll(".pa-row[data-id]")].filter((r) => !r.closest(".pa-collapsed")).map((r) => r.dataset.id);
   const ordered = () => {
     const d = draft();
@@ -391,10 +432,14 @@ function mountOrganize(page) {
       t = await pickBox("工具", [
         { label: "智能分组", sub: "识别未分组条目的归属，或归整分散分区", value: "smart" },
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
-        { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" }
+        { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" },
+        ...(tkSync() ? [{ label: `每条的 token 数：${tkEach() ? "显示" : "不显示"}`, sub: "点击切换", value: "tk" }] : []),
+        { label: "导入…", sub: "预设、世界书、正则", value: "import" }
       ]);
       if (!t) return;
     }
+    if (t === "tk") return tkToggle();
+    if (t === "import") return importSheet();
     if (t === "search" || t === "searchclose") {
       const row = page.querySelector(".pa-findrow");
       row.hidden = t === "searchclose" || !row.hidden;
@@ -923,6 +968,7 @@ function mountOrganize(page) {
         const box = sec.querySelector(":scope > .pa-ghead [data-act=gtoggle]");
         if (box) box.checked = !off;
       });
+      paintTkTotal(d);
       return true;
     }
     const row = list.querySelector(`.pa-row[data-id="${CSS.escape(p.id)}"]`);
@@ -934,6 +980,10 @@ function mountOrganize(page) {
     if (box) box.checked = en.get(p.id);
     const count = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead .pa-count");
     if (count) count.textContent = `${b.ids.filter((i) => en.get(i)).length}/${b.ids.length}`;
+    // 开关改了合计：分组头和页签行的 token 数跟着改
+    const gtk = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead > .pa-gtk");
+    if (gtk) gtk.textContent = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
+    paintTkTotal(d);
     return true;
   }
   const off = onDraftChange((name, kind) => {
@@ -947,7 +997,7 @@ function mountOrganize(page) {
   return { render: () => {
     picker.refresh();
     render();
-  }, destroy: off, focusIds: (ids) => {
+  }, destroy: () => { off(); offTk(); }, tkToggle, tkRepaint, focusIds: (ids) => {
     const d = draft();
     ids.forEach((i) => {
       const g = d.groupOf(i);

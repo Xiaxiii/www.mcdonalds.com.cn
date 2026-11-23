@@ -97,7 +97,7 @@ function mountSuture(page, app) {
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-link pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">AI 推荐</button><button class="pa-link pa-aiplace" data-st="aiqueue" type="button" hidden></button></div></div>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">${ICON.spark}AI 推荐</button><button class="pa-aiplace" data-st="aiqueue" type="button" hidden></button></div></div>
         <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
         <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
@@ -827,7 +827,10 @@ function mountSuture(page, app) {
         <div class="pa-aip-res" aria-live="polite"></div>
       </div>`);
     const res = body.querySelector(".pa-aip-res");
-    let controller = null, tick = 0, views = [], win = null, runs = aipRuns(sig), cur = -1;
+    // 2.12.6 点了「放这里」：窗口关上后直接打开缝合预览（写法、思维链接入），不停在缝合页让人以为已经缝好
+    // 2.12.7 缝完一组，窗口自动再打开，只列还没缝的组（用这次的推荐结果，不再请求）；预览里取消就停下
+    let controller = null, tick = 0, views = [], win = null, runs = aipRuns(sig), cur = -1, chosen = null;
+    const doneG = new Set();
     const close = () => win?.querySelector(".pa-sheet-x")?.click();
     // 推荐记录：两次以上（或这次没推荐成、之前有）时显示「第 1 次 / 第 2 次」，下面小字是时间；换过模型时再写一行这次用的模型
     const runsRow = () => {
@@ -878,7 +881,7 @@ function mountSuture(page, app) {
     }).join("");
     const placeRow = (gi, p, i) => `<div class="pa-aip-place${i ? "" : " pa-aip-best"}">${i ? "" : TO}
         <div class="pa-aip-pt"><p class="pa-aip-pos">${esc(placeText(d, p.marker))}</p>${p.reason ? `<p class="pa-aip-why">${esc(p.reason)}</p>` : ""}${i ? "" : agreeText(views[gi])}</div>
-        <button class="pa-btn pa-btn-s${!i && gi === 0 ? " pa-btn-primary" : ""}" data-x="use" data-g="${gi}" data-i="${i}" type="button">放这里</button>
+        <button class="pa-btn pa-btn-s${!i && gi === 0 && !doneG.size ? " pa-btn-primary" : ""}" data-x="use" data-g="${gi}" data-i="${i}" type="button">放这里</button>
       </div>`;
     const card = (v, gi) => {
       const best = v.places[0], alt = v.places.slice(1), few = v.names.length <= 3, name = groupName(v);
@@ -898,7 +901,14 @@ function mountSuture(page, app) {
       cur = i;
       const r = runs[i].result;
       views = r.groups.map((g) => ({ name: g.name || "", entries: g.entries, keys: g.entries.map((n) => keys[n - 1]), items: g.entries.map((n) => items[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
-      res.innerHTML = runsRow() + views.map(card).join("") + againBtn("重新推荐");
+      res.innerHTML = runsRow() + (r.cut ? `<p class="pa-hint pa-aip-cut">回复被截断：收到 ${r.cut} 组，其余条目在最后一组，没有推荐位置。</p>` : "") + views.map(card).join("") + againBtn("重新推荐");
+    });
+    // 缝完一组后：位置按缝完的目标预设重新核对，只列还没缝的组；第一组的第一个位置为主按钮
+    const showLeft = () => d.withReadIndex(() => {
+      for (const v of views) v.places = v.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker);
+      const left = views.map((v, gi) => [v, gi]).filter(([, gi]) => !doneG.has(gi));
+      res.innerHTML = left.map(([v, gi]) => card(v, gi)).join("");
+      res.querySelector(".pa-aip-best [data-x=use]")?.classList.add("pa-btn-primary");
     });
     const run = async () => {
       controller = new AbortController();
@@ -909,7 +919,8 @@ function mountSuture(page, app) {
       res.innerHTML = '<div class="pa-aip-wait"><span class="pa-spin" aria-hidden="true">' + ICON.refresh + '</span><span>正在推荐… <span data-x="sec">0</span> 秒</span><button class="pa-btn pa-btn-s" data-x="cancel" type="button">取消</button></div>';
       tick = setInterval(() => { const x = res.querySelector('[data-x="sec"]'); if (x) x.textContent = String(Math.round((Date.now() - t0) / 1e3)); }, 1e3);
       try {
-        const r = await auxRequest("suture", req.messages, { signal: controller.signal, maxTokens: 4e3, timeout: 12e4 });
+        // 2.12.7 回复上限 8192：带思考的模型先花掉一部分，4000 时 JSON 常被截断
+        const r = await auxRequest("suture", req.messages, { signal: controller.signal, maxTokens: 8192, timeout: 18e4 });
         const parsed = parsePlaceReply(r.text, req.map, items.length);
         runs = [...aipRuns(sig), { at: Date.now(), label, result: parsed }].slice(-AIP_RUNS);
         aipSave(sig, runs);
@@ -923,13 +934,12 @@ function mountSuture(page, app) {
         controller = null;
       }
     };
-    // 只留这一组的条目；其余各组带着各自最好的位置排队，缝完这组后在底栏「接着缝」
+    // 只选上这一组的条目；还没缝的其余各组带着各自最好的位置排队（关掉窗口后在底栏「接着缝」）
+    const pairs = (w) => w.keys.map((k, n) => [k, w.items[n]]).filter(([, it]) => it);
     const keepGroup = (gi) => {
-      const v = views[gi];
-      if (views.length < 2) return 0;
-      const keep = new Set(v.keys);
-      st.aiQueue = views.filter((_, j) => j !== gi).map((w) => ({ target: d.name, marker: w.places[0]?.marker || null, items: w.keys.filter((k) => st.picked.has(k)).map((k) => [k, st.picked.get(k)]) })).filter((q) => q.items.length);
-      for (const k of [...st.picked.keys()]) if (!keep.has(k)) st.picked.delete(k);
+      st.aiQueue = views.filter((_, j) => j !== gi && !doneG.has(j)).map((w) => ({ target: d.name, marker: w.places[0]?.marker || null, items: pairs(w) })).filter((q) => q.items.length);
+      st.picked.clear();
+      for (const [k, it] of pairs(views[gi])) st.picked.set(k, it);
       renderSrc();
       return st.aiQueue.reduce((n, q) => n + q.items.length, 0);
     };
@@ -957,31 +967,42 @@ function mountSuture(page, app) {
       }
       if (x !== "use" || !v) return;
       const p = v.places[Number(btn.dataset.i)];
-      let cur;
-      try { cur = target(); } catch { cur = null; }
-      const m = cur && cur.name === d.name ? fixPlace(cur, p.marker) : null;
+      let now;
+      try { now = target(); } catch { now = null; }
+      const m = now && now.name === d.name ? fixPlace(now, p.marker) : null;
       if (!m) return toast("目标预设变了，这个位置已经不在了，请重新推荐", "warning");
-      const rest = keepGroup(gi);
+      chosen = { gi, m };
+      close();
+    });
+    for (let round = 0; ; round++) {
+      chosen = null;
+      const left = views.length - doneG.size;
+      await sheet({ title: round ? `AI 推荐位置 · 还剩 ${left} 组` : "AI 推荐位置", body, actions: [], onMount: (w) => {
+        win = w;
+        if (round) showLeft();
+        else if (runs.length && runs.at(-1).label === auxLabel(auxTarget("suture"))) showRun(runs.length - 1);
+        else run();
+      } });
+      controller?.abort();
+      clearInterval(tick);
+      if (!chosen) return;
+      const { gi, m } = chosen;
+      keepGroup(gi);
       st.marker = m;
       // 组内的位置：先把那一组展开，才看得见位置标记
-      const gid = m.at === "gstart" ? m.gid : m.at === "row" ? cur.groupOf(m.id) : null;
-      if (gid && st.dstFoldKey) toggleOpen(cur, st.dstFoldKey, gid, true);
-      close();
+      const gid = m.at === "gstart" ? m.gid : m.at === "row" ? d.groupOf(m.id) : null;
+      if (gid && st.dstFoldKey) toggleOpen(d, st.dstFoldKey, gid, true);
       if (layout() === "switch") setSide("dst");
       renderDst();
       scrollToView(dstList.querySelector(".pa-insert-mark"));
-      toast(rest ? `已选这 ${v.keys.length} 条和位置，其余 ${rest} 条稍后「接着缝」` : `位置：${placeText(cur, m)}`, "success");
-    });
-    await sheet({ title: "AI 推荐位置", body, actions: [], onMount: (w) => {
-      win = w;
-      if (runs.length && runs.at(-1).label === auxLabel(auxTarget("suture"))) showRun(runs.length - 1);
-      else run();
-    } });
-    controller?.abort();
-    clearInterval(tick);
+      // 预览里取消：停在缝合页，这一组和位置都还选着，其余的在底栏「接着缝」
+      if (!await review()) return;
+      doneG.add(gi);
+      if (doneG.size >= views.length) return;
+    }
   }
   // 2.11.31 接着缝：选上排队的下一组和它推荐的位置
-  function aiQueueNext() {
+  async function aiQueueNext() {
     const q = st.aiQueue.shift();
     if (!q) return;
     st.picked.clear();
@@ -995,8 +1016,13 @@ function mountSuture(page, app) {
     }
     renderSrc();
     renderDst();
-    if (st.marker) scrollToView(dstList.querySelector(".pa-insert-mark"));
-    toast(`已选 ${q.items.length} 条${st.marker ? `，位置：${placeText(d, st.marker)}` : "，在「到」一栏选位置"}`, "success");
+    // 2.12.6 位置还在：直接打开缝合预览；位置没了才停在缝合页让人重选。2.12.7 缝好后接着打开下一组的预览
+    if (st.marker) {
+      scrollToView(dstList.querySelector(".pa-insert-mark"));
+      if (await review() && st.aiQueue.length) return aiQueueNext();
+      return;
+    }
+    toast(`已选 ${q.items.length} 条，在「到」一栏选位置`);
   }
   // ask：来源不是预设或含正则的文件时（世界书、粘贴等），先问从哪个预设缝
   async function regexSuture({ ask = false } = {}) {
@@ -1478,7 +1504,7 @@ function mountSuture(page, app) {
       },
       value: (w) => ({ inj: w.querySelector("[data-g=inj]").checked, grp: grpSel?.value || "none", gname: grpName?.value.trim() || "" })
     }] });
-    if (!ok) return;
+    if (!ok) return false;
     settings().followTargetInjection = ok.inj;
     saveSettings();
     let newIds = [];
@@ -1564,6 +1590,7 @@ function mountSuture(page, app) {
     setTimeout(() => {
       st.highlight = null;
     }, 1500);
+    return true;
   }
 
   // ---- 1.6.0 缝进世界书：没有思维链和分组；每条可设触发方式、插入位置、深度、顺序

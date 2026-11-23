@@ -145,14 +145,50 @@ function placeMarkers(list, map) {
   }
   return out;
 }
+// 2.12.7 回复被截断（到了回复上限）时，groups 数组里已经完整的几组照样用：逐字扫，跳过字符串里的括号
+function placeSalvageGroups(raw) {
+  const at = raw.search(/"groups"\s*:\s*\[/);
+  if (at < 0) return [];
+  const out = [];
+  let i = raw.indexOf("[", at) + 1, depth = 0, start = -1, inStr = false, bs = false;
+  for (; i < raw.length; i++) {
+    const ch = raw[i];
+    if (inStr) {
+      if (bs) bs = false;
+      else if (ch === "\\") bs = true;
+      else if (ch === '"') inStr = false;
+      continue;
+    }
+    if (ch === '"') inStr = true;
+    else if (ch === "{" || ch === "[") {
+      if (depth === 0 && ch === "{") start = i;
+      depth++;
+    } else if (ch === "}" || ch === "]") {
+      if (depth === 0) break;
+      depth--;
+      if (depth === 0 && ch === "}" && start >= 0) {
+        try { out.push(JSON.parse(raw.slice(start, i + 1))); } catch {}
+        start = -1;
+      }
+    }
+  }
+  return out;
+}
 // 2.11.31 模型的回答 → { groups: [{ name, entries: [序号], places: [{ marker, reason }] }] }。
 // 按作用分组，每组各自的位置；编号对不上、重复的位置不要；没分进组的条目另成一组（没有推荐位置）。
-// 旧写法 { places } 当作全部条目一组
+// 旧写法 { places } 当作全部条目一组；2.12.7 截断时 cut 是收到的有位置的组数
 function parsePlaceReply(text, map, count = 1) {
-  const raw = String(text || "").trim().replace(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i, "$1");
+  const raw = String(text || "").trim().replace(/^```(?:json)?\s*\n?([\s\S]*?)\n?```$/i, "$1").replace(/^```(?:json)?\s*\n?/i, "");
   const a = raw.indexOf("{"), z = raw.lastIndexOf("}");
-  let data = null;
+  let data = null, cut = false;
   try { data = JSON.parse(a >= 0 && z > a ? raw.slice(a, z + 1) : raw); } catch {}
+  if (!data) {
+    const got = placeSalvageGroups(raw);
+    if (got.length) {
+      data = { groups: got };
+      cut = true;
+    } else if (/"groups"\s*:\s*\[/.test(raw)) throw new Error("回复被截断，没有一组完整。重试，或在「连接 › 副 API」换不带思考的模型");
+  }
   if (data && !Array.isArray(data.groups) && Array.isArray(data.places)) data = { groups: [{ entries: Array.from({ length: count }, (_, i) => i + 1), places: data.places }] };
   if (!data || !Array.isArray(data.groups)) throw new Error("模型没有按要求回答（不是有效的 JSON）");
   const used = new Set(), groups = [];
@@ -166,7 +202,7 @@ function parsePlaceReply(text, map, count = 1) {
   const rest = Array.from({ length: count }, (_, i) => i + 1).filter((n) => !used.has(n));
   if (rest.length) groups.push({ name: "", entries: rest, places: [] });
   if (!groups.some((g) => g.places.length)) throw new Error("模型给出的位置在目标预设里找不到，未采用");
-  return { groups };
+  return cut ? { groups, cut: groups.filter((g) => g.places.length).length } : { groups };
 }
 // 2.11.33 分隔条目的标题：┌──本体文风──┐、├──勿关·故事基调──┤、╓文风开始╖ → 「本体文风」…；kind：open / mid / close；不是分隔条目返回 null
 function placeDivider(name) {

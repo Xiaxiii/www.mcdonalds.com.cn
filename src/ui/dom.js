@@ -280,7 +280,7 @@ function sheet(opt) {
   });
 }
 // 2.5.0 原地改名：把这段文字换成输入框，回车或点别处保存，Esc 取消。返回新名字，没改返回 null
-function inlineEdit(target, value, { placeholder = "" } = {}) {
+function inlineEdit(target, value, { placeholder = "", selectAll = true } = {}) {
   return new Promise((resolve) => {
     const old = target.innerHTML;
     const input = el(`<input class="pa-input pa-inline-input" value="${esc(value)}" placeholder="${esc(placeholder)}" maxlength="120" aria-label="新名称">`);
@@ -303,7 +303,8 @@ function inlineEdit(target, value, { placeholder = "" } = {}) {
     for (const t of ["click", "pointerdown"]) input.addEventListener(t, (e) => e.stopPropagation());
     setTimeout(() => {
       input.focus();
-      input.select();
+      if (selectAll) input.select();
+      else input.setSelectionRange(input.value.length, input.value.length);
     }, 40);
   });
 }

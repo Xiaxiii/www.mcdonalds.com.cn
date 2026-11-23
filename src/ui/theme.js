@@ -190,7 +190,7 @@ function applyTheme(root) {
   }
   const id = effectiveTheme();
   root.dataset.theme = id;
-  root.dataset.fs = fontSizePref();
+  applyFontSize(root);
   const theme = THEMES.find((t) => t.id === id);
   root.classList.toggle("pa-painted", !!theme?.paint);
   root.classList.toggle("pa-glass", !!theme?.glass);
@@ -422,30 +422,52 @@ function bindBgPanel(box, rerender) {
     rerender();
   });
 }
-// 1.5.0 文字大小：小 / 标准 / 大。每台设备单独记（手机和平板常常想要不同的大小），存在本浏览器
+// 1.5.0 文字大小。每台设备单独记（手机和平板常常想要不同的大小），存在本浏览器
+// 2.12.6 改成七档滑杆（同 iOS「更大字体」），第四档是标准；以前存的「小 / 标准 / 大」对应第二、四、六档
 var FS_KEY = "mcdonalds:fontSize";
+var FS_STEPS = [0.85, 0.9, 0.95, 1, 1.06, 1.12, 1.2];
+var FS_STD = 3;
+var FS_OLD = { s: 1, m: 3, l: 5 };
 function fontSizePref() {
+  let v = null;
   try {
-    return localStorage.getItem(FS_KEY) || "m";
+    v = localStorage.getItem(FS_KEY);
   } catch {
-    return "m";
   }
+  if (v in FS_OLD) return FS_OLD[v];
+  const i = Number(v);
+  return v !== null && Number.isInteger(i) && i >= 0 && i < FS_STEPS.length ? i : FS_STD;
+}
+function applyFontSize(root, i = fontSizePref()) {
+  if (root) root.style.setProperty("--pa-k", String(FS_STEPS[i]));
+}
+function fsText(i) {
+  return i === FS_STD ? "标准" : `${Math.round(FS_STEPS[i] * 100)}%`;
 }
 function fontSizeSeg() {
   const cur = fontSizePref();
-  return `<div class="pa-seg pa-seg-s pa-fs" role="tablist">${[["s", "小"], ["m", "标准"], ["l", "大"]].map(([k, l]) => `<button data-fs="${k}" class="${k === cur ? "on" : ""}">${l}</button>`).join("")}</div>
-    <small class="pa-dim pa-fs-note">只对这台设备生效</small>`;
+  const ticks = FS_STEPS.map((_, i) => `<i${i === FS_STD ? ' class="pa-fs-std"' : ""}></i>`).join("");
+  return `<div class="pa-fs" style="--pa-fs-p:${cur / (FS_STEPS.length - 1)}">
+      <span class="pa-fs-a" aria-hidden="true">小</span>
+      <div class="pa-fs-track"><input type="range" min="0" max="${FS_STEPS.length - 1}" step="1" value="${cur}" aria-label="文字大小" aria-valuetext="${fsText(cur)}"><div class="pa-fs-ticks" aria-hidden="true">${ticks}</div></div>
+      <span class="pa-fs-a pa-fs-big" aria-hidden="true">大</span>
+    </div>
+    <small class="pa-dim pa-fs-note"><span class="pa-fs-now">${fsText(cur)}</span> · 只对这台设备生效</small>`;
 }
 function bindFontSize(box) {
-  box.addEventListener("click", (e) => {
-    const b = e.target.closest("[data-fs]");
-    if (!b) return;
+  // 拖动时整个面板跟着变，松手前就能看到效果
+  box.addEventListener("input", (e) => {
+    const r = e.target.closest('.pa-fs input[type="range"]');
+    if (!r) return;
+    const i = Number(r.value);
     try {
-      localStorage.setItem(FS_KEY, b.dataset.fs);
+      localStorage.setItem(FS_KEY, String(i));
     } catch {
     }
-    const root = document.getElementById("mcd-root");
-    if (root) root.dataset.fs = b.dataset.fs;
-    box.querySelectorAll("[data-fs]").forEach((x) => x.classList.toggle("on", x === b));
+    applyFontSize(document.getElementById("mcd-root"), i);
+    r.setAttribute("aria-valuetext", fsText(i));
+    r.closest(".pa-fs").style.setProperty("--pa-fs-p", String(i / (FS_STEPS.length - 1)));
+    const now = box.querySelector(".pa-fs-now");
+    if (now) now.textContent = fsText(i);
   });
 }
