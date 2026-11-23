@@ -29,6 +29,8 @@ var Draft = class {
     if (!Array.isArray(this.preset.prompts)) this.preset.prompts = [];
     this.history = [];
     this.dirty = false;
+    // 2.11.21 改动计数：每次改动加一。保存时记下，写完对比，就知道保存期间有没有新改动（不必再整份序列化比对）
+    this.rev = 0;
     this._normalize();
   }
   _normalize() {
@@ -150,6 +152,7 @@ var Draft = class {
     const cap = this._snapSize > 1e6 ? 15 : this._snapSize > 3e5 ? 30 : 60;
     while (this.history.length > cap) this.history.shift();
     this.dirty = true;
+    this.rev = (this.rev || 0) + 1;
   }
   undo() {
     const h = this.history.pop();
@@ -167,6 +170,7 @@ var Draft = class {
     }
     this.groups = h.groups;
     this.dirty = true;
+    this.rev = (this.rev || 0) + 1;
     return h.label;
   }
   // ---------- 显示用：按顺序切成"分组框 / 散条目"块 ----------

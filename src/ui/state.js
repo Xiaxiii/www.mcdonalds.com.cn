@@ -238,6 +238,8 @@ function notifyDraft(name, kind = "status") {
 // 350 毫秒后自动保存成功就不需要草稿；保存失败、被挡住、切到后台或关页面时才写草稿。
 function emitChange(name) {
   const d = drafts.get(name);
+  // 不经 snapshot 直接改了草稿再通知的，也算一次改动（预设页据此判断要不要重画列表）
+  if (d) d.rev = (d.rev || 0) + 1;
   if (d?.dirty) queueAutoSave(name);
   notifyDraft(name, "content");
 }
@@ -340,7 +342,7 @@ async function quiesceDraft(name) {
 function dropClean() {
   for (const [n, d] of drafts) {
     if (d.dirty || saveJobs.has(n)) continue;
-    if (!d.history.length) { drafts.delete(n); continue; }
+    // 2.12.15 没改过的草稿也按同样办法核对：酒馆里没变就留着，重开面板不用重读、重画整个列表（大预设开面板会卡一下）
     // 1.1.3：本扩展保存之后，用户又在酒馆里直接改了预设（比如解除分组、开关条目），
     // 旧版会继续拿内存里的旧草稿干活，下一次自动保存就把这些改动盖回去。
     // 现在发现酒馆里的预设和上次保存的不一样，就丢掉旧草稿重新读。

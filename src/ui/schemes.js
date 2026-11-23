@@ -355,7 +355,7 @@ function mountSchemes(page, { after } = {}) {
       const list = groups.get(k).sort((a, b) => t(b) - t(a));
       const isOpen = isOpenK(k);
       return `<section class="pa-sgroup${isOpen ? " open" : ""}" data-k="${esc(k)}">
-          <header class="pa-sghead" data-a="fold" tabindex="0"><span class="pa-sgcaret">${isOpen ? "▾" : "▸"}</span>${picking ? `<input type="checkbox" data-a="pickgroup" aria-label="选中这一组" ${list.every((s) => picked.has(s.id)) ? "checked" : ""}>` : ""}<b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></header>
+          <header class="pa-sghead" data-a="fold" tabindex="0"><span class="pa-sgcaret" aria-hidden="true">${isOpen ? "▾" : "▸"}</span>${picking ? `<input type="checkbox" data-a="pickgroup" aria-label="选中这一组" ${list.every((s) => picked.has(s.id)) ? "checked" : ""}>` : ""}<span class="pa-sgtitle"><b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></span></header>
           ${isOpen ? `<div class="pa-sgbody">${list.map((s) => row(s, d)).join("")}</div>` : ""}</section>`;
     }).join("");
     after?.();

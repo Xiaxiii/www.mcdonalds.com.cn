@@ -100,6 +100,13 @@ function entryChanges(cur, r) {
   const changed = Object.entries(next).some(([k, v]) => (cur[k] ?? (k === "role" ? "system" : k === "injection_position" ? 0 : "")) !== v);
   return changed ? next : null;
 }
+// 每份草稿对象一个编号：换了草稿（重新读取、丢弃后重建）时列表要重画
+var draftIds = /* @__PURE__ */ new WeakMap();
+var draftIdNext = 0;
+function draftId(d) {
+  if (!draftIds.has(d)) draftIds.set(d, ++draftIdNext);
+  return draftIds.get(d);
+}
 function mountOrganize(page) {
   const st = {
     selected: /* @__PURE__ */ new Set(),
@@ -116,6 +123,7 @@ function mountOrganize(page) {
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
             <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">${ICON.search}</button>
+            <button class="pa-icon-btn pa-del" data-tool="delpreset" aria-label="删除预设" title="删除预设（可多选）">${ICON.trash}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">${ICON.plus}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">⋯</button>
             <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" aria-label="搜索条目"><button type="button" class="pa-icon-btn pa-qx" data-tool="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
@@ -143,8 +151,10 @@ function mountOrganize(page) {
                 <button class="pa-btn" data-sel="more">更多</button>
             </div>
         </div>
+        ${splitterHtml("拖动调整列表和编辑栏的宽度")}
         <aside class="pa-editpane" aria-label="编辑条目" hidden></aside>`;
   const list = page.querySelector(".pa-list");
+  paneSplit(page, page.querySelector(":scope > .pa-vsplit"), "org");
   const selbar = page.querySelector(".pa-selbar");
   const movebar = page.querySelector(".pa-movebar");
   const search = page.querySelector(".pa-find");
@@ -194,10 +204,15 @@ function mountOrganize(page) {
     const fragments = placing || st.query ? [] : fragmentedGroups(d);
     const repairBanner = fragments.length ? `<div class="pa-card pa-group-repair"><p><b>检测到 ${fragments.length} 个分区被拆成多段</b></p><small>${esc(fragments.slice(0, 4).map((g) => `${g.name}（${g.parts} 段）`).join("、"))}${fragments.length > 4 ? " 等" : ""}。可以按已有归属收拢到各组首段，先预览再应用。</small><div class="pa-card-act"><button class="pa-btn pa-btn-s" data-repair-groups>归整分区</button></div></div>` : "";
     const tk = tkSync() && tkEach();
-    list.innerHTML = dupBanner + repairBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight, tk });
+    // 2.12.15 切回这一页、草稿和显示条件都没变时不重建列表（大预设整列表重建要几十到上百毫秒，切页就卡一下）
+    const sig = JSON.stringify([draftId(d), d.rev, currentPresetName(), placing, st.mode, st.query, st.searchBody, [...st.selected], [...(st.collapsed || [])], [...st.highlight], tk, dupBanner.length, repairBanner.length, settings()]);
+    if (sig !== st.listSig || !list.firstElementChild) {
+      st.listSig = sig;
+      list.innerHTML = dupBanner + repairBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight, tk });
+      list.scrollTop = top;
+    }
     list.classList.toggle("pa-tk-on", tk);
     paintTkTotal(d);
-    list.scrollTop = top;
     if (pane.id && (pane.preset !== d.name || !d.prompt(pane.id) || !wideEdit())) closePane();
     else markPaneRow();
     list.classList.toggle("pa-placing", placing);
@@ -253,7 +268,7 @@ function mountOrganize(page) {
   function paintTkTotal(d) {
     if (page.hidden) return;
     const sum = tkPresetTotal(d);
-    tkPaintBar(`共 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `开着的条目合计${sum === void 0 ? `，还剩 ${tkPending()} 条没数` : ""}，不含聊天记录等系统位置`);
+    tkPaintBar("共", sum, "开着的条目合计，不含聊天记录等系统位置");
   }
   function paintTk() {
     let d;
@@ -282,6 +297,33 @@ function mountOrganize(page) {
     settings().tkEach = !tkEach();
     saveSettings();
     render();
+  }
+  // 2.12.12 删除预设：同「清理 → 预设」，删前可下载备份；正在用的不能删
+  // 2.12.15 可多选：列出全部预设，默认勾着正在看的这个（正在用的灰着）
+  async function deletePresetHere() {
+    const cur = currentPresetName(), here = draft().name, users = presetUsers();
+    const items = listPresets().map((n) => ({ name: n, label: n, checked: n === here, disabled: n === cur, why: n === cur ? "正在用，先在酒馆里换一个才能删" : users[n]?.length ? `${users[n].join("、")}用着它，删除后无法套用` : "" }));
+    const pick = await pickDeleteMany({
+      title: "删除预设", items, hint: "删除后酒馆里找不回来，需要的话先下载备份。",
+      download: async (xs) => {
+        for (const x of xs) downloadBlob(new Blob([JSON.stringify(readPreset(x.name), null, 4)], { type: "application/json" }), `${x.name}.json`);
+        return `已让浏览器下载 ${xs.length} 个文件（${esc(xs.map((x) => `${x.name}.json`).join("、"))}），可在下载记录里确认。`;
+      }
+    });
+    if (!pick?.length) return;
+    const done = [], fail = [];
+    for (const x of pick) {
+      try {
+        await quiesceDraft(x.name);
+        await deletePresetFile(x.name);
+        done.push(x.name);
+      } catch (e) {
+        fail.push(`${x.name}：${e.message}`);
+      }
+    }
+    if (done.includes(focusPreset())) setFocusPreset(currentPresetName());
+    if (done.length) toast(done.length === 1 ? `已删除预设「${done[0]}」` : `已删除 ${done.length} 个预设`, "success");
+    if (fail.length) toast("没删掉：" + fail.join("；"), "error");
   }
   // 页签行的眼睛改了设置之后
   const tkRepaint = () => render();
@@ -440,6 +482,7 @@ function mountOrganize(page) {
     }
     if (t === "tk") return tkToggle();
     if (t === "import") return importSheet();
+    if (t === "delpreset") return deletePresetHere();
     if (t === "search" || t === "searchclose") {
       const row = page.querySelector(".pa-findrow");
       row.hidden = t === "searchclose" || !row.hidden;
