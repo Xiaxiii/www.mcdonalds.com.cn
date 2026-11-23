@@ -95,7 +95,7 @@ function buildRoot() {
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
             <div class="pa-subnav" role="tablist" hidden></div>
-            <div class="pa-tkbar" hidden><span class="pa-tktotal" data-tktotal></span><button type="button" class="pa-icon-btn pa-tkeye" data-tkeye aria-pressed="false" aria-label="每条显示 token 数" title="每条显示 token 数"></button></div>
+            <button type="button" class="pa-tkbar" data-tkeye aria-pressed="false" hidden><i class="pa-tkdot" aria-hidden="true"></i><span class="pa-tktotal" data-tktotal></span></button>
             <main class="pa-main">${Object.keys(SECTION_OF).filter((k) => !PAGE_EL[k]).map((k) => `<section class="pa-page" data-page="${k}" hidden></section>`).join("")}</main>
         </div>
     </div>`);
@@ -144,7 +144,7 @@ function buildRoot() {
     const t = e.target.closest("[data-nav]");
     if (t) show(t.dataset.nav);
   });
-  // 2.12.7 页签行右侧：token 合计（文字）＋ 眼睛开关（每条显示 token 数）；条目页、世界书页共用一个设置
+  // 2.12.7 页签行右侧：token 合计＋开关（每条显示 token 数）；条目页、世界书页共用一个设置。2.12.8 圆点＋合计合成一个按钮
   rootEl2.querySelector("[data-tkeye]").addEventListener("click", () => {
     settings().tkEach = settings().tkEach !== true;
     saveSettings();

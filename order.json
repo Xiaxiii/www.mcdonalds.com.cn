@@ -48,6 +48,7 @@
  "ui/cleanmore.js",
  "ui/books.js",
  "ui/rxpage.js",
+ "ui/importer.js",
  "ui/more.js",
  "ui/style.css",
  "ui/app.js",

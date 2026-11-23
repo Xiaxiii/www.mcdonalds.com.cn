@@ -1,4 +1,5 @@
 // 变量顺序与现状：只在「预设 → 变量」页显示
+var VAR_STEP = { set: "赋值", clear: "清空", delete: "删除", get: "读取", reset: "再次赋值" };
 function variableForm(d) {
   let snapshot = null;
   const body = el(`<div class="pa-form">
@@ -6,11 +7,21 @@ function variableForm(d) {
     <div class="pa-rcheck"><label class="pa-field-row"><input type="checkbox" data-vf="watch" ${settings().variableWatch ? "checked" : ""}>记录生成前后变量变化</label>${tip("状态只包含变量名、是否为空及类型，不保存正文。生成前后对比仅保留在本页内存中，默认关闭；不是每一次宏调用的执行追踪。")}</div>
     <div data-vf="result" aria-live="polite"></div></div>`);
   const result = body.querySelector('[data-vf="result"]');
+  let fixes = [];
   function render() { d.withReadIndex(renderIndexed); }
   function renderIndexed() {
     const report = memoByDraft(d, "varflow", () => auditVariableFlow(d)), nm = (id) => esc(d.prompt(id)?.name || id);
     let html = `<p class="pa-p">发现 ${report.issues.length} 项顺序风险，${report.unknown.length} 个条目需运行时核对。</p>`;
-    if (report.issues.length) html += `<ul class="pa-notes">${report.issues.map((i) => `<li><b>${i.scope === "global" ? "全局" : "聊天"}变量「${esc(i.name)}」</b>：${esc(i.text)}<br><small>${i.ids.map(nm).join(" → ")}</small></li>`).join("")}</ul>`;
+    // 2.12.8 每一步写明哪条条目做了什么（条目名可能自己带箭头，名字加「」）；清空后读取给出改法，能安全挪的给按钮
+    fixes = report.issues.map((i) => planClearedFix(d, i, report.events));
+    const trail = (i) => i.steps.map((x) => `「${nm(x.id)}」${VAR_STEP[x.op] || ""}`).join(" → ");
+    const advice = (i, f) => {
+      if (i.kind !== "cleared") return "";
+      if (f) return `<p class="pa-var-fix">改法：把「${nm(f.id)}」挪到${esc(f.to)}。这条整条只写变量，挪动不改变发出去的文字。也可以在「${nm(i.steps[1].id)}」里去掉对「${esc(i.name)}」的清空。<button class="pa-btn pa-btn-s" data-vf="fix" data-i="${report.issues.indexOf(i)}" type="button">挪到${esc(f.to)}</button></p>`;
+      const s0 = i.steps[0].op === "set" ? i.steps[0] : null;
+      return `<p class="pa-var-fix">改法：${s0 ? `把「${nm(s0.id)}」挪到「${nm(i.steps[1].id)}」之后、「${nm(i.steps.at(-1).id)}」之前，` : `在「${nm(i.steps.at(-1).id)}」之前给它赋值，`}或在「${nm(i.steps.at(-2).id)}」里去掉对「${esc(i.name)}」的清空。</p>`;
+    };
+    if (report.issues.length) html += `<ul class="pa-notes">${report.issues.map((i, k) => `<li><b>${i.scope === "global" ? "全局" : "聊天"}变量「${esc(i.name)}」</b>：${esc(i.text)}<br><small class="pa-var-trail">${trail(i)}</small>${advice(i, fixes[k])}</li>`).join("")}</ul>`;
     if (report.unknown.length) html += `<details class="pa-card"><summary>未推演的条目（${report.unknown.length}）</summary><ul class="pa-notes">${report.unknown.map((i) => `<li>「${nm(i.id)}」：${esc(i.reasons.join("；"))}</li>`).join("")}</ul></details>`;
     html += `<details class="pa-card"><summary>可见变量操作顺序（${report.events.length}）</summary><ol class="pa-notes">${report.events.map((e) => `<li>「${nm(e.id)}」：${esc(e.op)} · ${e.scope === "global" ? "全局" : "聊天"}变量「${esc(e.name)}」</li>`).join("")}</ol></details>`;
     if (snapshot) {
@@ -31,6 +42,15 @@ function variableForm(d) {
     result.innerHTML = html;
   }
   body.addEventListener("click", (e) => {
+    const fixBtn = e.target.closest('[data-vf="fix"]');
+    if (fixBtn) {
+      const f = fixes[Number(fixBtn.dataset.i)];
+      if (!f) return;
+      const name = d.prompt(f.id)?.name || f.id;
+      mutate(d, `挪动「${name}」`, (x) => x.place([f.id], f.where, f.gid));
+      toast(`已把「${name}」挪到${f.to}，可在页头撤销`, "success");
+      return render();
+    }
     if (e.target.closest('[data-vf="snapshot"]')) {
       if (d.name !== currentPresetName()) return toast("只能读取酒馆当前使用中预设的聊天变量，请先切换预设", "warning");
       snapshot = captureVariableSnapshot();

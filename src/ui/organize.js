@@ -125,6 +125,7 @@ function mountOrganize(page) {
                 <button class="pa-btn pa-btn-soft" data-tool="smart">智能分组</button>
                 <button class="pa-btn pa-btn-soft" data-tool="fold">全部折叠</button>
                 <button class="pa-btn pa-btn-soft" data-tool="clickorder"></button>
+                <button class="pa-btn pa-btn-soft" data-tool="import">导入…</button>
             </div>
         </div>
         <div class="pa-movebar" hidden><b class="pa-move-n"></b>
@@ -248,7 +249,7 @@ function mountOrganize(page) {
     tg.dataset.sel = allOn ? "off" : "on";
     tg.textContent = allOn ? "关闭" : "开启";
   }
-  // 2.12.6 token 数：页签行右侧是生效条目的合计；数字陆续数出来时就地改，不重画列表。2.12.7 开关是合计旁的眼睛
+  // 2.12.6 token 数：页签行右侧是生效条目的合计；数字陆续数出来时就地改，不重画列表。2.12.8 开关是「● 共 N tk」那个按钮
   function paintTkTotal(d) {
     if (page.hidden) return;
     const sum = tkPresetTotal(d);
@@ -432,11 +433,13 @@ function mountOrganize(page) {
         { label: "智能分组", sub: "识别未分组条目的归属，或归整分散分区", value: "smart" },
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
         { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" },
-        ...(tkSync() ? [{ label: `每条的 token 数：${tkEach() ? "显示" : "不显示"}`, sub: "小字在眼睛左边，分组头写组内开着的条目合计。点击切换", value: "tk" }] : [])
+        ...(tkSync() ? [{ label: `每条的 token 数：${tkEach() ? "显示" : "不显示"}`, sub: "小字在眼睛左边，分组头写组内开着的条目合计。点击切换", value: "tk" }] : []),
+        { label: "导入…", sub: "预设、世界书或正则文件，直接导入酒馆", value: "import" }
       ]);
       if (!t) return;
     }
     if (t === "tk") return tkToggle();
+    if (t === "import") return importSheet();
     if (t === "search" || t === "searchclose") {
       const row = page.querySelector(".pa-findrow");
       row.hidden = t === "searchclose" || !row.hidden;

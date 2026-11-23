@@ -118,26 +118,22 @@ function tkFmt(n) {
   if (Number.isNaN(n)) return "—";
   return TK_NF.format(n);
 }
-// 2.12.7 页签行右侧：合计是文字，旁边的眼睛才是开关。睁眼＝每条显示 token 数，带斜线＝不显示
-var TK_EYE_OFF = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M2 12s3.6-7 10-7c1.6 0 3 .4 4.3 1.1M22 12s-3.6 7-10 7c-1.6 0-3-.4-4.3-1.1"/><path d="M9.9 14.1a3 3 0 0 1 4.2-4.2"/><path d="M4 20 20 4"/></svg>';
+// 2.12.8 页签行右侧：一个按钮「● 共 N tk」。圆点和保存状态那颗一样：关时空心，开（每条显示 token 数）时实心绿点，
+// 还在数时呼吸
 const tkEach = () => settings().tkEach === true;
-/** 画页签行右侧：label 是合计那句（undefined＝不显示整条），title 是说明 */
+/** 画页签行右侧：label 是合计那句（undefined＝不显示），title 是说明 */
 function tkPaintBar(label, title = "") {
   const bar = rootEl?.querySelector(".pa-tkbar");
   if (!bar) return;
   bar.hidden = label === void 0 || !tkS.fn;
   if (bar.hidden) return;
-  const t = bar.querySelector("[data-tktotal]"), eye = bar.querySelector("[data-tkeye]"), on = tkEach();
+  const t = bar.querySelector("[data-tktotal]"), on = tkEach(), busy = /…/.test(label);
   if (t.textContent !== label) t.textContent = label;
-  t.title = title;
-  t.setAttribute("aria-busy", String(/…/.test(label)));
-  eye.setAttribute("aria-pressed", String(on));
-  const icon = on ? ICON.eye : TK_EYE_OFF;
-  if (eye.dataset.on !== String(on)) {
-    eye.innerHTML = icon;
-    eye.dataset.on = String(on);
-  }
-  eye.title = on ? "收起每条的 token 数" : "每条显示 token 数";
+  bar.setAttribute("aria-pressed", String(on));
+  bar.setAttribute("aria-busy", String(busy));
+  bar.classList.toggle("pa-tk-busy", busy);
+  bar.setAttribute("aria-label", `${label}，每条显示 token 数`);
+  bar.title = `${title}。${on ? "点按收起每条的 token 数" : "点按在每条旁显示 token 数"}`;
 }
 /** 列表里的短写法：1000 以上写成 1.2k、12k，列窄，手机上名字少被截断；完整数字在合计和提示里 */
 function tkShort(n) {

@@ -40,33 +40,37 @@ const want = await expected();
 assert.ok(want > 0);
 assert.strictEqual(await totalNum(), want, `合计等于生效条目正文的 token 数之和：${await totalText()} / ${want}`);
 assert.strictEqual(await page.$eval("[data-tkeye]", (b) => b.getAttribute("aria-pressed")), "false");
-assert.strictEqual(await page.$eval("[data-tktotal]", (b) => b.tagName), "SPAN", "合计是文字，不是按钮");
+assert.deepStrictEqual(await page.$eval("[data-tkeye]", (b) => [b.tagName, !!b.querySelector(".pa-tkdot"), b.contains(document.querySelector("[data-tktotal]"))]), ["BUTTON", true, true], "2.12.8 圆点＋合计是一个按钮");
+const dot = (prop) => page.$eval(".pa-tkdot", (x, p) => getComputedStyle(x)[p], prop);
+assert.match(await dot("boxShadow"), /inset/, "关时圆点是空心圈");
 assert.strictEqual(await page.locator(".pa-list .pa-tk").count(), 0, "默认不在每条旁显示");
 const box = await page.$eval(".pa-tkbar", (b) => { const r = b.getBoundingClientRect(), t = document.querySelector(".pa-subnav").getBoundingClientRect(); return { top: r.top - t.top, bottom: t.bottom - r.bottom, right: t.right - r.right }; });
 assert.ok(box.top >= 0 && box.bottom >= 0 && box.right < 24, "合计在页签行里、靠右：" + JSON.stringify(box));
 console.log("✓ 页签行右侧显示生效条目的 token 合计：" + await totalText());
+// 2.12.8 页签行只横向滚，不能上下拖（选中页签的下划线多出 1px 时，以前整行能上下滑）
+assert.deepStrictEqual(await page.$eval(".pa-subnav", (x) => [getComputedStyle(x).overflowY, getComputedStyle(x).touchAction]), ["hidden", "pan-x"]);
 
-// 点眼睛：每条旁显示，分组头在组名后写组内开着的条目合计
+// 点圆点按钮：每条旁显示；分组头「5/7」紧跟组名，组内开着的条目合计在右边，和条目的数字同一列
 await page.click("[data-tkeye]");
 await expandAll(page);
 await page.waitForTimeout(300);
 assert.strictEqual(await page.$eval("[data-tkeye]", (b) => b.getAttribute("aria-pressed")), "true");
+assert.ok(!/inset/.test(await dot("boxShadow")) && (await dot("backgroundColor")) !== "rgba(0, 0, 0, 0)", "开时圆点是实心");
 assert.strictEqual(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.tkEach), true, "记住开关");
 const g = await page.$eval(".pa-list .pa-group", (sec) => {
   const head = sec.querySelector(":scope > .pa-ghead"), r = (x) => x.getBoundingClientRect();
   return {
     head: Number(head.querySelector(".pa-gtk").textContent.replace(/,/g, "")),
     rows: [...sec.querySelectorAll(".pa-row:not(.pa-off) > .pa-tk")].map((x) => Number(x.textContent.replace(/,/g, "") || 0)),
-    right: [...sec.querySelectorAll(".pa-row > .pa-tk")].map((x) => Math.round(r(x).right)),
-    afterName: Math.round(r(head.querySelector(".pa-gtk")).left - r(head.querySelector(".pa-gname")).right),
-    countLeft: Math.round(r(head.querySelector(".pa-count")).left - r(head.querySelector(".pa-gtk")).right)
+    right: [...sec.querySelectorAll(".pa-row > .pa-tk, :scope > .pa-ghead > .pa-gtk")].map((x) => Math.round(r(x).right)),
+    countAfterName: Math.round(r(head.querySelector(".pa-count")).left - r(head.querySelector(".pa-gname")).right)
   };
 });
 assert.ok(g.rows.length > 0 && g.head === g.rows.reduce((a, b) => a + b, 0), "分组头的合计等于组内开着的条目之和：" + JSON.stringify(g));
-assert.strictEqual(new Set(g.right).size, 1, "条目的数字右端对齐：" + g.right.join());
-assert.ok(g.afterName >= 4 && g.afterName <= 12 && g.countLeft > 20, "分组头的合计紧跟组名，离计数远：" + JSON.stringify(g));
+assert.strictEqual(new Set(g.right).size, 1, "分组头和条目的数字右端对齐：" + g.right.join());
+assert.ok(g.countAfterName >= 4 && g.countAfterName <= 12, "「5/7」紧跟组名：" + JSON.stringify(g));
 await page.screenshot({ path: S + "tk-1-each.png" });
-console.log("✓ 点眼睛：每条旁显示 token 数，分组头在组名后写组内合计");
+console.log("✓ 点圆点：每条旁显示 token 数；分组头「5/7」紧跟组名，合计在右边一列");
 
 // 关掉一条：分组头、合计跟着少
 const rowId = await page.locator(".pa-list .pa-group .pa-row:not(.pa-off)").first().getAttribute("data-id");
@@ -82,7 +86,7 @@ await page.waitForTimeout(250);
 assert.strictEqual(await totalNum(), before);
 console.log("✓ 开关条目后合计、分组头就地更新");
 
-// 再点眼睛收起；⋯ 菜单里也能切换
+// 再点收起；⋯ 菜单里也能切换
 await page.click("[data-tkeye]");
 await page.waitForTimeout(200);
 assert.strictEqual(await page.locator(".pa-list .pa-tk").count(), 0, "再点收起");
@@ -92,7 +96,7 @@ assert.strictEqual(await item.count(), 1, "⋯ 菜单里有「每条的 token �
 await item.click();
 await page.waitForTimeout(250);
 assert.ok(await page.locator(".pa-list .pa-row > .pa-tk").count() > 0, "从菜单打开");
-console.log("✓ 再点眼睛收起；⋯ 菜单里也能切换");
+console.log("✓ 再点收起；⋯ 菜单里也能切换");
 
 // 世界书：列表写每本开着的条目合计，条目页每条一列，页签行写正在用的书里常驻条目的合计；正则页不显示
 await page.click('.pa-subnav [data-tab="books"]');
