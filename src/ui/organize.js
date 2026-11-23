@@ -126,6 +126,7 @@ function mountOrganize(page) {
                 <button class="pa-btn pa-btn-soft" data-tool="fold">全部折叠</button>
                 <button class="pa-btn pa-btn-soft" data-tool="clickorder"></button>
                 <button class="pa-btn pa-btn-soft" data-tool="import">导入…</button>
+                <button class="pa-icon-btn pa-del" data-tool="delpreset" aria-label="删除这个预设" title="删除这个预设">${ICON.trash}</button>
             </div>
         </div>
         <div class="pa-movebar" hidden><b class="pa-move-n"></b>
@@ -283,6 +284,26 @@ function mountOrganize(page) {
     saveSettings();
     render();
   }
+  // 2.12.12 删除这个预设：正在用的不能删；先备份（可在「备份」里恢复），等保存结束再删，删完回到正在用的预设
+  // 2.12.12 删除这个预设：同「清理 → 预设」，删前可下载备份；正在用的不能删
+  async function deletePresetHere() {
+    const n = draft().name;
+    if (n === currentPresetName()) return toast("正在用的预设不能删，先在酒馆里换一个", "warning");
+    const used = presetUsers()[n] || [];
+    const go = await confirmDeleteOfferBackup("删除预设", `<p class="pa-p">删除「${esc(n)}」后，酒馆里找不回来，需要的话先下载备份。</p>${used.length ? `<p class="pa-p pa-warn">${esc(used.join("、"))}用着它，删除后无法套用。</p>` : ""}`, async () => {
+      downloadBlob(new Blob([JSON.stringify(readPreset(n), null, 4)], { type: "application/json" }), `${n}.json`);
+      return `已让浏览器下载「${esc(n)}.json」，可在下载记录里确认。`;
+    });
+    if (!go) return;
+    try {
+      await quiesceDraft(n);
+      await deletePresetFile(n);
+    } catch (e) {
+      return toast("删除失败：" + e.message, "error");
+    }
+    setFocusPreset(currentPresetName());
+    toast(`已删除预设「${n}」`, "success");
+  }
   // 页签行的眼睛改了设置之后
   const tkRepaint = () => render();
   const offTk = tkSubscribe(() => { if (draftViewVisible(page)) paintTk(); });
@@ -434,12 +455,14 @@ function mountOrganize(page) {
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
         { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" },
         ...(tkSync() ? [{ label: `每条的 token 数：${tkEach() ? "显示" : "不显示"}`, sub: "点击切换", value: "tk" }] : []),
-        { label: "导入…", sub: "预设、世界书、正则", value: "import" }
+        { label: "导入…", sub: "预设、世界书、正则", value: "import" },
+        { label: "删除这个预设…", value: "delpreset", danger: true }
       ]);
       if (!t) return;
     }
     if (t === "tk") return tkToggle();
     if (t === "import") return importSheet();
+    if (t === "delpreset") return deletePresetHere();
     if (t === "search" || t === "searchclose") {
       const row = page.querySelector(".pa-findrow");
       row.hidden = t === "searchclose" || !row.hidden;

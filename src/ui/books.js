@@ -398,6 +398,7 @@ function mountBooks(page) {
         <button class="pa-icon-btn pa-bk-back" data-e="back" data-esc-back aria-label="返回世界书列表" title="返回">${BACK_ICON}</button>
         <b class="pa-bk-dname" data-e="rename" role="button" tabindex="0" title="改名">${esc(n)}</b>
         <button class="pa-icon-btn pa-bk-rename" data-e="rename" aria-label="改世界书名称" title="改名">${ICON.pencil}</button>
+        <button class="pa-icon-btn pa-del" data-e="delbook" aria-label="删除世界书「${esc(n)}」" title="删除世界书">${ICON.trash}</button>
         <button class="pa-icon-btn" data-e="search" aria-label="搜索条目" aria-expanded="false" title="搜索条目">${ICON.search}</button>
         <button class="pa-icon-btn" data-e="new" aria-label="新建条目" title="新建条目">${ICON.plus}</button>
       </div>
@@ -480,6 +481,31 @@ function mountBooks(page) {
       </div>`;
     }).join("") : '<p class="pa-empty">没有匹配的条目</p>');
     sc.scrollTop = top;
+  }
+  // 2.12.12 删除整本世界书：同「清理 → 世界书」，删前可下载备份；全局列表、角色附加世界书里的链接由酒馆一起去掉
+  async function deleteOpenBook() {
+    const n = st.open;
+    if (!n) return;
+    const go = await confirmDeleteOfferBackup("删除世界书", `<p class="pa-p">删除「${esc(n)}」后，酒馆里找不回来，需要的话先下载备份。</p>`, async () => {
+      try {
+        const data = await mods.wi.loadWorldInfo(n);
+        if (!data || typeof data !== "object") throw new Error("读取结果为空");
+        downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `${n}.json`);
+        return `已让浏览器下载「${esc(n)}.json」，可在下载记录里确认。`;
+      } catch (e) {
+        return `读取失败，没有下载：${esc(e?.message || e)}`;
+      }
+    });
+    if (!go) return;
+    try {
+      await deleteWorldbook(n);
+    } catch (e) {
+      return toast("删除失败：" + e.message, "error");
+    }
+    st.counts.delete(n);
+    closeBook();
+    render();
+    toast(`已删除世界书「${n}」`, "success");
   }
   // 每打开一本书，第一次写入前备份一次
   // 2.12.3 改世界书名称：标题行原地改，回车保存、Esc 取消
@@ -587,6 +613,7 @@ function mountBooks(page) {
     const act = a?.dataset.e;
     if (act === "back") return backToList();
     if (act === "rename") return renameOpen();
+    if (act === "delbook") return deleteOpenBook();
     if (act === "search" || act === "searchclose") {
       const qbox = detail.querySelector(".pa-bk-q");
       const q = detail.querySelector("[data-e=q]");

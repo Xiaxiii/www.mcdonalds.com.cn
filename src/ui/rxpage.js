@@ -167,6 +167,7 @@ function mountRegexPage(page) {
       const where = (Array.isArray(r.placement) ? r.placement : []).map((p) => RX_PLACE[p]).filter(Boolean);
       return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
           <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
+          <button class="pa-icon-btn pa-del" data-r="del" aria-label="删除「${esc(name)}」" title="删除">${ICON.trash}</button>
           <button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
           <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
         </div>`;
@@ -224,6 +225,26 @@ function mountRegexPage(page) {
     }
     render();
   }
+  // 删除一条正则：编辑窗口里的「删除」和行上的垃圾桶都走这里。预设的可在页头撤销
+  async function remove(kind, i, r = ruleOf(kind, i)) {
+    if (!r) return;
+    const name = presetRegexRuleName(r);
+    const undo = kind === "preset" ? "可在页头撤销。" : "删除后不能撤销。";
+    if (!await confirmBox("删除正则", `删除「${name}」？${undo}`, "删除", true)) return;
+    if (ruleOf(kind, i) !== r) return toast("这条正则已变动，没有删除，请重试", "warning");
+    try {
+      if (kind === "preset") {
+        const d = getDraft(focusPreset());
+        mutate(d, "删除正则", (x) => { presetRegexList(x).splice(i, 1); });
+        if (d.name === currentPresetName()) noteRegexDisplay(r);
+      } else if (kind === "char") await deleteCharRegex(currentChar(), i);
+      else deleteGlobalRegex(i);
+      toast(`已删除「${name}」`, "success");
+    } catch (e) {
+      toast("删除失败：" + e.message, "error");
+    }
+    render();
+  }
   async function peek(kind, i) {
     const r = ruleOf(kind, i);
     if (!r) return;
@@ -234,17 +255,8 @@ function mountRegexPage(page) {
     const cur = ruleOf(kind, i);
     if (cur !== r && !(kind === "preset" && cur && cur.id === r.id)) return toast("这条正则已变动，没有保存，请重新打开", "warning");
     try {
-      if (next === "delete") {
-        const undo = kind === "preset" ? "可在页头撤销。" : "删除后不能撤销。";
-        if (!await confirmBox("删除正则", `删除「${name}」？${undo}`, "删除", true)) return;
-        if (kind === "preset") {
-          const d = getDraft(focusPreset());
-          mutate(d, "删除正则", (x) => { presetRegexList(x).splice(i, 1); });
-          if (d.name === currentPresetName()) noteRegexDisplay(r);
-        } else if (kind === "char") await deleteCharRegex(currentChar(), i);
-        else deleteGlobalRegex(i);
-        toast(`已删除「${name}」`, "success");
-      } else {
+      if (next === "delete") return remove(kind, i, r);
+      else {
         if (kind === "preset") {
           const d = getDraft(focusPreset());
           mutate(d, "编辑正则", (x) => { presetRegexList(x)[i] = next; });
@@ -281,6 +293,7 @@ function mountRegexPage(page) {
     if (!row) return;
     const kind = row.dataset.kind, i = Number(row.dataset.i);
     if (a?.dataset.r === "toggle") return void toggle(kind, i, a.checked);
+    if (a?.dataset.r === "del") return remove(kind, i);
     if (e.target.closest(".pa-switch")) return;
     peek(kind, i);
   });

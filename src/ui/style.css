@@ -312,6 +312,12 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-name { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mcd-root .pa-badges { display: inline-flex; gap: 4px; flex: none; max-width: 40%; overflow: hidden; }
 #mcd-root .pa-peek { width: 30px; height: 30px; opacity: .6; }
+/* 2.12.12 删除：小垃圾桶，平时和眼睛一样灰，按下、悬停变红；行里和眼睛同大 */
+#mcd-root .pa-del { width: 30px; height: 30px; opacity: .6; }
+#mcd-root .pa-bk-dhead .pa-del, #mcd-root .pa-tools .pa-del { width: 36px; height: 36px; }
+#mcd-root .pa-del:active { color: var(--pa-warn); opacity: 1; }
+#mcd-root .pa-del:focus-visible { outline: 2px solid var(--pa-warn); outline-offset: -2px; opacity: 1; }
+@media (hover: hover) and (pointer: fine) { #mcd-root .pa-del:hover { color: var(--pa-warn); opacity: 1; } }
 #mcd-root .pa-handle {
     display: inline-flex; align-items: center; justify-content: center;
     width: 40px; height: calc(var(--pa-row-h) - 4px); flex: none; cursor: grab; touch-action: none; border-radius: 8px;
@@ -1656,6 +1662,8 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-btn-primary:active:not(:disabled) { background: var(--pa-thread); opacity: .88; }
 #mcd-root .pa-btn-soft { border-style: solid; border-color: var(--pa-line); background: transparent; }
 #mcd-root .pa-btn-danger-soft { border-color: var(--pa-line-strong, var(--pa-line)); background: var(--pa-tint); }
+#mcd-root .pa-btn-danger, #mcd-root .pa-btn-danger:active:not(:disabled) { background: var(--pa-warn); border-color: var(--pa-warn); color: var(--pa-on-accent, #fff); }
+#mcd-root .pa-btn-danger:active:not(:disabled) { opacity: .88; }
 #mcd-root .pa-mini { border: 1px solid var(--pa-line-strong, var(--pa-line)); color: var(--pa-text); background: var(--pa-tint); min-height: 30px; padding: 2px 12px; font-weight: 500; }
 #mcd-root .pa-link { text-decoration-style: solid; text-decoration-color: var(--pa-line-strong, var(--pa-line)); }
 #mcd-root .pa-icon-btn { border-radius: var(--pa-r); color: var(--pa-dim); }
@@ -2588,9 +2596,11 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-dname.pa-inline-editing { flex: 1 1 auto; cursor: auto; }
 #mcd-root .pa-bk-dname .pa-inline-input { width: 100%; min-height: 36px; font-weight: 500; }
 #mcd-root .pa-bk-dname { flex: 0 1 auto; }
-#mcd-root .pa-bk-dhead > .pa-bk-rename { margin-right: auto; color: var(--pa-dim); }
-#mcd-root .pa-bk-dhead > .pa-bk-rename svg { width: 16px; height: 16px; }
-#mcd-root .pa-bk-dname.pa-inline-editing + .pa-bk-rename { display: none; }
+#mcd-root .pa-bk-dhead > .pa-bk-rename { color: var(--pa-dim); }
+#mcd-root .pa-bk-dhead > .pa-bk-rename svg, #mcd-root .pa-bk-dhead > .pa-del svg { width: 16px; height: 16px; }
+/* 2.12.12 铅笔、垃圾桶跟着书名（管这本书）；搜索、新建靠右（管条目） */
+#mcd-root .pa-bk-dhead > .pa-del { margin-right: auto; }
+#mcd-root .pa-bk-dname.pa-inline-editing + .pa-bk-rename, #mcd-root .pa-bk-dname.pa-inline-editing ~ .pa-del { display: none; }
 /* 2.12.8 变量页：风险经过的几步、改法和一键挪动 */
 #mcd-root .pa-var-trail { color: var(--pa-dim); }
 #mcd-root .pa-var-fix { margin: 6px 0 2px; color: var(--pa-em); font-size: .9em; }
