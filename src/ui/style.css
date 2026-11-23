@@ -2594,9 +2594,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-dhead > .pa-bk-rename { margin-right: auto; color: var(--pa-dim); }
 #mcd-root .pa-bk-dhead > .pa-bk-rename svg { width: 16px; height: 16px; }
 #mcd-root .pa-bk-dname.pa-inline-editing + .pa-bk-rename { display: none; }
-/* 2.12.8 变量页：风险经过的几步和改法 */
+/* 2.12.8 变量页：风险经过的几步、改法和一键挪动 */
 #mcd-root .pa-var-trail { color: var(--pa-dim); }
 #mcd-root .pa-var-fix { margin: 6px 0 2px; color: var(--pa-em); font-size: .9em; }
+#mcd-root .pa-var-fix .pa-btn { display: flex; width: fit-content; margin-top: 8px; }
 /* 2.12.8 导入：每一项本身就是选文件的按钮（label），和菜单项一样的样子 */
 #mcd-root .pa-import .pa-pick-item { -webkit-tap-highlight-color: transparent; }
 #mcd-root .pa-import .pa-pick-item:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }

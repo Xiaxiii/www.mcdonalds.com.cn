@@ -1,5 +1,5 @@
-// 2.12.8 变量页「清空后读取」：写明赋值、清空、读取三步（条目名加「」，名字自带箭头也不乱）和改法。
-// 用法：在仓库根目录 bash test/run-browser.sh
+// 2.12.8 变量页「清空后读取」：写明赋值、清空、读取三步（条目名加「」，名字自带箭头也不乱）和改法；
+// 赋值那条整条只写变量时有一键挪动的按钮，挪完风险消失、可撤销。用法：在仓库根目录 bash test/run-browser.sh
 import { chromium } from "playwright";
 import assert from "node:assert";
 const S = new URL("./shots/", import.meta.url).pathname;
@@ -26,10 +26,22 @@ await page.evaluate(() => [...document.querySelectorAll(".pa-npick-item")].find(
 await page.waitForTimeout(400);
 const trail = await page.$eval("[data-page=vars] .pa-var-trail", (x) => x.textContent);
 assert.strictEqual(trail, "「超级破甲」赋值 → 「set-不要关」清空 → 「← 常规CoT」读取");
-const fix = await page.$eval("[data-page=vars] .pa-var-fix", (x) => x.textContent);
-assert.strictEqual(fix, "改法：把「超级破甲」挪到「set-不要关」和「← 常规CoT」之间，或在「set-不要关」里去掉对「超级破甲」的清空");
+const fix = await page.$eval("[data-page=vars] .pa-var-fix", (x) => x.firstChild.textContent);
+assert.strictEqual(fix, "改法：把「超级破甲」挪到「预设头部」组后面，或在「set-不要关」里去掉对「超级破甲」的清空");
+assert.strictEqual(await page.textContent("[data-vf=fix]"), "挪到「预设头部」组后面");
 await page.screenshot({ path: S + "varfix-1.png" });
 console.log("✓ 写明赋值、清空、读取三步和改法");
+await page.click("[data-vf=fix]");
+await page.waitForTimeout(400);
+assert.match(await page.textContent("[data-page=vars] [data-vf=result] .pa-p"), /发现 0 项顺序风险/);
+// 面板里切到「预设 › 条目」（重新打开面板会回到酒馆正在用的预设）
+await page.click('.pa-tabs [data-nav="preset"]');
+await page.click('.pa-subnav [data-tab="organize"]');
+await page.waitForTimeout(300);
+const order = await page.$$eval("[data-page=organize] .pa-list .pa-row .pa-name, [data-page=organize] .pa-list .pa-ghead .pa-gname", (n) => n.map((x) => x.textContent));
+assert.ok(order.indexOf("预设头部") < order.indexOf("超级破甲") && order.indexOf("超级破甲") < order.indexOf("← 常规CoT"), "挪到组后面、读取前面：" + order.join());
+assert.ok(await page.locator('.pa-savebar [data-g="undo"]').isVisible(), "可撤销");
+console.log("✓ 一键挪到组后面，风险消失，可撤销");
 assert.deepStrictEqual(errs, []);
 console.log("变量改法检查通过");
 await browser.close();
