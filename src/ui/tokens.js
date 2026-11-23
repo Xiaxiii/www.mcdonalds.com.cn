@@ -133,7 +133,7 @@ function tkPaintBar(label, title = "") {
   bar.setAttribute("aria-busy", String(busy));
   bar.classList.toggle("pa-tk-busy", busy);
   bar.setAttribute("aria-label", `${label}，每条显示 token 数`);
-  bar.title = `${title}。${on ? "点按收起每条的 token 数" : "点按在每条旁显示 token 数"}`;
+  bar.title = `${title}。点按${on ? "收起" : "显示"}每条的 token 数`;
 }
 /** 列表里的短写法：1000 以上写成 1.2k、12k，列窄，手机上名字少被截断；完整数字在合计和提示里 */
 function tkShort(n) {

@@ -187,7 +187,7 @@ function parsePlaceReply(text, map, count = 1) {
     if (got.length) {
       data = { groups: got };
       cut = true;
-    } else if (/"groups"\s*:\s*\[/.test(raw)) throw new Error("模型的回复被截断，一组都没收到完整的。可以重试，或在「连接 → 副 API」换一个不带思考的模型");
+    } else if (/"groups"\s*:\s*\[/.test(raw)) throw new Error("回复被截断，没有一组完整。重试，或在「连接 › 副 API」换不带思考的模型");
   }
   if (data && !Array.isArray(data.groups) && Array.isArray(data.places)) data = { groups: [{ entries: Array.from({ length: count }, (_, i) => i + 1), places: data.places }] };
   if (!data || !Array.isArray(data.groups)) throw new Error("模型没有按要求回答（不是有效的 JSON）");

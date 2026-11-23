@@ -253,7 +253,7 @@ function mountOrganize(page) {
   function paintTkTotal(d) {
     if (page.hidden) return;
     const sum = tkPresetTotal(d);
-    tkPaintBar(`共 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `生效条目的 token 合计${sum === void 0 ? `（还在数，剩 ${tkPending()} 条）` : ""}，不含聊天记录、角色卡等系统位置`);
+    tkPaintBar(`共 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `开着的条目合计${sum === void 0 ? `，还剩 ${tkPending()} 条没数` : ""}，不含聊天记录等系统位置`);
   }
   function paintTk() {
     let d;
@@ -433,8 +433,8 @@ function mountOrganize(page) {
         { label: "智能分组", sub: "识别未分组条目的归属，或归整分散分区", value: "smart" },
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
         { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" },
-        ...(tkSync() ? [{ label: `每条的 token 数：${tkEach() ? "显示" : "不显示"}`, sub: "小字在眼睛左边，分组头写组内开着的条目合计。点击切换", value: "tk" }] : []),
-        { label: "导入…", sub: "预设、世界书或正则文件，直接导入酒馆", value: "import" }
+        ...(tkSync() ? [{ label: `每条的 token 数：${tkEach() ? "显示" : "不显示"}`, sub: "点击切换", value: "tk" }] : []),
+        { label: "导入…", sub: "预设、世界书、正则", value: "import" }
       ]);
       if (!t) return;
     }

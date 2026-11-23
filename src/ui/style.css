@@ -333,10 +333,10 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-count { color: var(--pa-dim); font-variant-numeric: tabular-nums; margin-right: 4px; }
 /* 2.12.6 每条的 token 数：眼睛左边一列小字，右对齐；1000 以上写 1.2k，列窄，手机上名字少被截断 */
 #mcd-root .pa-tk { flex: none; min-width: 2.6em; text-align: right; color: var(--pa-dim); font-size: max(11px, .78em); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
-/* 2.12.8 分组头：开着几条（5/7）紧跟组名，后面一段空白把 token 合计、菜单、开关推到右边；
+/* 2.12.8 条目列表的分组头（带 data-gid；世界书、正则的分段标题不变）：开着几条（5/7）紧跟组名，后面一段空白把 token 合计、菜单、开关推到右边；
    合计和条目的数字右端对齐（条目的数字后面隔 8px 是眼睛，这里隔 4px 是菜单，再补 4px） */
-#mcd-root .pa-ghead > .pa-gname { flex: 0 1 auto; }
-#mcd-root .pa-ghead > .pa-count { flex: none; margin: 0 0 0 8px; }
+#mcd-root .pa-ghead[data-gid] > .pa-gname { flex: 0 1 auto; }
+#mcd-root .pa-ghead[data-gid] > .pa-count { flex: none; margin: 0 0 0 8px; }
 #mcd-root .pa-ghead > .pa-at-chip { margin-left: 6px; }
 #mcd-root .pa-ghead > .pa-gsp { flex: 1 1 0; min-width: 4px; align-self: stretch; }
 #mcd-root .pa-ghead > .pa-gtk { margin-right: 4px; }
@@ -2594,10 +2594,9 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-dhead > .pa-bk-rename { margin-right: auto; color: var(--pa-dim); }
 #mcd-root .pa-bk-dhead > .pa-bk-rename svg { width: 16px; height: 16px; }
 #mcd-root .pa-bk-dname.pa-inline-editing + .pa-bk-rename { display: none; }
-/* 2.12.8 变量页：风险经过的几步、改法和一键挪动 */
+/* 2.12.8 变量页：风险经过的几步和改法 */
 #mcd-root .pa-var-trail { color: var(--pa-dim); }
 #mcd-root .pa-var-fix { margin: 6px 0 2px; color: var(--pa-em); font-size: .9em; }
-#mcd-root .pa-var-fix .pa-btn { display: flex; width: fit-content; margin-top: 8px; }
 /* 2.12.8 导入：每一项本身就是选文件的按钮（label），和菜单项一样的样子 */
 #mcd-root .pa-import .pa-pick-item { -webkit-tap-highlight-color: transparent; }
 #mcd-root .pa-import .pa-pick-item:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }

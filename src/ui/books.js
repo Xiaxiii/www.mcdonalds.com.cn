@@ -299,7 +299,7 @@ function mountBooks(page) {
       if (v === void 0) { sum = void 0; break; }
       sum += v;
     }
-    tkPaintBar(`常驻 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `正在用的 ${inUse.length} 本世界书里，开着的常驻（蓝灯）条目合计；关键词触发的条目不算`);
+    tkPaintBar(`常驻 ${sum === void 0 ? "…" : tkFmt(sum)} tk`, `在用的 ${inUse.length} 本书里开着的常驻（蓝灯）条目合计`);
   }
   const tkOn = () => tkS.fn && tkEach();
   // 段里的书：条目数和开着的条数（酒馆读过的直接用缓存）

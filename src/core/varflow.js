@@ -93,25 +93,3 @@ function auditVariableFlowIndexed(draft) {
   }
   return { events, issues, unknown };
 }
-// 2.12.8「清空后读取」的一键改法：赋值的那条整条只写这一个变量（不出字），把它挪到清空之后、读取之前，
-// 发出去的文字不变。中间还有别处读这个变量、那条还写别的变量、或找不到这样的位置时不给改法
-function planClearedFix(draft, issue, events) {
-  if (issue.kind !== "cleared" || issue.steps.length !== 3 || issue.steps[0].op !== "set") return null;
-  const [set, clear, read] = issue.steps;
-  if (set.id === clear.id || clear.id === read.id) return null;
-  if (detectShape(draft.prompt(set.id)?.content).shape !== "wrap") return null;
-  const key = variableIdentity(issue.scope, issue.name);
-  if (events.some((e) => e.id === set.id && variableIdentity(e.scope, e.name) !== key)) return null;
-  if (events.some((e) => e.index > set.index && e.index < clear.index && variableIdentity(e.scope, e.name) === key && (e.op === "get" || e.op === "has"))) return null;
-  const pos = (id) => draft.order.findIndex((o) => o.identifier === id);
-  if (!(pos(set.id) < pos(clear.id) && pos(clear.id) < pos(read.id))) return null;
-  const name = (id) => draft.prompt(id)?.name || id;
-  const sg = draft.groupOf(set.id), cg = draft.groupOf(clear.id);
-  // 同组：放在清空那条后面；赋值那条不在组里：清空那条在组里就放在那一组后面（组外），读取不能在那一组里
-  if (sg) return sg === cg ? { id: set.id, where: { after: clear.id }, gid: cg, to: `「${name(clear.id)}」后面` } : null;
-  if (!cg) return { id: set.id, where: { after: clear.id }, gid: null, to: `「${name(clear.id)}」后面` };
-  const block = draft.blocks().find((b) => b.ids.includes(clear.id));
-  const last = block?.ids[block.ids.length - 1];
-  if (!last || pos(last) >= pos(read.id)) return null;
-  return { id: set.id, where: { after: last }, gid: null, to: `「${draft.group(cg)?.name || "分组"}」组后面` };
-}

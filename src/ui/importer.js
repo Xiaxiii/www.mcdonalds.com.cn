@@ -2,8 +2,8 @@
 // 弹窗里每一项本身就是选文件的按钮（label 包着 file input）：iPad、iPhone 的浏览器只认手指直接点到的选文件
 var IMPORT_KINDS = [
   ["preset", "预设", "聊天补全预设 .json"],
-  ["world", "世界书", "世界书 .json，角色卡导出的世界书也行"],
-  ["regex", "正则", "单条、多条正则，或带正则的预设 .json"]
+  ["world", "世界书", "世界书或角色卡 .json"],
+  ["regex", "正则", "正则或带正则的预设 .json"]
 ];
 async function importSheet() {
   const body = el(`<div class="pa-pick pa-import">${IMPORT_KINDS.map(([k, l, sub]) => `<label class="pa-pick-item pa-file" role="button" tabindex="0"><span class="pa-pick-label">${l}</span><small>${esc(sub)}</small><input type="file" accept=".json,application/json,text/plain" data-imp="${k}" hidden></label>`).join("")}</div>`);
@@ -39,7 +39,7 @@ async function askSameName(kind, name, taken) {
   const other = freeName(name, taken);
   const v = await pickBox(`已有叫「${name}」的${kind}`, [
     { label: `另存为「${other}」`, value: "new" },
-    { label: `覆盖「${name}」`, sub: "覆盖前先备份，可在「备份」里找回", value: "over", danger: true }
+    { label: `覆盖「${name}」`, sub: "先备份", value: "over", danger: true }
   ], { anchor: null });
   if (v === "new") return { name: other, overwrite: false };
   if (v === "over") return { name: taken.find((n) => n.toLowerCase() === name.toLowerCase()), overwrite: true };
@@ -54,7 +54,7 @@ async function importPreset(name, data) {
     const d = getDraft(pick.name);
     mutate(d, "导入覆盖", (x) => x.replaceWith(structuredClone(data)));
     setFocusPreset(pick.name);
-    return toast(`已用文件覆盖预设「${pick.name}」，可在页头撤销`, "success");
+    return toast(`已覆盖预设「${pick.name}」，可撤销`, "success");
   }
   const real = await restorePresetFile(pick.name, structuredClone(data));
   if (listPresets().includes(real)) setFocusPreset(real);
@@ -92,7 +92,7 @@ async function importWorldFile(name, data) {
   await wi.saveWorldInfo(pick.name, book, true);
   if (typeof wi.updateWorldInfoList === "function") await wi.updateWorldInfoList();
   else if (Array.isArray(wi.world_names) && !wi.world_names.includes(pick.name)) wi.world_names.push(pick.name);
-  toast(`已导入世界书「${pick.name}」，${Object.keys(book.entries).length} 条。在「世界书」页里给角色打开`, "success");
+  toast(`已导入世界书「${pick.name}」，${Object.keys(book.entries).length} 条`, "success");
 }
 // 正则：导到全局，或导进当前预设（走「缝合正则」的窗口，重名、重复、分组都在那里处理）
 function regexScriptsOf(data) {
@@ -106,8 +106,8 @@ async function importRegexFile(name, data) {
   const scripts = regexScriptsOf(data);
   const target = focusPreset();
   const where = await pickBox(`${scripts.length} 条正则导入到哪里`, [
-    { label: "全局", sub: "所有角色、所有预设都用", value: "global" },
-    ...target ? [{ label: `预设「${target}」`, sub: "跟着这个预设走，换了预设就不用", value: "preset" }] : []
+    { label: "全局", sub: "所有角色、预设", value: "global" },
+    ...target ? [{ label: `预设「${target}」`, sub: "只随这个预设", value: "preset" }] : []
   ], { anchor: null });
   if (!where) return;
   if (where === "preset") {
@@ -130,5 +130,5 @@ async function importRegexFile(name, data) {
     added++;
   }
   ctx().saveSettingsDebounced();
-  toast(added ? `已导入 ${added} 条正则到全局${same ? `，${same} 条已有，跳过` : ""}` : "这些正则全局里都有了，没有导入", added ? "success" : "info");
+  toast(added ? `已导入 ${added} 条正则到全局${same ? `，跳过 ${same} 条重复` : ""}` : "全局已有这些正则", added ? "success" : "info");
 }

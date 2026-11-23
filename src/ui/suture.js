@@ -900,7 +900,7 @@ function mountSuture(page, app) {
       cur = i;
       const r = runs[i].result;
       views = r.groups.map((g) => ({ name: g.name || "", entries: g.entries, keys: g.entries.map((n) => keys[n - 1]), items: g.entries.map((n) => items[n - 1]), names: g.entries.map((n) => items[n - 1]?.name || "条目"), places: g.places.map((p) => ({ ...p, marker: fixPlace(d, p.marker) })).filter((p) => p.marker) }));
-      res.innerHTML = runsRow() + (r.cut ? `<p class="pa-hint pa-aip-cut">模型的回复被截断，只收到前 ${r.cut} 组；没收到的条目归在最后一组，没有推荐位置。</p>` : "") + views.map(card).join("") + againBtn("重新推荐");
+      res.innerHTML = runsRow() + (r.cut ? `<p class="pa-hint pa-aip-cut">回复被截断：收到 ${r.cut} 组，其余条目在最后一组，没有推荐位置。</p>` : "") + views.map(card).join("") + againBtn("重新推荐");
     });
     // 缝完一组后：位置按缝完的目标预设重新核对，只列还没缝的组；第一组的第一个位置为主按钮
     const showLeft = () => d.withReadIndex(() => {
