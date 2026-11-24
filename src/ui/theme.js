@@ -199,7 +199,7 @@ function applyTheme(root) {
   const signature = JSON.stringify([id, ...(id === "follow" ? hostColors : [])]);
   if (root._paThemeSignature === signature) return applyBackground(root);
   root._paThemeSignature = signature;
-  for (const key of ["text", "dim", "em", "thread", "on-accent", "control-border", "checkmark", "warn", "warn-hue", "ok"]) root.style.removeProperty(`--pa-${key}`);
+  for (const key of ["text", "dim", "em", "thread", "on-accent", "on-warn", "control-border", "checkmark", "warn", "warn-hue", "ok"]) root.style.removeProperty(`--pa-${key}`);
   if (id !== "follow") {
     root.style.removeProperty("--pa-tint");
     root.style.removeProperty("--pa-input-bg");
@@ -237,18 +237,22 @@ function applyTheme(root) {
     root.style.setProperty("--pa-thread", themeRgb(accent));
   }
   surfaces = surfaceColors();
-  const ink = themeContrast(accent, { r: 255, g: 255, b: 255 }) >= themeContrast(accent, { r: 0, g: 0, b: 0 }) ? "#ffffff" : "#000000";
+  const inkOn = (bg) => themeContrast(bg, { r: 255, g: 255, b: 255 }) >= themeContrast(bg, { r: 0, g: 0, b: 0 }) ? "#ffffff" : "#000000";
+  const ink = inkOn(accent);
+  const warnColor = readableThemeColor(requestedWarn, surfaces, 4.5);
   for (const [key, value] of Object.entries({
     text, thread: accent,
     dim: readableThemeColor(themeMix(text, base, .68), surfaces, 4.5),
     em: readableThemeColor(color("em", text), surfaces, 4.5),
     "control-border": readableThemeColor(themeMix(text, base, .6), surfaces, 3),
-    warn: readableThemeColor(requestedWarn, surfaces, 4.5),
+    warn: warnColor,
     ok: readableThemeColor(color("ok", { r: 111, g: 179, b: 138 }), surfaces, 4.5)
   })) root.style.setProperty(`--pa-${key}`, themeRgb(value));
   // 2.5.0 警告色为了字够清楚会被调亮、调暗（深色主题里接近白色），浅色底用主题原本的色相
   root.style.setProperty("--pa-warn-hue", themeRgb(requestedWarn));
   root.style.setProperty("--pa-on-accent", ink);
+  // 危险按钮底色是 --pa-warn，字色按它单独取黑白
+  root.style.setProperty("--pa-on-warn", inkOn(warnColor));
   root.style.setProperty("--pa-checkmark", `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 12'%3E%3Cpath d='M2.5 6.2l2.3 2.3 4.7-5' fill='none' stroke='${ink.replace("#", "%23")}' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E")`);
   root.style.colorScheme = themeLuminance(base) > .179 ? "light" : "dark";
   applyBackground(root);

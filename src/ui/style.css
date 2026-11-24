@@ -13,6 +13,8 @@
     --pa-warn: #e0784a;
     --pa-ok: #6fb38a;
     --pa-on-accent: #1b1712;
+    --pa-on-warn: #ffffff;
+    --pa-mono: var(--monoFontFamily, ui-monospace, "SF Mono", Menlo, Consolas, monospace);
     --pa-input-bg: rgba(0, 0, 0, .18);
     --pa-row-h: 38px;
     position: fixed;
@@ -52,13 +54,13 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root [hidden] { display: none !important; }
 
 /* ---------- 外壳 ---------- */
-/* 2.7.0 手机：页头、分页、内容、批次栏、底部导航自上而下；宽屏（≥1000px）导航改为左侧栏 */
+/* 2.7.0 手机：页头、分页、内容、底部导航自上而下（批次栏在页头内）；宽屏（≥1000px）导航改为左侧栏 */
 #mcd-root .pa-shell {
     position: absolute; inset: 0;
     display: grid;
     grid-template-columns: minmax(0, 1fr);
-    grid-template-rows: auto auto minmax(0, 1fr) auto auto;
-    grid-template-areas: "top" "sub" "main" "save" "tabs";
+    grid-template-rows: auto auto minmax(0, 1fr) auto;
+    grid-template-areas: "top" "sub" "main" "tabs";
     width: 100%; height: 100%; overflow: hidden;
     background: var(--pa-tint);
 }
@@ -90,6 +92,8 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
     overflow-y: hidden; overscroll-behavior: contain; touch-action: pan-x;
 }
 #mcd-root .pa-subnav::-webkit-scrollbar { display: none; }
+/* 右侧叠着「● 共 N tk」时给它让出位置，滚到最右页签不被盖住。--pa-tkw 是它的实际宽度（app.js 量），再加它的右外边距 */
+#mcd-root .pa-subnav:has(+ .pa-tkbar:not([hidden])) { padding-right: calc(var(--pa-tkw, 106px) + 12px + env(safe-area-inset-right)); }
 #mcd-root .pa-subnav button {
     position: relative; flex: none; min-height: 42px; padding: 0 12px;
     border: 0; background: none; color: var(--pa-dim); font-weight: 500; white-space: nowrap; cursor: pointer;
@@ -118,13 +122,8 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root [data-page="reply"] .pa-toolbar { max-width: 780px; }
 #mcd-root [data-page="reply"] .pa-pagefoot { padding-right: max(calc(12px + env(safe-area-inset-right)), calc(100% - 770px)); }
 
-/* 批次栏：修改即时自动保存；状态、撤销、完成放在拇指够得着的位置 */
-#mcd-root .pa-savebar {
-    grid-area: save;
-    display: flex; align-items: center; gap: 8px; min-height: 50px;
-    padding: 6px calc(10px + env(safe-area-inset-right)) 6px calc(14px + env(safe-area-inset-left));
-    border-top: 1px solid var(--pa-line);
-}
+/* 批次栏：修改即时自动保存；位于页头内，状态与撤销、完成 */
+#mcd-root .pa-savebar { display: flex; align-items: center; gap: 8px; }
 #mcd-root .pa-dirty-text { flex: 1 1 auto; min-width: 0; color: var(--pa-dim); font-size: .88em; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mcd-root .pa-savebar.pa-save-err .pa-dirty-text { color: var(--pa-warn); }
 #mcd-root .pa-savebar .pa-btn { min-height: 38px; padding: 4px 14px; }
@@ -158,8 +157,8 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 @media (min-width: 1000px) {
     #mcd-root .pa-shell {
         grid-template-columns: 216px minmax(0, 1fr);
-        grid-template-rows: auto auto minmax(0, 1fr) auto;
-        grid-template-areas: "tabs top" "tabs sub" "tabs main" "tabs save";
+        grid-template-rows: auto auto minmax(0, 1fr);
+        grid-template-areas: "tabs top" "tabs sub" "tabs main";
         padding-bottom: var(--pa-sab, env(safe-area-inset-bottom));
     }
     #mcd-root .pa-tabs {
@@ -186,7 +185,6 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
     #mcd-root .pa-subnav { padding-left: 10px; }
     #mcd-root .pa-subnav-more { display: none; }
     #mcd-root .pa-top:has(+ .pa-subnav-more) { border-bottom-color: var(--pa-line); }
-    #mcd-root .pa-savebar { padding-left: 20px; }
 }
 @media (hover: hover) and (pointer: fine) {
     #mcd-root .pa-tabs button:hover { background: var(--pa-card); }
@@ -203,7 +201,6 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-btn:disabled { opacity: 1; color: var(--pa-dim); cursor: default; }
 /* 2.5.0 不能点的主按钮：描边、正文灰，字看得清，也不像能点的实心按钮 */
 #mcd-root .pa-btn-primary:disabled { opacity: 1; background: transparent; border-color: var(--pa-line); color: var(--pa-dim); }
-#mcd-root .pa-btn-danger { background: var(--pa-warn); border-color: var(--pa-warn); color: #fff; }
 #mcd-root .pa-btn-danger-soft { color: var(--pa-warn); }
 #mcd-root .pa-sq { min-width: 40px; padding: 6px; }
 #mcd-root .pa-link { border: 0; background: none; padding: 4px 6px; color: var(--pa-thread); cursor: pointer; text-decoration: underline; text-underline-offset: 3px; }
@@ -237,7 +234,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
     background-repeat: no-repeat !important;
 }
 #mcd-root .pa-input-s { min-height: 34px; padding: 5px 8px; }
-#mcd-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; }
+#mcd-root .pa-text { min-height: 40vh; resize: vertical; font-family: var(--pa-mono); font-size: calc(14px * var(--pa-k, 1)); line-height: 1.5; white-space: pre-wrap; }
 #mcd-root .pa-text-s { min-height: 26vh; }
 #mcd-root .pa-hint { color: var(--pa-dim); font-size: .88em; margin: 4px 0; }
 #mcd-root .pa-pad { padding: 0 14px; }
@@ -339,7 +336,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-split { font-style: normal; font-weight: 400; color: var(--pa-warn); margin-left: 6px; }
 #mcd-root .pa-count { color: var(--pa-dim); font-variant-numeric: tabular-nums; margin-right: 4px; }
 /* 2.12.6 每条的 token 数：眼睛左边一列小字，右对齐，写全数 */
-#mcd-root .pa-tk { flex: none; min-width: 3em; text-align: right; color: var(--pa-dim); font-size: max(11px, .78em); font-variant-numeric: tabular-nums; line-height: 1; white-space: nowrap; }
+#mcd-root .pa-tk { flex: none; min-width: 3em; text-align: right; color: var(--pa-dim); font-size: max(12px, .82em); font-variant-numeric: tabular-nums; line-height: 1.2; white-space: nowrap; }
 /* 2.12.8 条目列表的分组头（带 data-gid；世界书、正则的分段标题不变）：开着几条（5/7）紧跟组名，后面一段空白把 token 合计、菜单、开关推到右边；
    合计和条目的数字右端对齐（条目的数字后面隔 8px 是眼睛，这里隔 4px 是菜单，再补 4px） */
 #mcd-root .pa-ghead[data-gid] > .pa-gname { flex: 0 1 auto; }
@@ -361,11 +358,11 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-tkbar[aria-pressed="true"] { color: var(--pa-em); }
 #mcd-root .pa-tkbar:active { transform: scale(.96); }
 #mcd-root .pa-tkbar:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: 0; }
-#mcd-root .pa-tktotal { font-size: max(11px, .84em); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#mcd-root .pa-tktotal { font-size: max(12px, .84em); font-variant-numeric: tabular-nums; white-space: nowrap; }
 #mcd-root .pa-tkdot { flex: none; width: 7px; height: 7px; border-radius: 50%; box-shadow: inset 0 0 0 1.5px currentColor; }
 #mcd-root .pa-tkbar[aria-pressed="true"] .pa-tkdot { background: var(--pa-ok); box-shadow: none; }
 #mcd-root .pa-tkbar.pa-tk-busy .pa-tkdot { animation: pa-breathe 1.2s ease-in-out infinite; }
-@media (prefers-reduced-motion: reduce) { #mcd-root .pa-tkbar.pa-tk-busy .pa-tkdot { animation: pa-breathe 1.6s ease-in-out infinite !important; } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-tkbar.pa-tk-busy .pa-tkdot { animation: none !important; opacity: .72; } }
 @media (hover: hover) and (pointer: fine) { #mcd-root .pa-tkbar:hover { color: var(--pa-text); } }
 @media (min-width: 1000px) { #mcd-root .pa-tkbar { margin-right: calc(12px + env(safe-area-inset-right)); } }
 #mcd-root .pa-collapsed .pa-gbody { display: none; }
@@ -381,7 +378,11 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-insert-mark {
     position: relative; padding: 3px 10px; font-size: .82em; font-weight: 600; border-radius: 6px; text-align: left;
 }
-#mcd-root .pa-insert-mark::before { content: "⬇ "; }
+#mcd-root .pa-insert-mark::before {
+    content: ""; display: inline-block; width: 1.05em; height: 1.05em; margin-right: 4px; vertical-align: -.16em; background: currentColor;
+    -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M6 13l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+    mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 5v14M6 13l6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat;
+}
 #mcd-root .pa-row.pa-at { background: var(--pa-sel); }
 #mcd-root .pa-at-chip { flex: none; padding: 1px 8px; border-radius: 999px; font-size: .78em; font-weight: 600; background: var(--pa-thread); color: var(--pa-on-accent); }
 #mcd-root .pa-placing .pa-row:not(.pa-sel) { box-shadow: inset 0 -1px 0 var(--pa-line); }
@@ -559,7 +560,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-sheet-pop .pa-pick-pair > .pa-pick-item + .pa-pick-item { border-top: 0; border-left: 1px solid var(--pa-line); }
 #mcd-root .pa-sheet-pop .pa-pick-pair + .pa-pick-item, #mcd-root .pa-sheet-pop .pa-pick-item + .pa-pick-pair { border-top: 1px solid var(--pa-line); }
 #mcd-root .pa-sheet-pop .pa-pick-pair + .pa-pick-item, #mcd-root .pa-sheet-pop .pa-pick-pair > .pa-pick-item { border-radius: 0; }
-#mcd-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; margin: 0; }
+#mcd-root .pa-pre { white-space: pre-wrap; word-break: break-word; font-family: var(--pa-mono); font-size: calc(14px * var(--pa-k, 1)); margin: 0; }
 #mcd-root .pa-sug { display: grid; gap: 8px; margin-top: 8px; }
 #mcd-root .pa-sug-item { display: flex; gap: 8px; align-items: flex-start; padding: 8px; border: 1px dashed var(--pa-line); }
 #mcd-root .pa-sug-main { flex: 1; min-width: 0; display: grid; gap: 4px; }
@@ -601,7 +602,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-mode-head { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
 #mcd-root .pa-mode-head input { accent-color: var(--pa-thread); width: 16px; height: 16px; align-self: center; }
 #mcd-root .pa-mode-head small { color: var(--pa-dim); font-size: .84em; }
-#mcd-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }
+#mcd-root .pa-snip { margin: 0; padding: 6px 8px; border-radius: 6px; background: var(--pa-input-bg); font-family: var(--pa-mono); font-size: calc(12.5px * var(--pa-k, 1)); line-height: 1.5; white-space: pre-wrap; word-break: break-all; color: var(--pa-em); }
 #mcd-root details.pa-was > summary { cursor: pointer; color: var(--pa-dim); font-size: .88em; }
 
 /* ---------- 思维链页 ---------- */
@@ -831,7 +832,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-mpick-item:not(.pa-mpick-custom), #mcd-root .pa-kname { align-items: center; gap: 8px; }
 #mcd-root .pa-mlabel { display: flex; flex-direction: column; flex: 1 1 auto; min-width: 0; }
 #mcd-root .pa-mn { overflow-wrap: anywhere; line-height: 1.35; }
-#mcd-root .pa-mtags { display: flex; flex-wrap: wrap; gap: 0 10px; color: var(--pa-dim); font-size: max(11px, .8em); font-weight: 400; line-height: 1.4; }
+#mcd-root .pa-mtags { display: flex; flex-wrap: wrap; gap: 0 10px; color: var(--pa-dim); font-size: max(12px, .8em); font-weight: 400; line-height: 1.4; }
 #mcd-root .pa-mtags > span { white-space: nowrap; }
 #mcd-root .pa-mcheck { flex: none; color: var(--pa-thread); font-weight: 600; }
 
@@ -1004,7 +1005,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 @media (hover: hover) { #mcd-root .pa-swpill:hover { background: var(--pa-thread); color: var(--pa-on-accent); } }
 @media (pointer: coarse) { #mcd-root .pa-swpill::before { content: ""; position: absolute; inset: -9px -6px; } }
 @media (prefers-reduced-motion: reduce) { #mcd-root .pa-swpill { transition: none; } #mcd-root .pa-swpill:active { transform: none; } }
-#mcd-root .pa-site-on-chip { flex: none; line-height: 24px; padding: 0 10px; }
+#mcd-root .pa-site-on-chip { flex: none; line-height: 1.35; padding: 3px 10px; }
 /* 2.4.0 触屏：小控件的点按范围放大到约 44px（外观不变），手指不用对得那么准 */
 @media (pointer: coarse) {
     #mcd-root .pa-chip-btn, #mcd-root .pa-why, #mcd-root .pa-golink, #mcd-root .pa-sortbtn { position: relative; }
@@ -1568,8 +1569,9 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-by { flex: none; font-size: .68em; font-weight: 400; color: var(--pa-dim); opacity: .75; align-self: flex-end; margin-bottom: .15em; }
 #mcd-settings .pa-set-by { margin-left: 8px; font-size: .8em; opacity: .75; }
 /* 2.3.5 悬浮球（在 #mcd-root 之外，跟随酒馆主题；面板打开时隐藏） */
-#mcd-ball { position: fixed; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeBodyColor, #e6e1d8); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .85; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
-#mcd-ball:not(.mcd-ball-drag) { transition: left .18s ease, top .18s ease; }
+#mcd-ball { position: fixed; left: 0; top: 0; z-index: 10005; width: 44px; height: 44px; margin: 0; padding: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; border: 1px solid var(--SmartThemeBorderColor, rgba(127,127,127,.4)); background: var(--SmartThemeBlurTintColor, rgba(28,26,30,.92)); color: var(--SmartThemeBodyColor, #e6e1d8); box-shadow: 0 2px 10px rgba(0,0,0,.3); font-size: 18px; cursor: pointer; opacity: .85; touch-action: none; user-select: none; -webkit-user-select: none; -webkit-tap-highlight-color: transparent; }
+#mcd-ball:not(.mcd-ball-drag) { transition: transform .18s ease; }
+@media (prefers-reduced-motion: reduce) { #mcd-ball:not(.mcd-ball-drag) { transition: none; } }
 #mcd-ball.mcd-ball-drag { will-change: transform; }
 #mcd-ball.mcd-ball-drag { opacity: 1; }
 @media (hover: hover) { #mcd-ball:hover { opacity: 1; } }
@@ -1648,19 +1650,18 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
    2.7.1 视觉改版（对所有配色生效）：去掉缝线虚线；条目通栏、分隔线；
    分组为浅灰色带；开关、按钮、输入框、卡片、弹层统一样式。颜色只取 --pa-* 变量。
    ===================================================================== */
-#mcd-root[data-theme="su"] { --pa-tint:#FFFFFF; --pa-text:#1B1A18; --pa-thread:#1B1A18; --pa-em:#3D3B37; --pa-line:#E2E0DA; --pa-line-strong:#CBC8C0; --pa-input-bg:#FFFFFF; --pa-warn:#AE2A20; --pa-ok:#1D6F45; --pa-on-accent:#FFFFFF; --pa-card:#F4F3EF; --pa-card-2:#EAE8E2; --pa-sel:#E5EDFA; --pa-side:#F4F3EF; --pa-info:#1B58B5; }
+#mcd-root[data-theme="su"] { --pa-tint:#FFFFFF; --pa-text:#1B1A18; --pa-thread:#1B1A18; --pa-em:#3D3B37; --pa-line:#E2E0DA; --pa-line-strong:#CBC8C0; --pa-input-bg:#FFFFFF; --pa-warn:#AE2A20; --pa-ok:#1D6F45; --pa-on-accent:#FFFFFF; --pa-on-warn:#FFFFFF; --pa-card:#F4F3EF; --pa-card-2:#EAE8E2; --pa-sel:#E5EDFA; --pa-side:#F4F3EF; --pa-info:#1B58B5; }
 #mcd-root[data-theme="su"] .pa-sheet-mask { background: rgba(20, 19, 17, .44); }
 #mcd-root { --pa-r: 10px; }
 
 /* 侧栏、批次栏、页头 */
 @media (min-width: 1000px) { #mcd-root .pa-tabs { background: var(--pa-side, transparent); } }
-#mcd-root .pa-savebar { background: var(--pa-tint); }
 #mcd-root .pa-dirty-text::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--pa-ok); vertical-align: 1px; }
 #mcd-root .pa-savebar.pa-save-err .pa-dirty-text::before { background: var(--pa-warn); }
 /* 2.11.22 保存中：红色呼吸灯（亮→暗→亮），保存完变回绿色实心圆点。手机上圆点所在的框只有 8px 宽，外发光会被裁掉，只变明暗 */
 #mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { background: #cf3434; background: color-mix(in srgb, #dc2626 78%, var(--pa-text)); animation: pa-breathe 1.2s ease-in-out infinite; }
 @keyframes pa-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .28; } }
-@media (prefers-reduced-motion: reduce) { #mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { animation: pa-breathe 1.6s ease-in-out infinite !important; } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { animation: none !important; opacity: .72; } }
 
 /* 按钮 */
 #mcd-root .pa-btn { border: 1px solid var(--pa-line-strong, var(--pa-line)); border-radius: var(--pa-r); background: var(--pa-tint); font-weight: 500; transition: transform .1s ease-out; touch-action: manipulation; }
@@ -1669,7 +1670,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-btn-primary:active:not(:disabled) { background: var(--pa-thread); opacity: .88; }
 #mcd-root .pa-btn-soft { border-style: solid; border-color: var(--pa-line); background: transparent; }
 #mcd-root .pa-btn-danger-soft { border-color: var(--pa-line-strong, var(--pa-line)); background: var(--pa-tint); }
-#mcd-root .pa-btn-danger, #mcd-root .pa-btn-danger:active:not(:disabled) { background: var(--pa-warn); border-color: var(--pa-warn); color: var(--pa-on-accent, #fff); }
+#mcd-root .pa-btn-danger, #mcd-root .pa-btn-danger:active:not(:disabled) { background: var(--pa-warn); border-color: var(--pa-warn); color: var(--pa-on-warn, #fff); }
 #mcd-root .pa-btn-danger:active:not(:disabled) { opacity: .88; }
 #mcd-root .pa-btn-danger:disabled { background: transparent; border-color: var(--pa-line); color: var(--pa-dim); }
 #mcd-root .pa-mini { border: 1px solid var(--pa-line-strong, var(--pa-line)); color: var(--pa-text); background: var(--pa-tint); min-height: 30px; padding: 2px 12px; font-weight: 500; }
@@ -1689,7 +1690,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-seg { border: 0; border-radius: var(--pa-r); padding: 3px; background: var(--pa-card); }
 #mcd-root .pa-seg button { border-radius: 8px; font-weight: 500; }
 #mcd-root .pa-seg button.on { background: var(--pa-tint); color: var(--pa-text); box-shadow: 0 1px 2px rgba(0,0,0,.08), 0 0 0 1px var(--pa-line); }
-#mcd-root .pa-chip { border: 0; border-radius: 6px; padding: 0 6px; line-height: 20px; background: var(--pa-card-2); color: var(--pa-em); }
+#mcd-root .pa-chip { border: 0; border-radius: 6px; padding: 2px 6px; line-height: 1.35; background: var(--pa-card-2); color: var(--pa-em); }
 #mcd-root .pa-chip-cot { background: transparent; box-shadow: inset 0 0 0 1px var(--pa-line-strong, var(--pa-line)); color: var(--pa-text); }
 
 /* 开关：实底胶囊，白色圆钮 */
@@ -1724,7 +1725,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-group.pa-gsel { box-shadow: none; }
 #mcd-root .pa-ghead { min-height: calc(var(--pa-row-h) + 2px); padding: 2px calc(4px + env(safe-area-inset-right)) 2px calc(4px + env(safe-area-inset-left)); }
 #mcd-root .pa-gbody { padding: 0; }
-#mcd-root .pa-split { display: inline-block; padding: 0 6px; border-radius: 6px; background: var(--pa-card-2); line-height: 20px; vertical-align: 1px; }
+#mcd-root .pa-split { display: inline-block; padding: 2px 6px; border-radius: 6px; background: var(--pa-card-2); line-height: 1.35; vertical-align: 1px; }
 #mcd-root .pa-group.pa-gempty-box { border: 0; }
 #mcd-root .pa-slot { border: 0; border-bottom: 1px solid var(--pa-line); border-radius: 0; margin: 0; padding: 4px calc(12px + env(safe-area-inset-left)); }
 #mcd-root .pa-slot-in { padding-left: calc(20px + env(safe-area-inset-left)); }
@@ -1812,8 +1813,8 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-nowcard .pa-kv, #mcd-root .pa-live-kv { display: grid; grid-template-columns: 3.2em minmax(0, 1fr); gap: 8px 14px; margin: 10px 0 0; align-items: center; }
 #mcd-root .pa-nowcard .pa-kv dt, #mcd-root .pa-live-kv dt { color: var(--pa-dim); font-size: .9em; }
 #mcd-root .pa-nowcard .pa-kv dd, #mcd-root .pa-live-kv dd { margin: 0; min-width: 0; overflow-wrap: anywhere; }
-#mcd-root .pa-mono { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: .86em; }
-#mcd-root .pa-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--pa-card-2); color: var(--pa-dim); font-size: max(11px, .78em); font-weight: 600; white-space: nowrap; }
+#mcd-root .pa-mono { font-family: var(--pa-mono); font-size: .86em; }
+#mcd-root .pa-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 999px; background: var(--pa-card-2); color: var(--pa-dim); font-size: max(12px, .78em); font-weight: 600; white-space: nowrap; }
 #mcd-root .pa-badge-ok { background: var(--pa-card); background: color-mix(in srgb, var(--pa-ok) 14%, transparent); color: var(--pa-ok); }
 
 /* 方案页：当前状态卡、工具行、方案列表 */
@@ -1869,7 +1870,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-meta { display: flex; align-items: center; gap: 6px; min-width: 0; color: var(--pa-dim); white-space: nowrap; overflow: hidden; }
 #mcd-root .pa-meta .pa-badges { max-width: none; flex: 0 1 auto; min-width: 0; overflow: hidden; }
 #mcd-root .pa-meta .pa-chip { font-size: 1em; }
-#mcd-root .pa-meta .pa-chip:not(.pa-chip-dim):not(.pa-chip-cot) { font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+#mcd-root .pa-meta .pa-chip:not(.pa-chip-dim):not(.pa-chip-cot) { font-family: var(--pa-mono); }
 
 /* 2.8.0 回复页一页排完：标签三栏（窄屏堆叠），自动处理三项紧排 */
 #mcd-root .pa-replyform > .pa-h { display: flex; align-items: baseline; gap: 8px; flex-wrap: wrap; }
@@ -1939,7 +1940,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-nameline { display: flex; align-items: center; gap: 6px; min-width: 0; }
 #mcd-root .pa-nameline > .pa-name { flex: 0 1 auto; }
 #mcd-root .pa-nameline > .pa-badges { max-width: 48%; }
-#mcd-root .pa-meta { line-height: 18px; }
+#mcd-root .pa-meta { line-height: 1.35; }
 #mcd-root .pa-row:not(:has(> .pa-handle)) { padding-left: calc(12px + env(safe-area-inset-left)); }
 #mcd-root .pa-gbody > .pa-row:not(:has(> .pa-handle)) { padding-left: calc(24px + env(safe-area-inset-left)); }
 #mcd-root .pa-ghead:not(:has(> .pa-handle)) { padding-left: calc(4px + env(safe-area-inset-left)); }
@@ -2000,7 +2001,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-jank-h > .pa-h { flex: 1 1 auto; min-width: 0; margin: 0; }
 #mcd-root .pa-jank-h > .pa-h small { font-weight: 400; font-size: .82em; margin-left: 4px; }
 #mcd-root .pa-jank-h > .pa-tip[open] { order: 9; flex-basis: 100%; }
-#mcd-root .pa-jank-h > .pa-link { font-size: max(11px, .82em); }
+#mcd-root .pa-jank-h > .pa-link { font-size: max(12px, .82em); }
 #mcd-root .pa-jank { gap: 6px; }
 #mcd-root .pa-jank > .pa-p, #mcd-root .pa-jank > .pa-hint { margin: 0; overflow-wrap: anywhere; }
 /* 2.12.15 卡顿结论一行写完，放不下时省略；原因、建议收进「详情」 */
@@ -2098,7 +2099,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-site-del { position: relative; }
 @media (pointer: coarse) { #mcd-root .pa-site-del::before { content: ""; position: absolute; inset: -6px -2px; } }
 #mcd-root .pa-plan-sites .pa-site-model { color: var(--pa-dim); }
-#mcd-root .pa-field > small.pa-hint { margin: 2px 0 0; font-size: max(11px, .8em); }
+#mcd-root .pa-field > small.pa-hint { margin: 2px 0 0; font-size: max(12px, .8em); }
 /* ---------- 2.8.7 ---------- */
 /* 组外条目与分组胶囊共用左右边线：手柄、勾选圈、名称、开关各在同一条竖线上；行间细线与胶囊同宽 */
 /* 2.11.17 横屏刘海：安全区加在列表两侧（分组卡片、组外条目的外边），行内不再重复加 */
@@ -2111,13 +2112,13 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 宽屏编辑栏：表单靠上排列，不把多出的高度分给各行 */
 #mcd-root .pa-editpane-body > .pa-form { align-content: start; flex: none; }
 /* 小字不小于 11px（「文字大小」选小时同样） */
-#mcd-root .pa-tabs button, #mcd-root .pa-kicker, #mcd-root .pa-brand-t small, #mcd-root .pa-fs-note, #mcd-root .pa-entry-note:not([hidden]), #mcd-root .pa-bal-kv dt, #mcd-root .pa-meta, #mcd-root .pa-hitline { font-size: max(11px, .78em); }
-#mcd-root .pa-chip, #mcd-root .pa-lv, #mcd-root .pa-split, #mcd-root .pa-optcount, #mcd-root .pa-kchip, #mcd-root .pa-kmore { font-size: max(11px, .76em); }
-#mcd-root .pa-cot-sum span, #mcd-root .pa-tip, #mcd-root .pa-rtags .pa-field > span, #mcd-root .pa-live > header .pa-dot, #mcd-root .pa-count, #mcd-root .pa-rt-detail, #mcd-root .pa-kvl small, #mcd-root .pa-whynote { font-size: max(11px, .82em); }
+#mcd-root .pa-tabs button, #mcd-root .pa-kicker, #mcd-root .pa-brand-t small, #mcd-root .pa-fs-note, #mcd-root .pa-entry-note:not([hidden]), #mcd-root .pa-bal-kv dt, #mcd-root .pa-meta, #mcd-root .pa-hitline { font-size: max(12px, .78em); }
+#mcd-root .pa-chip, #mcd-root .pa-lv, #mcd-root .pa-split, #mcd-root .pa-optcount, #mcd-root .pa-kchip, #mcd-root .pa-kmore { font-size: max(12px, .76em); }
+#mcd-root .pa-cot-sum span, #mcd-root .pa-tip, #mcd-root .pa-rtags .pa-field > span, #mcd-root .pa-live > header .pa-dot, #mcd-root .pa-count, #mcd-root .pa-rt-detail, #mcd-root .pa-kvl small, #mcd-root .pa-whynote { font-size: max(12px, .82em); }
 @media (min-width: 1000px) { #mcd-root .pa-tabs button { font-size: 1em; } }
 /* 淡色标签：改用淡色文字，不整体降透明度 */
 #mcd-root .pa-chip-dim { opacity: 1; color: var(--pa-dim); }
-#mcd-root [data-page="health"] small, #mcd-root .pa-rt-row span small, #mcd-root .pa-kv dd small { font-size: max(11px, .84em); }
+#mcd-root [data-page="health"] small, #mcd-root .pa-rt-row span small, #mcd-root .pa-kv dd small { font-size: max(12px, .84em); }
 /* 「已连接」字色加深；清理页当前使用的预设不再整行变淡（勾选框已是不可选状态） */
 #mcd-root .pa-live > header .pa-dot-on { color: color-mix(in srgb, var(--pa-ok) 78%, var(--pa-text)); }
 #mcd-root .pa-crow.pa-locked { opacity: 1; }
@@ -2261,7 +2262,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-mchoice button.on { font-weight: 600; }
 #mcd-root .pa-mbody { padding: 0 10px 10px; }
 #mcd-root .pa-mbody[hidden] { display: none; }
-#mcd-root .pa-mdiff { max-height: 50vh; overflow: auto; overscroll-behavior: contain; border-radius: 6px; background: var(--pa-input-bg); padding: 6px 4px; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 12.5px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--pa-em); }
+#mcd-root .pa-mdiff { max-height: 50vh; overflow: auto; overscroll-behavior: contain; border-radius: 6px; background: var(--pa-input-bg); padding: 6px 4px; font-family: var(--pa-mono); font-size: calc(12.5px * var(--pa-k, 1)); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; color: var(--pa-em); }
 #mcd-root .pa-mdl { display: block; padding: 0 6px; border-radius: 3px; }
 #mcd-root .pa-mdl-add { color: var(--pa-ok); background: rgba(111, 179, 138, .14); }
 #mcd-root .pa-mdl-del { color: var(--pa-warn); background: rgba(224, 120, 74, .14); }
@@ -2297,7 +2298,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-live > .pa-live-model { margin-top: 10px; }
 #mcd-root .pa-live > .pa-live-model > .pa-model-btn { width: 100%; min-height: 40px; font-size: .92em; }
 #mcd-root .pa-live .pa-live-kv { grid-template-columns: max-content minmax(0, 1fr); gap: 6px 14px; margin-top: 12px; align-items: start; }
-#mcd-root .pa-live .pa-live-kv > dt { line-height: 34px; }
+#mcd-root .pa-live .pa-live-kv > dt { line-height: 1.4; padding-block: 7px; }
 #mcd-root .pa-bal-auto .pa-switch, #mcd-root .pa-stream .pa-switch { margin-left: 2px; }
 #mcd-root .pa-kv dd.pa-stream { display: flex; align-items: center; gap: 8px; min-height: 34px; min-width: 0; }
 #mcd-root .pa-stream-note { color: var(--pa-dim); font-size: .88em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
@@ -2326,7 +2327,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 @media (hover: hover) { #mcd-root .pa-head-ico:disabled:hover { border-color: var(--pa-line); background: var(--pa-card); color: var(--pa-em); } }
 #mcd-root .pa-pig-busy svg { transform-origin: 50% 85%; animation: pa-pig-shake 1.2s ease-in-out infinite; }
 @keyframes pa-pig-shake { 0%, 70%, 100% { transform: none; } 12% { transform: rotate(-14deg); } 26% { transform: rotate(11deg); } 40% { transform: rotate(-7deg); } 54% { transform: rotate(3deg); } }
-@media (prefers-reduced-motion: reduce) { #mcd-root .pa-pig-busy svg { animation: pa-pulse 1.6s ease-in-out infinite !important; } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-pig-busy svg { animation: none !important; opacity: .72; } }
 #mcd-root .pa-site small.pa-site-bad, #mcd-root .pa-site .pa-site-bad { color: #cf3434; color: color-mix(in srgb, #dc2626 78%, var(--pa-text)); }
 /* 2.11.15 站点编辑窗口：账户余额查询（用户 ID + 系统访问令牌）一行两框，用户 ID 窄、令牌占满；停用在标题右边 */
 #mcd-root .pa-acct-row { display: flex; gap: 6px; min-width: 0; }
@@ -2423,7 +2424,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-sheet-wbentry .pa-wbset { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
 #mcd-root .pa-sheet-wbentry .pa-sheet-actions .pa-btn-danger-soft { margin-right: auto; }
 /* 2.12.4 编辑正则：查找、替换、修剪用等宽字，随内容增高；作用于、改哪里两组勾选横排 */
-#mcd-root .pa-rx-form .pa-rx-ta { resize: none; overflow: hidden; min-height: 38px; font-family: var(--monoFontFamily, ui-monospace, Menlo, monospace); font-size: 14px; line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
+#mcd-root .pa-rx-form .pa-rx-ta { resize: none; overflow: hidden; min-height: 38px; font-family: var(--pa-mono); font-size: calc(14px * var(--pa-k, 1)); line-height: 1.5; white-space: pre-wrap; overflow-wrap: anywhere; }
 #mcd-root .pa-rx-form > .pa-rx-help, #mcd-root .pa-rx-form > .pa-field-err { margin: -6px 2px 0; line-height: 1.5; }
 #mcd-root .pa-rx-set { margin: 0; padding: 0; border: 0; min-width: 0; display: grid; gap: 6px; }
 #mcd-root .pa-rx-set > legend { padding: 0; margin-bottom: 4px; color: var(--pa-dim); font-size: .9em; }
@@ -2440,8 +2441,8 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-vb-row.pa-vb-ghead { padding-left: 4px; font-weight: 600; color: var(--pa-em); }
 #mcd-root .pa-vb-row input[type=checkbox] { width: 18px; height: 18px; margin: 0; accent-color: var(--pa-thread); }
 #mcd-root .pa-vb-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#mcd-root .pa-vb-row > small { color: var(--pa-dim); font-weight: 400; font-size: max(11px, .85em); font-variant-numeric: tabular-nums; white-space: nowrap; }
-#mcd-root .pa-vb-row > .pa-lv { flex: none; font-size: max(11px, .82em); }
+#mcd-root .pa-vb-row > small { color: var(--pa-dim); font-weight: 400; font-size: max(12px, .85em); font-variant-numeric: tabular-nums; white-space: nowrap; }
+#mcd-root .pa-vb-row > .pa-lv { flex: none; font-size: max(12px, .82em); }
 /* 2.11.24 连接 → 副 API：「用途」「渠道」各一张卡片，一行一项。用途行：名称 | 渠道、模型 ›；渠道行：名称、来源 | 模型 | 闪电 */
 #mcd-root .pa-aux .pa-row-head { margin-top: 14px; }
 #mcd-root .pa-aux .pa-whynote p { margin: 0 0 4px; }
@@ -2457,7 +2458,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-aux-v { flex: 0 1 auto; min-width: 0; max-width: 58%; text-align: right; }
 #mcd-root .pa-aux-v b { font-weight: 500; }
 #mcd-root .pa-aux-k, #mcd-root .pa-aux-k > *, #mcd-root .pa-aux-v > *, #mcd-root .pa-aux-m { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-#mcd-root .pa-aux-k small, #mcd-root .pa-aux-v small { color: var(--pa-dim); font-size: max(11px, .8em); font-weight: 400; }
+#mcd-root .pa-aux-k small, #mcd-root .pa-aux-v small { color: var(--pa-dim); font-size: max(12px, .8em); font-weight: 400; }
 #mcd-root .pa-aux-m { flex: 0 1 auto; min-width: 0; max-width: 52%; color: var(--pa-em); font-size: .86em; }
 #mcd-root .pa-aux .pa-aux-bad { color: var(--pa-warn); }
 #mcd-root .pa-aux-caret { flex: none; display: inline-flex; color: var(--pa-dim); }
@@ -2561,7 +2562,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root.pa-dark:not(.pa-has-bg) .pa-sheet.pa-sheet-pop, #mcd-root.pa-dark:not(.pa-has-bg) .pa-sheet.pa-sheet-pop::before { background: #2f343b; background: color-mix(in srgb, var(--pa-tint) 90%, #fff); }
 @keyframes pa-menu-in { from { opacity: 0; transform: translateY(var(--pa-pop-dy, -6px)) scale(.97); } }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-head { margin: 0 6px; padding: 10px 8px 8px; border: 0; border-bottom: 1px solid var(--pa-line); }
-#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-head b { font-size: max(11px, .78em); font-weight: 500; color: var(--pa-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-head b { font-size: max(12px, .78em); font-weight: 500; color: var(--pa-dim); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 #mcd-root .pa-sheet.pa-sheet-pop.pa-pop-plain .pa-sheet-head { display: none; }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-x { display: none; }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-sheet-body { padding: 6px; }
@@ -2572,7 +2573,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
     text-align: left; font-size: .95em; font-weight: 400; line-height: 1.35; color: var(--pa-text); transition: background-color .12s ease-out; }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item.pa-has-mi, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item.pa-has-mi { padding-right: 40px; }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-label, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item > span:first-child { display: block; overflow-wrap: anywhere; }
-#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item small, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item small { display: block; margin-top: 2px; color: var(--pa-dim); font-size: max(11px, .82em); line-height: 1.4; overflow-wrap: anywhere; text-wrap: pretty; }
+#mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item small, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item small { display: block; margin-top: 2px; color: var(--pa-dim); font-size: max(12px, .82em); line-height: 1.4; overflow-wrap: anywhere; text-wrap: pretty; }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-pick .pa-pick-item .pa-mi, #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item .pa-mi { position: absolute; right: 12px; top: 50%; display: inline-flex; margin-top: -8px; color: var(--pa-dim); }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-mi svg { width: 16px; height: 16px; stroke-width: 2; }
 #mcd-root .pa-sheet.pa-sheet-pop .pa-npick-list .pa-npick-item .pa-mi-check { color: var(--pa-thread); }
@@ -2668,4 +2669,15 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
     /* 编辑栏开着时左栏窄，下拉框先缩，搜索、垃圾桶等图标留在同一行 */
     #mcd-root .pa-edit-open > .pa-toolbar > .pa-picker-slot { flex: 1 1 0; }
     #mcd-root .pa-edit-open > .pa-toolbar { flex-wrap: nowrap; }
+}
+
+/* 触屏：小图标按钮看起来大小不变，点击区用透明 ::before 扩到 44px 左右 */
+@media (pointer: coarse) {
+    #mcd-root .pa-peek, #mcd-root .pa-del, #mcd-root .pa-key-eye, #mcd-root .pa-key-copy,
+    #mcd-root .pa-key-del, #mcd-root .pa-sheet-x, #mcd-root .pa-key-add, #mcd-settings .pa-set-why { position: relative; }
+    #mcd-root .pa-peek::before, #mcd-root .pa-del::before, #mcd-root .pa-key-eye::before, #mcd-root .pa-key-copy::before { content: ""; position: absolute; inset: -7px; }
+    #mcd-root .pa-key-del::before, #mcd-root .pa-sheet-x::before, #mcd-root .pa-key-add::before { content: ""; position: absolute; inset: -9px; }
+    #mcd-settings .pa-set-why::before { content: ""; position: absolute; inset: -11px; }
+    /* 工具栏、备份详情里的删除按钮触屏下已是 42px，不再外扩 */
+    #mcd-root .pa-toolbar > .pa-del::before, #mcd-root .pa-tools .pa-del::before, #mcd-root .pa-bk-dhead .pa-del::before { content: none; }
 }

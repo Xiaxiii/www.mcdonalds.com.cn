@@ -100,7 +100,7 @@ function renderIndexedList(draft, o) {
             ${showTk ? `<small class="pa-tk">${marker || empty ? "" : tkFmt(tkOfEntry(draft, id))}</small>` : ""}
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>` : ""}
-            ${showHandle ? `<span class="pa-handle" data-act="drag" aria-label="拖动">${ICON.grip}</span>` : ""}
+            ${showHandle ? `<span class="pa-handle" data-act="drag" role="button" tabindex="0" aria-label="拖动">${ICON.grip}</span>` : ""}
         </div>${at ? mark : ""}`;
   };
   let html = "";
@@ -136,10 +136,10 @@ function renderIndexedList(draft, o) {
     html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${draft.groupOff(b.groupId) ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠" aria-expanded="${!isCol}">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
-                <span class="pa-gname"${place ? "" : ' data-act="collapse"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span><span class="pa-count">${onCount}/${b.ids.length}</span>${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-gsp"></span>${showTk ? `<small class="pa-tk pa-gtk">${tkFmt(tkSumOf(draft, b.ids, (i) => enabledMap.get(i)))}</small>` : ""}
+                <span class="pa-gname"${place ? "" : ' data-act="collapse" role="button" tabindex="0"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span><span class="pa-count">${onCount}/${b.ids.length}</span>${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-gsp"></span>${showTk ? `<small class="pa-tk pa-gtk">${tkFmt(tkSumOf(draft, b.ids, (i) => enabledMap.get(i)))}</small>` : ""}
                 ${showSwitch ? `<label class="pa-switch pa-switch-s" title="分组开关（不修改内部条目）"><input type="checkbox" aria-label="分组开关" data-act="gtoggle" ${draft.groupOff(b.groupId) ? "" : "checked"}><i></i></label>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
-                <span class="pa-handle" data-act="gdrag" aria-label="拖动分组">${ICON.grip}</span>` : ""}
+                <span class="pa-handle" data-act="gdrag" role="button" tabindex="0" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>
             <div class="pa-gbody" style="--n:${shown.length}">${startSlot}${emptyNote}${visibleRows}</div>
         </section>${afterHere ? mark : ""}`;

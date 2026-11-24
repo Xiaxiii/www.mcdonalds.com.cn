@@ -78,7 +78,7 @@ function mountSuture(page, app) {
                 <button class="pa-typebtn" data-st="srctype" type="button" aria-label="来源类型"><span>预设</span><i aria-hidden="true">▾</i></button>
                 <div class="pa-src-pick"></div>
                 <button class="pa-icon-btn pa-qbtn" data-st="srcsearch" aria-label="搜索来源条目" title="搜索条目">${ICON.search}</button>
-                <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">⋯</button>
+                <button class="pa-icon-btn pa-src-menu" data-st="srcmenu" aria-label="更多操作" title="更多操作">${ICON.more}</button>
             </div>
             <div class="pa-findrow pa-qrow" data-qside="src" style="${BOX_STYLE.replace("padding:0!important;", "")}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="search" inputmode="search" enterkeyhint="search" autocorrect="off" spellcheck="false" autocapitalize="off" autocomplete="off" placeholder="搜名称、分组名、标签或正文" aria-label="搜索来源条目"><button type="button" class="pa-icon-btn pa-qx" data-qx="src" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
             <div class="pa-scroll pa-src-list"></div>
@@ -96,7 +96,7 @@ function mountSuture(page, app) {
         </div>
     </div>
     <div class="pa-stitchbar pa-sbar">
-        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">${ICON.spark}AI 推荐</button><button class="pa-aiplace" data-st="aiqueue" type="button" hidden></button></div></div>
+        <div class="pa-stitch-info"><button class="pa-link pa-picked-n" data-st="picked" title="查看已选的条目">未选条目</button><div class="pa-where-row"><span class="pa-where">未选位置</span><button class="pa-aiplace" data-st="aiplace" type="button" hidden title="让 AI 看目标预设的目录，推荐放在哪">${ICON.spark}AI 推荐</button><button class="pa-aiplace" data-st="aiqueue" type="button" aria-label="继续下一组 AI 推荐" hidden></button></div></div>
         <button class="pa-btn" data-st="wbundo" hidden>撤销</button>
         <button class="pa-btn" data-st="clear" title="清空已选的条目和缝合位置">清空</button>
         <button class="pa-btn pa-btn-primary" data-st="go" disabled>预览</button>
@@ -777,6 +777,7 @@ function mountSuture(page, app) {
     const qb = bar.querySelector("[data-st=aiqueue]");
     qb.hidden = !(qn && !n && st.dstType === "preset");
     qb.textContent = `接着缝 ${qn} 条`;
+    qb.setAttribute("aria-label", `接着缝 ${qn} 条，继续下一组 AI 推荐`);
     if (!qb.hidden) bar.querySelector(".pa-where").textContent = "AI 推荐的下一组";
     swbar.querySelector(".pa-sw-n").textContent = n ? ` ${n}` : "";
     swbar.querySelector(".pa-sw-pos").textContent = m ? " ✓" : "";

@@ -90,7 +90,7 @@ function buildRoot() {
                     <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
                     <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
                 </div>
-                <button class="pa-icon-btn pa-sulayout" data-g="sulayout" hidden></button>
+                <button class="pa-icon-btn pa-sulayout" data-g="sulayout" aria-label="切换缝合布局" hidden></button>
                 <button class="pa-icon-btn pa-backup-btn" data-g="backups" aria-label="备份" title="备份（只存在这个浏览器里）"><svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7"/><path d="M3 4v4h4"/><path d="M12 7v5l3 2"/></svg></button>
                 <button class="pa-icon-btn pa-close" data-g="close" aria-label="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
             </header>
@@ -150,6 +150,16 @@ function buildRoot() {
     saveSettings();
     pages[PAGE_EL[current] || current]?.tkRepaint?.();
   });
+  // 页签行右边给合计按钮留的宽度跟着它的实际宽度（数字位数、文字大小都会变）
+  if (typeof ResizeObserver === "function") {
+    const tkbar = rootEl2.querySelector(".pa-tkbar"), subnav = rootEl2.querySelector(".pa-subnav");
+    const tkObs = new ResizeObserver(([e]) => {
+      const w = Math.ceil(e.borderBoxSize?.[0]?.inlineSize ?? tkbar.offsetWidth);
+      if (w) subnav.style.setProperty("--pa-tkw", w + "px");
+    });
+    tkObs.observe(tkbar);
+    cleanups.push(() => tkObs.disconnect());
+  }
   rootEl2.querySelector(".pa-subnav").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab], [data-m]");
     if (t) show(t.dataset.tab || t.dataset.m);
@@ -689,25 +699,28 @@ function applyMenuEntry() {
   const item = document.getElementById("mcd-menu-entry");
   if (item) item.style.display = entryMode() === "ball" || entryMode() === "none" ? "none" : "";
 }
-// 位置按可移动范围的比例存，换横竖屏、改窗口大小后仍在同一侧
+// 位置按可移动范围的比例存，换横竖屏、改窗口大小后仍在同一侧。
+// 球固定在 left/top 0，位置全用 transform 表示：拖动、贴边都不触发重新排版
+function moveBall(ball, x, y) {
+  ball.style.transform = `translate3d(${x}px, ${y}px, 0)`;
+}
 function placeBall(ball) {
   const p = settings().floatBallPos || { x: 1, y: 0.6 };
   const w = window.innerWidth, h = window.innerHeight;
-  ball.style.left = Math.round(BALL_GAP + Math.min(1, Math.max(0, p.x)) * Math.max(0, w - BALL - BALL_GAP * 2)) + "px";
-  ball.style.top = Math.round(BALL_GAP + Math.min(1, Math.max(0, p.y)) * Math.max(0, h - BALL - BALL_GAP * 2)) + "px";
+  moveBall(ball, Math.round(BALL_GAP + Math.min(1, Math.max(0, p.x)) * Math.max(0, w - BALL - BALL_GAP * 2)), Math.round(BALL_GAP + Math.min(1, Math.max(0, p.y)) * Math.max(0, h - BALL - BALL_GAP * 2)));
 }
 function applyFloatBall() {
   let ball = document.getElementById("mcd-ball");
   if (entryMode() === "wand" || entryMode() === "none") return ball?.remove();
   if (ball) return placeBall(ball);
   ball = el(`<button id="mcd-ball" type="button" aria-label="打开${esc(appName())}" title="${esc(appName())}"><i class="fa-solid fa-scissors"></i></button>`);
-  let start = null, moved = false, frame = 0, dx = 0, dy = 0;
+  let start = null, moved = false, frame = 0, x = 0, y = 0;
   // 酒馆在 html 上监听 mousedown/touchstart，点到抽屉外就收起打开着的抽屉（扩展页等）。拖球、点球都不该让它收起
   for (const t of ["mousedown", "touchstart", "click"]) ball.addEventListener(t, (e) => e.stopPropagation());
-  // 拖动时只改 transform，每帧最多一次，不触发重新排版；松手再落到 left/top
+  // 拖动时每帧最多改一次 transform
   const paint = () => {
     frame = 0;
-    ball.style.transform = `translate3d(${dx}px, ${dy}px, 0)`;
+    moveBall(ball, x, y);
   };
   ball.addEventListener("pointerdown", (e) => {
     if (e.button) return;
@@ -720,8 +733,8 @@ function applyFloatBall() {
     if (!start) return;
     if (!moved && Math.hypot(e.clientX - start.x, e.clientY - start.y) < 6) return;
     if (!moved) { moved = true; ball.classList.add("mcd-ball-drag"); }
-    dx = Math.min(start.w - BALL, Math.max(0, start.left + e.clientX - start.x)) - start.left;
-    dy = Math.min(start.h - BALL, Math.max(0, start.top + e.clientY - start.y)) - start.top;
+    x = Math.min(start.w - BALL, Math.max(0, start.left + e.clientX - start.x));
+    y = Math.min(start.h - BALL, Math.max(0, start.top + e.clientY - start.y));
     if (!frame) frame = requestAnimationFrame(paint);
   });
   const drop = () => {
@@ -730,15 +743,9 @@ function applyFloatBall() {
     start = null;
     if (frame) { cancelAnimationFrame(frame); frame = 0; }
     if (!moved) return;
-    const left = s0.left + dx, top = s0.top + dy;
-    ball.style.left = left + "px";
-    ball.style.top = top + "px";
-    ball.style.transform = "";
-    dx = dy = 0;
-    settings().floatBallPos = { x: left + BALL / 2 < s0.w / 2 ? 0 : 1, y: Math.min(1, Math.max(0, (top - BALL_GAP) / Math.max(1, s0.h - BALL - BALL_GAP * 2))) };
+    settings().floatBallPos = { x: x + BALL / 2 < s0.w / 2 ? 0 : 1, y: Math.min(1, Math.max(0, (y - BALL_GAP) / Math.max(1, s0.h - BALL - BALL_GAP * 2))) };
     saveSettings();
-    // 先落在松手的位置并让浏览器算好，再去掉拖动标记贴边，才有从松手处滑过去的动画
-    void ball.offsetLeft;
+    // 去掉拖动标记后再贴边：transform 的过渡从最后画出的拖动位置滑过去
     ball.classList.remove("mcd-ball-drag");
     placeBall(ball);
   };
@@ -751,8 +758,9 @@ function applyFloatBall() {
     open();
   });
   if (rootEl2 && !rootEl2.hidden) ball.hidden = true;
-  document.body.append(ball);
+  // 插入前就定好位置，否则 transform 的过渡会让球从左上角滑过来
   placeBall(ball);
+  document.body.append(ball);
 }
 function registerSlash() {
   try {

@@ -125,7 +125,7 @@ function mountOrganize(page) {
             <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">${ICON.search}</button>
             <button class="pa-icon-btn pa-del" data-tool="delpreset" aria-label="删除预设" title="删除预设（可多选）">${ICON.trash}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">${ICON.plus}</button>
-            <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">⋯</button>
+            <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">${ICON.more}</button>
             <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" aria-label="搜索条目"><button type="button" class="pa-icon-btn pa-qx" data-tool="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
             <div class="pa-tools">
                 <button class="pa-btn pa-btn-soft" data-tool="newgroup">＋ 新建分组</button>
@@ -137,7 +137,7 @@ function mountOrganize(page) {
             </div>
         </div>
         <div class="pa-movebar" hidden><b class="pa-move-n"></b>
-            <button class="pa-btn pa-sq" data-mv="up" aria-label="上移一位">↑</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一位">↓</button><button class="pa-btn pa-btn-soft" data-mv="end">移到最后</button>
+            <button class="pa-btn pa-sq" data-mv="up" aria-label="上移一位">${ICON.arrowUp}</button><button class="pa-btn pa-sq" data-mv="down" aria-label="下移一位">${ICON.arrowDown}</button><button class="pa-btn pa-btn-soft" data-mv="end">移到最后</button>
             <button class="pa-btn" data-mv="cancel">退出移动</button><small class="pa-move-hint"></small></div>
         <div class="pa-scroll pa-list" role="list"></div>
         <div class="pa-selbar" hidden>

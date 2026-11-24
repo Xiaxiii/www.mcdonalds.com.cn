@@ -41,8 +41,8 @@ async function sortTagsDialog(d, ids) {
     <div class="pa-tag-order"></div><details><summary>预览结果</summary><div class="pa-tag-preview"></div></details></div>`);
   function paint() {
     body.querySelector(".pa-tag-order").innerHTML = categories.map((x, i) => `<div class="pa-card pa-row-head"><span>${i + 1}. ${esc(x)}</span><span>
-      <button class="pa-btn" data-rank="${i}" data-dir="-1" aria-label="上移" ${i === 0 ? "disabled" : ""}>↑</button>
-      <button class="pa-btn" data-rank="${i}" data-dir="1" aria-label="下移" ${i === categories.length - 1 ? "disabled" : ""}>↓</button></span></div>`).join("");
+      <button class="pa-btn" data-rank="${i}" data-dir="-1" aria-label="上移" ${i === 0 ? "disabled" : ""}>${ICON.arrowUp}</button>
+      <button class="pa-btn" data-rank="${i}" data-dir="1" aria-label="下移" ${i === categories.length - 1 ? "disabled" : ""}>${ICON.arrowDown}</button></span></div>`).join("");
     body.querySelector(".pa-tag-preview").innerHTML = sortTagIds(d, ids, categories).map((id) => `<p>${esc(tagKey(d, id).label)} · ${esc(d.prompt(id)?.name)}</p>`).join("");
   }
   body.addEventListener("click", (e) => {
