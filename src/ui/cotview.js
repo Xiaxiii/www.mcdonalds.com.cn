@@ -29,7 +29,7 @@ async function repairAllVariables(d, manual = {}) {
     ${byAnchor.size ? `<h3 class="pa-h">新增读取条目（${byAnchor.size}）</h3><ul class="pa-notes">${[...byAnchor].map(([last, list]) => `<li>在「${nm(last)}」之后新增「变量读取 · ${esc(list.map((p) => p.name).join("、"))}」，正文：${esc(list.map((p) => p.macro).join(" "))}</li>`).join("")}</ul>` : ""}
     ${skipped.length ? `<h3 class="pa-h">不自动修改，需人工核对（${skipped.length}）</h3>${skipped.map((x) => `<div class="pa-card"><b>${esc(x.key)}</b><p>${esc(x.reason)}</p></div>`).join("")}` : ""}
     <p class="pa-hint">仅补缺失的读取、整理可确认的多余包裹。计数、思维链片段、脚本/条件和执行顺序需人工核对。修改后可在页头撤销。</p></div>`);
-  const ok = await sheet({ title: "修复变量问题", body, wide: true, noFocus: true, actions: can ? [{ label: "取消", value: false }, { label: "修改", kind: "primary", value: true }] : [{ label: "知道了", kind: "primary", value: false }] });
+  const ok = await sheet({ title: "修复变量问题", place: "center", body, wide: true, noFocus: true, actions: can ? [{ label: "取消", value: false }, { label: "修改", kind: "primary", value: true }] : [{ label: "知道了", kind: "primary", value: false }] });
   if (!ok) return;
   if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开修复方案", "warning");
   mutate(d, "修复变量问题", (x) => {
@@ -67,7 +67,7 @@ async function hookExistingDialog(d, id) {
   const body = el(`<div class="pa-form"><p class="pa-p">${esc(plan0.text)}。</p>${(plan0.warns || []).map((w) => `<p class="pa-warn">${esc(w)}</p>`).join("")}${how}</div>`);
   // 2.11.19 思维链靠文字提及时，也可改用变量接入
   const alt = plan0.mode === "text" ? [{ label: "用变量接入", value: "var" }] : [];
-  const ok = await sheet({ title: `将「${p.name}」接入思维链`, body, wide: true, actions: [{ label: "取消", value: null }, ...alt, { label: "接入", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
+  const ok = await sheet({ title: `将「${p.name}」接入思维链`, place: "center", body, wide: true, actions: [{ label: "取消", value: null }, ...alt, { label: "接入", kind: "primary", value: (w) => ({ v: (w.querySelector("[data-h=v]")?.value || "").replace(/[{}:：\s]/g, ""), q: (w.querySelector("[data-h=q]")?.value || "").trim() }) }] });
   if (ok === "var") return varHookDialog(d, id, { cotId: plan0.cotId });
   if (!ok) return;
   const plan = planHook(d, { after: id }, gid, { content: p.content, name: p.name, selfId: id }, { varName: ok.v && ok.v !== plan0.varName ? ok.v : void 0, question: ok.q || void 0 });
@@ -176,7 +176,7 @@ async function varHookDialog(d, id, { cotId = null } = {}) {
     if (bad) vIn.focus();
     return !bad;
   };
-  const ok = await sheet({ title: `将「${p.name}」用变量接入思维链`, body, wide: true, noFocus: true, guardDirty: true, actions: [{ label: "取消", value: false }, { label: "接入", kind: "primary", value: true, validate: check }] });
+  const ok = await sheet({ title: `将「${p.name}」用变量接入思维链`, place: "center", body, wide: true, noFocus: true, guardDirty: true, actions: [{ label: "取消", value: false }, { label: "接入", kind: "primary", value: true, validate: check }] });
   if (!ok) return;
   if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开", "warning");
   let r = null;
@@ -519,7 +519,7 @@ async function cotReadDialog(d, key, manual = {}) {
   fillLines(); show();
   cotSel.addEventListener("change", () => { plan = cotReadPlan(d, key, cotSel.value, null, manual); fillLines(); show(); });
   lineSel.addEventListener("change", () => { plan = cotReadPlan(d, key, cotSel.value, Number(lineSel.value), manual); show(); });
-  const ok = await sheet({ title: `加入思维链读取：${key.replace(/^全局:/, "")}`, body, wide: true, actions: [{ label: "取消", value: false }, { label: "加入", kind: "primary", value: true }] });
+  const ok = await sheet({ title: `加入思维链读取：${key.replace(/^全局:/, "")}`, place: "center", body, wide: true, actions: [{ label: "取消", value: false }, { label: "加入", kind: "primary", value: true }] });
   if (!ok) return;
   if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开", "warning");
   mutate(d, `加入思维链读取：${plan.name}`, (x) => { x.prompt(plan.cotId).content = plan.content; });
@@ -549,7 +549,7 @@ async function repairVariableDialog(d, key, manual = {}) {
   const body = el(`<div><p class="pa-p">新增条目「变量读取 · ${esc(plan.name)}」，放在「${esc(p.name)}」之后（最后一个写入该变量的开启条目），角色为系统，正文：</p>
     <pre class="pa-pre">${esc(plan.macro)}</pre>
     <p class="pa-hint">思维链不改动。内容会进入上下文，模型是否采用需在实际发送的提示词中核对。</p></div>`);
-  const ok = await sheet({ title: "补充变量读取", body, wide: true, actions: [{ label: "取消", value: false }, { label: "添加", kind: "primary", value: true }] });
+  const ok = await sheet({ title: "补充变量读取", place: "center", body, wide: true, actions: [{ label: "取消", value: false }, { label: "添加", kind: "primary", value: true }] });
   if (!ok) return;
   if (JSON.stringify(d.toPreset()) !== version) return toast("预设已变化，请重新打开修复方案", "warning");
   variableRepairPlan(d, key, manual);

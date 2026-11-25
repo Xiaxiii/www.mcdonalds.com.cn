@@ -345,6 +345,13 @@ function onPopState() {
     pushBackState();
     return;
   }
+  // 原地多选删除模式激活时，返回先退出多选删除
+  const delCancel = [...rootEl2.querySelectorAll(".pa-page:not([hidden]) [data-esc-del]")].find((b) => b.offsetParent);
+  if (delCancel) {
+    delCancel.click();
+    pushBackState();
+    return;
+  }
   // 2.12.0 世界书条目页盖住列表时，返回先回到列表
   const bkBack = rootEl2.querySelector(".pa-page:not([hidden]) .pa-bk-detail:not([hidden]) [data-esc-back]");
   if (bkBack?.offsetParent) {
@@ -390,6 +397,13 @@ function onRootKey(e) {
       t.blur();
       return;
     }
+  }
+  // 原地多选删除模式激活时，Esc 先退出删除模式
+  const delCancel = [...rootEl2.querySelectorAll(".pa-page:not([hidden]) [data-esc-del]")].find((b) => b.offsetParent);
+  if (delCancel) {
+    e.preventDefault();
+    delCancel.click();
+    return;
   }
   const bkOpen = rootEl2.querySelector(".pa-page:not([hidden]) .pa-bk-detail:not([hidden]) [data-esc-back]");
   if (bkOpen?.offsetParent) {

@@ -146,11 +146,13 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
     const g = page.locator(".pa-list .pa-group:not(.pa-gempty-box)").first();
     const selection = () => g.locator('.pa-row [data-act=toggle]').evaluateAll(xs => xs.map(x => x.checked));
     const before = await selection();
-    await g.locator(".pa-switch-s").click(); await page.waitForTimeout(400);
-    assert.equal(await g.locator('[data-act=gtoggle]').isChecked(), false);
+    const tri = g.locator(".pa-tri[data-act=gtoggle]");
+    const tb = await tri.boundingBox();
+    await page.mouse.click(tb.x + tb.width * 0.16, tb.y + tb.height / 2); await page.waitForTimeout(400);
+    assert.equal(await tri.getAttribute("data-state"), "off");
     assert.deepEqual(await selection(), before, "关闭分组后内部选择不变");
-    await g.locator(".pa-switch-s").click(); await page.waitForTimeout(400);
-    assert.equal(await g.locator('[data-act=gtoggle]').isChecked(), true);
+    await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height / 2); await page.waitForTimeout(400);
+    assert.notEqual(await tri.getAttribute("data-state"), "off");
     assert.deepEqual(await selection(), before, "开启分组后内部选择不变");
     ok("分组开关保留内部条目选择");
   }

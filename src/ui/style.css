@@ -508,7 +508,7 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
     display: flex; align-items: flex-end; justify-content: center;
     animation: pa-fade .16s ease-out;
 }
-#mcd-root .pa-sheet-mask.pa-out { opacity: 0; transition: opacity .15s; }
+#mcd-root .pa-sheet-mask.pa-out { opacity: 0; pointer-events: none; transition: opacity 140ms ease-out; }
 #mcd-root .pa-sheet {
     width: 100%; max-height: 90vh; max-height: 90dvh; max-height: calc(var(--pa-vh, 100dvh) * .9);
     display: flex; flex-direction: column;
@@ -528,13 +528,18 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
     #mcd-root .pa-sheet-wide { max-width: 920px; }
 }
 @keyframes pa-fade { from { opacity: 0; } }
-/* 2.5.0 屏幕中间偏上的小卡片：确认、输入、选项多的列表（偏上一点，键盘弹出也挡不住） */
-#mcd-root .pa-sheet-mask.pa-mask-center { align-items: flex-start; padding: calc(var(--pa-vh, 100dvh) * .12) 12px 12px; }
-#mcd-root .pa-sheet-center { max-width: 420px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: calc(var(--pa-vh, 100dvh) * .76); box-shadow: 0 14px 44px rgba(0, 0, 0, .3); animation: pa-pop .16s ease-out; }
+/* 屏幕中间偏上的轻浮卡片：确认、输入、短表单、选择器（偏上一点，键盘弹出也挡不住）；丝滑 duang 动效 */
+#mcd-root .pa-sheet-mask.pa-mask-center { align-items: flex-start; padding: calc(var(--pa-vh, 100dvh) * .1) 12px 12px; }
+#mcd-root .pa-sheet-center { width: min(100%, 420px); max-width: 420px; border-radius: 16px; border-bottom: 1px solid var(--pa-line); max-height: calc(var(--pa-vh, 100dvh) * .78); box-shadow: 0 14px 44px rgba(0, 0, 0, .3); animation: pa-duang 240ms cubic-bezier(0.22, 1, 0.36, 1); }
+#mcd-root .pa-sheet-center.pa-sheet-tall { height: auto; max-height: calc(var(--pa-vh, 100dvh) * .76); }
 #mcd-root .pa-sheet-center .pa-sheet-actions { padding-bottom: 10px; }
+@media (min-width: 760px) {
+    #mcd-root .pa-sheet-center.pa-sheet-wide { width: min(100%, 560px); max-width: 560px; }
+}
 /* 2.5.0 贴着按钮弹出的菜单：点外面关掉 */
 #mcd-root .pa-sheet-mask.pa-mask-pop { display: block; background: rgba(0, 0, 0, .14); }
-#mcd-root .pa-sheet-pop { position: absolute; width: min(320px, calc(100% - 16px)); max-width: none; border-radius: 12px; border-bottom: 1px solid var(--pa-line); box-shadow: 0 10px 32px rgba(0, 0, 0, .26); animation: pa-pop .14s ease-out; }
+#mcd-root .pa-sheet-pop { position: absolute; width: min(320px, calc(100% - 16px)); max-width: none; border-radius: 12px; border-bottom: 1px solid var(--pa-line); box-shadow: 0 10px 32px rgba(0, 0, 0, .26); animation: pa-duang 200ms cubic-bezier(0.22, 1, 0.36, 1); }
+#mcd-root .pa-sheet-mask.pa-out .pa-sheet-center, #mcd-root .pa-sheet-mask.pa-out .pa-sheet-pop { opacity: 0; transform: translateY(4px) scale(.985); transition: transform 140ms ease-out, opacity 140ms ease-out; }
 #mcd-root .pa-sheet-pop .pa-sheet-head { padding: 7px 6px 5px 12px; font-size: .86em; color: var(--pa-dim); }
 #mcd-root .pa-sheet-pop .pa-sheet-head .pa-sheet-x { width: 28px; height: 28px; }
 #mcd-root .pa-sheet-pop .pa-sheet-body { padding: 4px; }
@@ -542,8 +547,12 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-sheet-pop .pa-pick-item { border: 0; border-radius: 8px; background: none; min-height: 40px; padding: 8px 10px; }
 #mcd-root .pa-sheet-pop .pa-pick-item + .pa-pick-item { border-top: 1px solid var(--pa-line); border-radius: 0; }
 @media (hover: hover) { #mcd-root .pa-sheet-pop .pa-pick-item:hover { background: var(--pa-card); } }
+@keyframes pa-duang { from { opacity: 0; transform: translateY(10px) scale(.975); } }
 @keyframes pa-pop { from { opacity: 0; transform: scale(.96); } }
-@media (prefers-reduced-motion: reduce) { #mcd-root .pa-sheet-center, #mcd-root .pa-sheet-pop { animation: none; } }
+@media (prefers-reduced-motion: reduce) {
+    #mcd-root .pa-sheet-center, #mcd-root .pa-sheet-pop { animation: none; }
+    #mcd-root .pa-sheet-mask.pa-out, #mcd-root .pa-sheet-mask.pa-out .pa-sheet-center, #mcd-root .pa-sheet-mask.pa-out .pa-sheet-pop { transition: none; transform: none; }
+}
 @keyframes pa-up { from { transform: translateY(24px); opacity: .6; } }
 /* 2.5.8 选项用普通块排版，贴按钮的菜单一出来就是最终宽度（.pa-sheet-pop）：以前菜单先按整个面板宽排、再缩到 320px，
    iPad Safari 不重算 grid 按钮的高度，说明折成两行时下一项压住第二行 */
@@ -1770,7 +1779,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 2.7.2 条目行：拖动手柄在最左，开关在最右（只调显示顺序，不改结构） */
 #mcd-root .pa-row > .pa-handle, #mcd-root .pa-ghead > .pa-handle { order: -2; }
 #mcd-root .pa-row > .pa-check, #mcd-root .pa-ghead > .pa-group-select, #mcd-root .pa-ghead > .pa-caret { order: -1; }
-#mcd-root .pa-row > .pa-switch, #mcd-root .pa-ghead > .pa-switch { order: 1; }
+#mcd-root .pa-row > .pa-switch, #mcd-root .pa-ghead > .pa-switch, #mcd-root .pa-ghead > .pa-tri { order: 1; }
 #mcd-root .pa-row { padding-left: calc(2px + env(safe-area-inset-left)); padding-right: calc(8px + env(safe-area-inset-right)); }
 #mcd-root .pa-row > .pa-handle { width: 34px; }
 #mcd-root .pa-ghead > .pa-handle { width: 34px; }
@@ -2378,7 +2387,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk > .pa-bk-list { flex: 1 1 auto; }
 #mcd-root .pa-bk-detail { position: relative; flex: 1 1 auto; min-height: 0; display: flex; flex-direction: column; background: var(--pa-tint); }
 #mcd-root .pa-bk-detail[hidden] { display: none; }
-@media (max-width: 999px) { #mcd-root [data-page="books"].pa-bk-open > .pa-bk-bar, #mcd-root [data-page="books"].pa-bk-open .pa-bk > .pa-bk-list { display: none; } }
+@media (max-width: 999px) { #mcd-root [data-page="books"].pa-bk-open > .pa-bk-bar, #mcd-root [data-page="books"].pa-bk-open .pa-bk > .pa-bk-list, #mcd-root [data-page="books"].pa-bk-open .pa-bk > .pa-bk-delbar { display: none; } }
 #mcd-root .pa-bk-dhead { flex: none; display: flex; align-items: center; gap: 4px; min-height: 50px; padding: 4px calc(8px + env(safe-area-inset-right)) 4px calc(4px + env(safe-area-inset-left)); border-bottom: 1px solid var(--pa-line); }
 #mcd-root .pa-bk-dname { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-weight: 600; font-size: 1.05em; }
 #mcd-root .pa-bk-scope { flex: none; display: grid; gap: 4px; padding: 10px calc(12px + env(safe-area-inset-right)) 4px calc(12px + env(safe-area-inset-left)); }
@@ -2404,10 +2413,11 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-bk-row .pa-meta { margin-top: 2px; }
 @media (pointer: coarse) { #mcd-root .pa-bk-dhead .pa-icon-btn { width: 42px; height: 42px; } #mcd-root .pa-bk-scoperow .pa-seg button { min-height: 36px; } }
 @media (min-width: 1000px) {
-    #mcd-root .pa-bk { display: grid; grid-template-columns: minmax(260px, 1fr) 12px minmax(340px, var(--pa-pane, 44%)); }
-    #mcd-root .pa-bk > .pa-vsplit { display: flex; grid-column: 2; grid-row: 1; }
-    #mcd-root .pa-bk > .pa-bk-list { grid-column: 1; min-height: 0; }
-    #mcd-root .pa-bk-detail { grid-column: 3; grid-row: 1; border-left: 1px solid var(--pa-line); }
+    #mcd-root .pa-bk { display: grid; grid-template-columns: minmax(260px, 1fr) 12px minmax(340px, var(--pa-pane, 44%)); grid-template-rows: minmax(0, 1fr) auto; }
+    #mcd-root .pa-bk > .pa-vsplit { display: flex; grid-column: 2; grid-row: 1 / -1; }
+    #mcd-root .pa-bk > .pa-bk-list { grid-column: 1; grid-row: 1; min-height: 0; }
+    #mcd-root .pa-bk > .pa-bk-delbar { grid-column: 1; grid-row: 2; }
+    #mcd-root .pa-bk-detail { grid-column: 3; grid-row: 1 / -1; border-left: 1px solid var(--pa-line); }
     #mcd-root .pa-bk-back { display: none; }
     #mcd-root .pa-bk-bar > .pa-char-picker { flex: 0 1 420px; }
     #mcd-root .pa-bk-dhead { padding-left: 16px; }
@@ -2613,20 +2623,15 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-scrollhint { position: absolute; top: 0; right: 2px; width: 3px; height: 0; border-radius: 2px; background: var(--pa-thread); opacity: 0; pointer-events: none; z-index: 6; transition: opacity .4s ease-out; }
 #mcd-root .pa-scrollhint.on { opacity: .28; transition-duration: .12s; }
 #mcd-root .pa-bk-dhead [data-e="search"][aria-expanded="true"] { color: var(--pa-text); background: var(--pa-card-2); }
-/* 2.12.3 条目页标题行：世界书名称可点改名，旁边铅笔 */
-#mcd-root .pa-bk-dname { cursor: text; border-radius: 6px; }
+/* 2.12.3 条目页标题行：书名占满剩余宽度，重命名和删除收进顶栏 ⋯ 菜单 */
+#mcd-root .pa-bk-dname { flex: 1 1 auto; min-width: 0; cursor: default; border-radius: 6px; }
 #mcd-root .pa-bk-dname:focus-visible { outline: 2px solid var(--pa-info, var(--pa-thread)); outline-offset: 2px; }
-#mcd-root .pa-bk-dname.pa-inline-editing { flex: 1 1 auto; cursor: auto; }
+#mcd-root .pa-bk-dname.pa-inline-editing { flex: 1 1 auto; cursor: auto; white-space: normal; }
 #mcd-root .pa-bk-dname .pa-inline-input { width: 100%; min-height: 36px; font-weight: 500; }
 /* 2.12.15 改名框折行、随内容变高 */
 #mcd-root .pa-inline-wrap { display: block; resize: none; overflow: hidden; white-space: pre-wrap; overflow-wrap: anywhere; line-height: 1.4; padding-top: 6px !important; padding-bottom: 6px !important; }
-#mcd-root .pa-bk-dname.pa-inline-editing { white-space: normal; }
-#mcd-root .pa-bk-dname { flex: 0 1 auto; }
-#mcd-root .pa-bk-dhead > .pa-bk-rename { color: var(--pa-dim); }
-#mcd-root .pa-bk-dhead > .pa-bk-rename svg, #mcd-root .pa-bk-dhead > .pa-del svg { width: 16px; height: 16px; }
-/* 2.12.12 铅笔、垃圾桶跟着书名（管这本书）；搜索、新建靠右（管条目） */
-#mcd-root .pa-bk-dhead > .pa-del { margin-right: auto; }
-#mcd-root .pa-bk-dname.pa-inline-editing + .pa-bk-rename, #mcd-root .pa-bk-dname.pa-inline-editing ~ .pa-del { display: none; }
+#mcd-root .pa-bk-dname.pa-inline-editing ~ .pa-icon-btn { display: none; }
+#mcd-root .pa-wbe-more { width: 30px; height: 30px; opacity: .7; }
 /* 2.12.8 变量页：风险经过的几步、改法和一键挪动 */
 #mcd-root .pa-var-trail { color: var(--pa-dim); }
 #mcd-root .pa-var-fix { margin: 6px 0 2px; color: var(--pa-em); font-size: .9em; }
@@ -2656,9 +2661,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-vsplit span { width: 4px; height: 44px; }
 /* 正则页宽屏编辑栏：和条目页一样，列表在左、编辑在右 */
 @media (min-width: 1000px) {
-    #mcd-root [data-page="rx"].pa-edit-open { display: grid; grid-template-columns: minmax(0, 1fr) 12px minmax(340px, var(--pa-pane, 44%)); grid-template-rows: auto minmax(0, 1fr); }
+    #mcd-root [data-page="rx"].pa-edit-open { display: grid; grid-template-columns: minmax(0, 1fr) 12px minmax(340px, var(--pa-pane, 44%)); grid-template-rows: auto minmax(0, 1fr) auto; }
     #mcd-root [data-page="rx"].pa-edit-open > .pa-toolbar { grid-column: 1; grid-row: 1; }
     #mcd-root [data-page="rx"].pa-edit-open > .pa-rx-list { grid-column: 1; grid-row: 2; }
+    #mcd-root [data-page="rx"].pa-edit-open > .pa-rx-delbar { grid-column: 1; grid-row: 3; }
     #mcd-root [data-page="rx"].pa-edit-open > .pa-vsplit { display: flex; grid-column: 2; grid-row: 1 / -1; }
     #mcd-root [data-page="rx"] > .pa-rx-pane { grid-column: 3; grid-row: 1 / -1; }
     #mcd-root .pa-bk:has(> .pa-bk-detail[hidden]) > .pa-vsplit { display: none; }
@@ -2671,11 +2677,87 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
     #mcd-root .pa-edit-open > .pa-toolbar { flex-wrap: nowrap; }
 }
 
+/* 主题切换：极简柔光 280ms 柔和色彩过渡 */
+#mcd-root.pa-theme-xfade,
+#mcd-root.pa-theme-xfade :is(.pa-shell, .pa-top, .pa-tabs, .pa-subnav, .pa-card, .pa-group, .pa-row, .pa-btn, .pa-sheet, .pa-input, .pa-select, .pa-namebtn, .pa-selbar) {
+    transition: background-color 280ms ease-out, color 280ms ease-out, border-color 280ms ease-out !important;
+}
+@media (prefers-reduced-motion: reduce) {
+    #mcd-root.pa-theme-xfade,
+    #mcd-root.pa-theme-xfade :is(.pa-shell, .pa-top, .pa-tabs, .pa-subnav, .pa-card, .pa-group, .pa-row, .pa-btn, .pa-sheet, .pa-input, .pa-select, .pa-namebtn, .pa-selbar) {
+        transition: none !important;
+    }
+}
+
+/* 三段式分组总开关（56px 胶囊条：左全关 / 中自定义虚线 / 右全开），与单条 42px 开关彻底区分 */
+#mcd-root .pa-tri {
+    position: relative; flex: none; display: inline-flex; align-items: center;
+    width: 56px; height: 26px; border-radius: 13px;
+    border: 1.5px solid transparent;
+    background: var(--pa-line-strong, var(--pa-control-border, var(--pa-card-2)));
+    cursor: pointer; touch-action: none; user-select: none; -webkit-user-select: none;
+    -webkit-tap-highlight-color: transparent;
+    transition: background-color 200ms cubic-bezier(0.22, 1, 0.36, 1), border-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+#mcd-root .pa-tri:focus-visible { outline: 2px solid var(--pa-info, var(--pa-thread)); outline-offset: 2px; }
+#mcd-root .pa-tri-dots {
+    position: absolute; inset: 0 9px; display: flex; align-items: center; justify-content: space-between; pointer-events: none;
+}
+#mcd-root .pa-tri-dots span {
+    width: 3px; height: 3px; border-radius: 50%; background: currentColor; opacity: .28;
+}
+#mcd-root .pa-tri-thumb {
+    position: absolute; top: 1.5px; left: 1.5px; width: 20px; height: 20px; border-radius: 50%;
+    background: #fff; box-shadow: 0 1px 2px rgba(0, 0, 0, .24); pointer-events: none;
+    transition: transform 200ms cubic-bezier(0.22, 1, 0.36, 1), background-color 200ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+#mcd-root .pa-tri[data-state="off"] .pa-tri-thumb { transform: translateX(0); }
+#mcd-root .pa-tri[data-state="mid"] {
+    background: transparent; border-style: dashed; border-color: var(--pa-thread);
+}
+#mcd-root .pa-tri[data-state="mid"] .pa-tri-dots span { background: var(--pa-thread); opacity: .35; }
+#mcd-root .pa-tri[data-state="mid"] .pa-tri-thumb {
+    transform: translateX(15px); background: var(--pa-thread); box-shadow: none;
+}
+#mcd-root .pa-tri[data-state="all"] {
+    background: var(--pa-switch-on, var(--pa-thread)); border-color: transparent;
+}
+#mcd-root .pa-tri[data-state="all"] .pa-tri-dots span { background: var(--pa-on-accent); opacity: .32; }
+#mcd-root .pa-tri[data-state="all"] .pa-tri-thumb {
+    transform: translateX(30px); background: var(--pa-switch-knob, var(--pa-on-accent));
+}
+#mcd-root .pa-group > .pa-gbody { transition: opacity 200ms cubic-bezier(0.22, 1, 0.36, 1); }
+#mcd-root .pa-group.pa-goff > .pa-gbody { opacity: .46; }
+@media (prefers-reduced-motion: reduce) {
+    #mcd-root .pa-tri, #mcd-root .pa-tri-thumb, #mcd-root .pa-group > .pa-gbody { transition: none; }
+}
+
+/* 预设选择器卡片内删除模式 & 原地多选删除底栏 */
+#mcd-root .pa-npick-foot {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    padding-top: 8px; margin-top: 4px; border-top: 1px solid var(--pa-line);
+}
+#mcd-root .pa-npick-foot [data-np="cancel"] { margin-right: auto; }
+#mcd-root .pa-npick-dmhead > .pa-hint { margin: 0 0 2px; }
+#mcd-root .pa-npick .pa-dl-note { margin: 4px 0 0; }
+#mcd-root .pa-dm-row.pa-sel { background: var(--pa-sel); border-radius: 6px; padding-left: 6px; padding-right: 6px; }
+#mcd-root .pa-toolbar > .pa-del.on { color: var(--pa-warn); background: var(--pa-card-2); opacity: 1; }
+#mcd-root .pa-delbar {
+    display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;
+    animation: pa-bar-up 180ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+#mcd-root .pa-delbar > .pa-selcount { min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+#mcd-root .pa-delbar > .pa-link { flex: none; white-space: nowrap; }
+#mcd-root .pa-delbar-acts { margin-left: auto; display: flex; align-items: center; gap: 8px; flex: none; }
+@keyframes pa-bar-up { from { opacity: 0; transform: translateY(8px); } }
+@media (prefers-reduced-motion: reduce) { #mcd-root .pa-delbar { animation: none; } }
+
 /* 触屏：小图标按钮看起来大小不变，点击区用透明 ::before 扩到 44px 左右 */
 @media (pointer: coarse) {
-    #mcd-root .pa-peek, #mcd-root .pa-del, #mcd-root .pa-key-eye, #mcd-root .pa-key-copy,
+    #mcd-root .pa-peek, #mcd-root .pa-del, #mcd-root .pa-wbe-more, #mcd-root .pa-key-eye, #mcd-root .pa-key-copy,
     #mcd-root .pa-key-del, #mcd-root .pa-sheet-x, #mcd-root .pa-key-add, #mcd-settings .pa-set-why { position: relative; }
-    #mcd-root .pa-peek::before, #mcd-root .pa-del::before, #mcd-root .pa-key-eye::before, #mcd-root .pa-key-copy::before { content: ""; position: absolute; inset: -7px; }
+    #mcd-root .pa-peek::before, #mcd-root .pa-del::before, #mcd-root .pa-wbe-more::before, #mcd-root .pa-key-eye::before, #mcd-root .pa-key-copy::before { content: ""; position: absolute; inset: -7px; }
+    #mcd-root .pa-tri::before { content: ""; position: absolute; inset: -10px -4px; }
     #mcd-root .pa-key-del::before, #mcd-root .pa-sheet-x::before, #mcd-root .pa-key-add::before { content: ""; position: absolute; inset: -9px; }
     #mcd-settings .pa-set-why::before { content: ""; position: absolute; inset: -11px; }
     /* 工具栏、备份详情里的删除按钮触屏下已是 42px，不再外扩 */

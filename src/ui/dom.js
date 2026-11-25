@@ -189,7 +189,7 @@ function sheet(opt) {
     const done = (v) => {
       if (wrap.classList.contains("pa-out")) return;
       wrap.classList.add("pa-out");
-      setTimeout(() => wrap.remove(), 160);
+      setTimeout(() => wrap.remove(), 150);
       document.removeEventListener("keydown", onKey, true);
       wrap.dispatchEvent(new Event("pa-closed"));
       resolve(v);
@@ -408,49 +408,6 @@ function paneSplit(host, splitter, key, def = 44) {
   splitter.addEventListener("dblclick", () => save(apply(def)));
 }
 const splitterHtml = (label) => `<div class="pa-splitter pa-vsplit" role="separator" tabindex="0" aria-label="${esc(label)}" title="拖动调整两栏宽度，双击恢复"><span></span></div>`;
-// 2.12.15 删除多选：列出能删的，勾选后一起删。items：[{ label, sub, checked, disabled, why }]。
-// download(选中的项) 给了就有「下载备份」：下载后弹窗留着、勾选不变，写明下载了什么。返回选中的项，取消返回 null
-async function pickDeleteMany({ title, items, unit = "个", hint = "", download = null }) {
-  let note = "";
-  const on = new Set(items.map((x, i) => x.checked && !x.disabled ? i : -1).filter((i) => i >= 0));
-  const can = items.map((x, i) => x.disabled ? -1 : i).filter((i) => i >= 0);
-  for (;;) {
-    const body = `${hint ? `<p class="pa-hint">${hint}</p>` : ""}
-      <label class="pa-dm-all"><input type="checkbox" data-dm="all" ${can.length && can.every((i) => on.has(i)) ? "checked" : ""} ${can.length ? "" : "disabled"}><span>全选</span></label>
-      <div class="pa-dm-list" role="group" aria-label="${esc(title)}">${items.map((x, i) => `<label class="pa-dm-row${x.disabled ? " pa-off" : ""}"><input type="checkbox" data-dm="${i}" ${on.has(i) ? "checked" : ""} ${x.disabled ? "disabled" : ""}><span class="pa-dm-t"><span class="pa-dm-name">${esc(x.label)}</span>${x.sub || x.why ? `<small>${esc(x.why || x.sub)}</small>` : ""}</span></label>`).join("")}</div>
-      ${note ? `<p class="pa-hint pa-dl-note">${note}</p>` : ""}`;
-    const v = await sheet({
-      title, body, cls: "pa-sheet-delmany",
-      actions: [{ label: "取消", value: null }, ...(download ? [{ label: note ? "重新下载" : "下载备份", value: "dl" }] : []), { label: "删除", kind: "danger", value: "del" }],
-      onMount: (w) => {
-        const paint = () => {
-          const n = on.size;
-          const del = w.querySelector(".pa-sheet-actions .pa-btn-danger");
-          del.textContent = n ? `删除 ${n} ${unit}` : "删除";
-          del.disabled = !n;
-          const dl = [...w.querySelectorAll(".pa-sheet-actions .pa-btn")].find((b) => /下载/.test(b.textContent));
-          if (dl) dl.disabled = !n;
-          const all = w.querySelector("[data-dm=all]");
-          all.checked = can.length > 0 && can.every((i) => on.has(i));
-          all.indeterminate = n > 0 && !all.checked;
-        };
-        w.querySelector(".pa-sheet-body").addEventListener("change", (e) => {
-          const k = e.target.dataset?.dm;
-          if (k === void 0) return;
-          if (k === "all") {
-            for (const i of can) e.target.checked ? on.add(i) : on.delete(i);
-            w.querySelectorAll(".pa-dm-list input:not(:disabled)").forEach((x) => { x.checked = e.target.checked; });
-          } else e.target.checked ? on.add(Number(k)) : on.delete(Number(k));
-          paint();
-        });
-        paint();
-      }
-    });
-    if (v === "del") return items.filter((x, i) => on.has(i));
-    if (v !== "dl") return null;
-    note = await download(items.filter((x, i) => on.has(i)));
-  }
-}
 async function promptBox(title, value = "", placeholder = "") {
   return sheet({
     title,

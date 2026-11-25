@@ -113,21 +113,36 @@ function mountBooks(page) {
     equery: "",
     backedUp: new Set(),
     listTop: 0,
-    busy: false
+    busy: false,
+    delMode: false, // 列表页原地多选删除模式
+    delSel: new Set(),
+    delOpenedSearch: false,
+    entryDelMode: false, // 详情页条目原地多选删除模式
+    entryDelSel: new Set(),
+    entryDelOpenedSearch: false
   };
   page.innerHTML = `
     <div class="pa-toolbar pa-bk-bar">
       <div class="pa-picker pa-char-picker"><span>角色</span><button class="pa-namebtn" type="button" data-b="char" aria-label="选择角色"><img class="pa-ava" alt="" width="22" height="22" hidden><span></span><i aria-hidden="true">▾</i></button></div>
       <button class="pa-icon-btn" data-b="search" aria-label="搜索世界书" title="搜索世界书">${ICON.search}</button>
-      <button class="pa-icon-btn pa-del" data-b="delmany" aria-label="删除世界书" title="删除世界书（可多选）">${ICON.trash}</button>
+      <button class="pa-icon-btn pa-del" data-b="delmany" aria-label="删除世界书" aria-pressed="false" title="多选删除世界书">${ICON.trash}</button>
       <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜世界书名称" aria-label="搜索世界书"><button type="button" class="pa-icon-btn pa-qx" data-b="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     </div>
     <div class="pa-bk">
       <div class="pa-scroll pa-bk-list" role="list" aria-label="世界书"></div>
+      <div class="pa-selbar pa-delbar pa-bk-delbar" hidden>
+        <b class="pa-selcount"></b>
+        <button class="pa-link" data-bd="all">全选</button>
+        <div class="pa-delbar-acts">
+          <button class="pa-btn pa-btn-s" data-bd="cancel" data-esc-del>取消</button>
+          <button class="pa-btn pa-btn-s pa-btn-danger" data-bd="confirm" disabled>删除</button>
+        </div>
+      </div>
       ${splitterHtml("拖动调整世界书列表和条目的宽度")}
       <section class="pa-bk-detail" aria-label="世界书条目" hidden></section>
     </div>`;
   const list = page.querySelector(".pa-bk-list");
+  const bkDelBar = page.querySelector(".pa-bk-delbar");
   const detail = page.querySelector(".pa-bk-detail");
   paneSplit(page.querySelector(".pa-bk"), page.querySelector(".pa-bk > .pa-vsplit"), "books");
   const search = page.querySelector(".pa-find");
@@ -195,10 +210,12 @@ function mountBooks(page) {
     const meta = rowMeta(ci, sec, n);
     const label = sec === "all" ? `所有角色都开「${n}」` : sec === "chat" ? `本聊天开「${n}」` : ci ? `给「${ci.name}」开「${n}」` : `所有角色都开「${n}」`;
     const fl = flashAttr(n);
-    return `<div class="pa-row pa-bk-row${on ? "" : " pa-off"}${st.open === n ? " pa-editing" : ""}${fl.cls}" data-book="${esc(n)}" data-sec="${sec}" tabindex="0"${fl.style}>
+    const picked = st.delMode && st.delSel.has(n);
+    return `<div class="pa-row pa-bk-row${on ? "" : " pa-off"}${!st.delMode && st.open === n ? " pa-editing" : ""}${picked ? " pa-sel" : ""}${fl.cls}" data-book="${esc(n)}" data-sec="${sec}" tabindex="0"${fl.style}>
+      ${st.delMode ? '<span class="pa-check" aria-hidden="true"></span>' : ""}
       <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(n, st.query.trim().toLowerCase())}</span></span>${meta ? `<small class="pa-meta">${meta}</small>` : ""}</span>
-      <button class="pa-icon-btn pa-peek" data-b="peek" aria-label="查看「${esc(n)}」的条目" title="查看条目">${ICON.eye}</button>
-      <label class="pa-switch"><input type="checkbox" data-b="toggle" aria-label="${esc(label)}" ${on ? "checked" : ""}><i></i></label>
+      ${st.delMode ? "" : `<button class="pa-icon-btn pa-peek" data-b="peek" aria-label="查看「${esc(n)}」的条目" title="查看条目">${ICON.eye}</button>
+      <label class="pa-switch"><input type="checkbox" data-b="toggle" aria-label="${esc(label)}" ${on ? "checked" : ""}><i></i></label>`}
     </div>`;
   }
   function section(ci, sec, title, names, { note = "", empty = "", count = true } = {}) {
@@ -271,12 +288,51 @@ function mountBooks(page) {
     if (st.query.trim() && !html.includes("pa-bk-row")) html += '<p class="pa-empty">没有匹配的世界书</p>';
     list.innerHTML = html;
     list.scrollTop = top;
+    paintBookDelBar();
     paintTkBar(ci, L);
     loadCounts([...L.char, ...L.all, ...L.chat]);
-    if (wide() && !st.open) {
+    if (wide() && !st.open && !st.delMode) {
       const first = L.char.find((n) => rowOn(ci, "char", n)) || L.char[0] || L.all[0] || L.chat[0];
       if (first) openBook(first, { focus: false });
     }
+  }
+  function visibleBooks() {
+    return [...new Set([...list.querySelectorAll(".pa-bk-row")].filter((r) => !r.closest(".pa-collapsed")).map((r) => r.dataset.book))];
+  }
+  function paintBookDelBar() {
+    const have = new Set(listWorldbooks());
+    for (const n of [...st.delSel]) if (!have.has(n)) st.delSel.delete(n);
+    const btn = page.querySelector("[data-b=delmany]");
+    btn?.classList.toggle("on", st.delMode);
+    btn?.setAttribute("aria-pressed", String(st.delMode));
+    page.classList.toggle("pa-bk-delmode", st.delMode);
+    bkDelBar.hidden = !st.delMode;
+    if (!st.delMode) return;
+    list.querySelectorAll(".pa-bk-row").forEach((r) => r.classList.toggle("pa-sel", st.delSel.has(r.dataset.book)));
+    const n = st.delSel.size;
+    bkDelBar.querySelector(".pa-selcount").textContent = `已选 ${n} 本`;
+    const vis = visibleBooks();
+    const allSel = vis.length > 0 && vis.every((x) => st.delSel.has(x));
+    bkDelBar.querySelector("[data-bd=all]").textContent = allSel ? "取消全选" : "全选";
+    const del = bkDelBar.querySelector("[data-bd=confirm]");
+    del.disabled = !n;
+    del.textContent = n ? `删除 ${n} 本` : "删除";
+  }
+  function setBookDelMode(on) {
+    if (on && !listWorldbooks().length) return toast("还没有世界书");
+    const qrow = page.querySelector(".pa-bk-bar .pa-findrow");
+    st.delMode = !!on;
+    st.delSel.clear();
+    if (st.delMode) {
+      st.delOpenedSearch = qrow.hidden;
+      if (qrow.hidden) qrow.hidden = false;
+    } else if (st.delOpenedSearch) {
+      st.delOpenedSearch = false;
+      qrow.hidden = true;
+      search.value = "";
+      st.query = "";
+    }
+    render();
   }
   // 2.12.7 页签行右侧：正在用的书（这个角色开着的、所有角色、本聊天）里，开着的常驻条目合计。关键词触发的不算
   function paintTkBar(ci, L) {
@@ -368,16 +424,36 @@ function mountBooks(page) {
     }
     const r = e.target.closest(".pa-bk-row");
     if (!r) return;
+    if (st.delMode) {
+      const n = r.dataset.book;
+      st.delSel.has(n) ? st.delSel.delete(n) : st.delSel.add(n);
+      return paintBookDelBar();
+    }
     const box = e.target.closest("[data-b=toggle]");
     if (box) return void toggle(r.dataset.sec, r.dataset.book, box.checked);
     if (e.target.closest(".pa-switch")) return;
     openBook(r.dataset.book);
+  });
+  bkDelBar.addEventListener("click", async (e) => {
+    const a = e.target.closest("[data-bd]")?.dataset.bd;
+    if (!a) return;
+    if (a === "cancel") return setBookDelMode(false);
+    if (a === "all") {
+      const vis = visibleBooks();
+      if (vis.length && vis.every((x) => st.delSel.has(x))) vis.forEach((x) => st.delSel.delete(x));
+      else vis.forEach((x) => st.delSel.add(x));
+      return paintBookDelBar();
+    }
+    if (a === "confirm") return deleteSelectedBooks();
   });
   // ---------- 条目
   function closeBook() {
     if (!st.open) return;
     st.open = null;
     st.entries = null;
+    st.entryDelMode = false;
+    st.entryDelSel.clear();
+    st.entryDelOpenedSearch = false;
     detail.hidden = true;
     detail.replaceChildren();
     page.classList.remove("pa-bk-open");
@@ -391,7 +467,13 @@ function mountBooks(page) {
   }
   async function openBook(n, { focus = true } = {}) {
     if (!wide()) st.listTop = list.scrollTop;
-    if (st.open !== n) { st.equery = ""; st.backedUp.delete(n); }
+    if (st.open !== n) {
+      st.equery = "";
+      st.backedUp.delete(n);
+      st.entryDelMode = false;
+      st.entryDelSel.clear();
+      st.entryDelOpenedSearch = false;
+    }
     st.open = n;
     st.entries = null;
     page.classList.add("pa-bk-open");
@@ -399,14 +481,21 @@ function mountBooks(page) {
     list.querySelectorAll(".pa-bk-row").forEach((x) => x.classList.toggle("pa-editing", x.dataset.book === n));
     detail.innerHTML = `<div class="pa-bk-dhead">
         <button class="pa-icon-btn pa-bk-back" data-e="back" data-esc-back aria-label="返回世界书列表" title="返回">${BACK_ICON}</button>
-        <b class="pa-bk-dname" data-e="rename" role="button" tabindex="0" title="改名">${esc(n)}</b>
-        <button class="pa-icon-btn pa-bk-rename" data-e="rename" aria-label="改世界书名称" title="改名">${ICON.pencil}</button>
-        <button class="pa-icon-btn pa-del" data-e="delbook" aria-label="删除世界书「${esc(n)}」" title="删除世界书">${ICON.trash}</button>
+        <b class="pa-bk-dname" title="${esc(n)}">${esc(n)}</b>
         <button class="pa-icon-btn" data-e="search" aria-label="搜索条目" aria-expanded="false" title="搜索条目">${ICON.search}</button>
         <button class="pa-icon-btn" data-e="new" aria-label="新建条目" title="新建条目">${ICON.plus}</button>
+        <button class="pa-icon-btn pa-bk-more" data-e="bookmenu" aria-label="世界书操作" title="世界书操作">${ICON.more}</button>
       </div>
       <div class="pa-bk-q" hidden><div class="pa-findrow pa-qrow" style="${BOX_STYLE}"><input class="pa-input" data-e="q" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜条目名称、关键词或正文" aria-label="搜索条目"><button type="button" class="pa-icon-btn pa-qx" data-e="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div></div>
-      <div class="pa-scroll pa-bk-entries"><div class="pa-bk-scope"></div><div class="pa-bk-rows" role="list" aria-label="条目"><p class="pa-empty">正在读取…</p></div></div>`;
+      <div class="pa-scroll pa-bk-entries"><div class="pa-bk-scope"></div><div class="pa-bk-rows" role="list" aria-label="条目"><p class="pa-empty">正在读取…</p></div></div>
+      <div class="pa-selbar pa-delbar pa-bk-edelbar" hidden>
+        <b class="pa-selcount"></b>
+        <button class="pa-link" data-ed="all">全选</button>
+        <div class="pa-delbar-acts">
+          <button class="pa-btn pa-btn-s" data-ed="cancel" data-esc-del>取消</button>
+          <button class="pa-btn pa-btn-s pa-btn-danger" data-ed="confirm" disabled>删除</button>
+        </div>
+      </div>`;
     const q = detail.querySelector("[data-e=q]");
     onSearchInput(q, () => { st.equery = q.value; paintEntries(); });
     scrollHint(detail.querySelector(".pa-bk-entries"), detail);
@@ -476,16 +565,61 @@ function mountBooks(page) {
       const keys = wbKeysText(e);
       const meta = [e.constant ? "常驻" : keys.length ? `关键词：${keys.slice(0, 3).join("、")}${keys.length > 3 ? " 等" : ""}` : "没有关键词", WI_POS_SHORT[Number(e.position ?? 0)] || "", Number(e.position) === 4 ? `深度 ${e.depth ?? 4}` : ""].filter(Boolean);
       const snip = bodyHit(e) ? (() => { const c = String(e.content || ""); const i = c.toLowerCase().indexOf(q); return hitSnippet(c, i, q.length); })() : "";
-      return `<div class="pa-row pa-wbe-row${on ? "" : " pa-off"}" data-uid="${esc(e.uid)}" tabindex="0">
+      const picked = st.entryDelMode && st.entryDelSel.has(String(e.uid));
+      return `<div class="pa-row pa-wbe-row${on ? "" : " pa-off"}${picked ? " pa-sel" : ""}" data-uid="${esc(e.uid)}" tabindex="0">
+        ${st.entryDelMode ? '<span class="pa-check" aria-hidden="true"></span>' : ""}
         <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span>${snip ? `<small class="pa-hitline">正文：${snip}</small>` : ""}<small class="pa-meta">${meta.map((m) => `<span>${esc(m)}</span>`).join("")}</small></span>
-        ${tk ? `<small class="pa-tk">${tkFmt(tkGet(e.content))}</small>` : ""}
-        <button class="pa-icon-btn pa-peek" data-e="edit" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
-        <label class="pa-switch"><input type="checkbox" data-e="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
+        ${tk && !st.entryDelMode ? `<small class="pa-tk">${tkFmt(tkGet(e.content))}</small>` : ""}
+        ${st.entryDelMode ? "" : `<button class="pa-icon-btn pa-wbe-more" data-e="emenu" aria-label="更多操作「${esc(name)}」" title="更多操作">${ICON.more}</button>
+        <label class="pa-switch"><input type="checkbox" data-e="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>`}
       </div>`;
     }).join("") : '<p class="pa-empty">没有匹配的条目</p>');
     sc.scrollTop = top;
+    paintEntryDelBar();
   }
-  // 2.12.12 删除整本世界书：同「清理 → 世界书」，删前可下载备份；全局列表、角色附加世界书里的链接由酒馆一起去掉
+  function visibleEntryUids() {
+    return [...detail.querySelectorAll(".pa-wbe-row")].map((r) => r.dataset.uid);
+  }
+  function paintEntryDelBar() {
+    const bar = detail.querySelector(".pa-bk-edelbar");
+    if (!bar) return;
+    const have = new Set((st.entries || []).map((e) => String(e.uid)));
+    for (const u of [...st.entryDelSel]) if (!have.has(u)) st.entryDelSel.delete(u);
+    bar.hidden = !st.entryDelMode;
+    detail.classList.toggle("pa-bk-edelmode", st.entryDelMode);
+    if (!st.entryDelMode) return;
+    detail.querySelectorAll(".pa-wbe-row").forEach((r) => r.classList.toggle("pa-sel", st.entryDelSel.has(r.dataset.uid)));
+    const n = st.entryDelSel.size;
+    bar.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
+    const vis = visibleEntryUids();
+    const allSel = vis.length > 0 && vis.every((u) => st.entryDelSel.has(u));
+    bar.querySelector("[data-ed=all]").textContent = allSel ? "取消全选" : "全选";
+    const del = bar.querySelector("[data-ed=confirm]");
+    del.disabled = !n;
+    del.textContent = n ? `删除 ${n} 条` : "删除";
+  }
+  function setEntryDelMode(on) {
+    if (on && !(st.entries || []).length) return toast("这本世界书还没有条目");
+    const qbox = detail.querySelector(".pa-bk-q");
+    const q = detail.querySelector("[data-e=q]");
+    st.entryDelMode = !!on;
+    st.entryDelSel.clear();
+    if (st.entryDelMode) {
+      st.entryDelOpenedSearch = qbox ? qbox.hidden : false;
+      if (qbox && qbox.hidden) {
+        qbox.hidden = false;
+        detail.querySelector("[data-e=search]")?.setAttribute("aria-expanded", "true");
+      }
+    } else if (st.entryDelOpenedSearch) {
+      st.entryDelOpenedSearch = false;
+      if (qbox) qbox.hidden = true;
+      if (q) q.value = "";
+      st.equery = "";
+      detail.querySelector("[data-e=search]")?.setAttribute("aria-expanded", "false");
+    }
+    paintEntries();
+  }
+  // 删除整本世界书：删前可下载备份；全局列表、角色附加世界书里的链接由酒馆一起去掉
   async function deleteOpenBook() {
     const n = st.open;
     if (!n) return;
@@ -510,43 +644,110 @@ function mountBooks(page) {
     render();
     toast(`已删除世界书「${n}」`, "success");
   }
-  // 2.12.15 搜索旁的垃圾桶：多选删除世界书，默认勾着打开的那本。书名旁的垃圾桶仍是删这一本
-  async function deleteManyBooks() {
-    const glob = new Set(globalBooks());
-    const items = listWorldbooks().map((n) => ({ name: n, label: n, checked: n === st.open, sub: glob.has(n) ? "所有角色都在用" : "" }));
-    if (!items.length) return toast("还没有世界书");
-    const pick = await pickDeleteMany({
-      title: "删除世界书", items, unit: "本", hint: "删除后酒馆里找不回来，需要的话先下载备份。",
-      download: async (xs) => {
-        const ok = [], bad = [];
-        for (const x of xs) {
-          try {
-            const data = await mods.wi.loadWorldInfo(x.name);
-            if (!data || typeof data !== "object") throw new Error("读取结果为空");
-            downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `${x.name}.json`);
-            ok.push(`${x.name}.json`);
-          } catch (err) {
-            bad.push(`${x.name}（${err?.message || err}）`);
-          }
+  // 列表页原地多选删除选中的世界书，删前居中轻浮卡片提供下载备份
+  async function deleteSelectedBooks() {
+    const names = [...st.delSel];
+    if (!names.length) return;
+    const desc = names.length === 1
+      ? `<p class="pa-p">删除「${esc(names[0])}」后，酒馆里找不回来，需要的话先下载备份。</p>`
+      : `<p class="pa-p">删除选中的 ${names.length} 本世界书（${esc(names.slice(0, 4).join("、"))}${names.length > 4 ? " 等" : ""}）后，酒馆里找不回来，需要的话先下载备份。</p>`;
+    const go = await confirmDeleteOfferBackup("删除世界书", desc, async () => {
+      const ok = [], bad = [];
+      for (const name of names) {
+        try {
+          const data = await mods.wi.loadWorldInfo(name);
+          if (!data || typeof data !== "object") throw new Error("读取结果为空");
+          downloadBlob(new Blob([JSON.stringify(data, null, 2)], { type: "application/json" }), `${name}.json`);
+          ok.push(`${name}.json`);
+        } catch (err) {
+          bad.push(`${name}（${err?.message || err}）`);
         }
-        return `${ok.length ? `已让浏览器下载 ${ok.length} 个文件（${esc(ok.join("、"))}），可在下载记录里确认。` : ""}${bad.length ? `读取失败，没有下载：${esc(bad.join("、"))}` : ""}`;
       }
+      return `${ok.length ? `已让浏览器下载 ${ok.length} 个文件（${esc(ok.join("、"))}），可在下载记录里确认。` : ""}${bad.length ? `读取失败，没有下载：${esc(bad.join("、"))}` : ""}`;
     });
-    if (!pick?.length) return;
+    if (!go) return;
     const done = [], fail = [];
-    for (const x of pick) {
+    for (const name of names) {
       try {
-        await deleteWorldbook(x.name);
-        st.counts.delete(x.name);
-        done.push(x.name);
+        await deleteWorldbook(name);
+        st.counts.delete(name);
+        done.push(name);
       } catch (err) {
-        fail.push(`${x.name}：${err.message}`);
+        fail.push(`${name}：${err.message}`);
       }
     }
     if (done.includes(st.open)) closeBook();
-    render();
+    setBookDelMode(false);
     if (done.length) toast(done.length === 1 ? `已删除世界书「${done[0]}」` : `已删除 ${done.length} 本世界书`, "success");
     if (fail.length) toast("没删掉：" + fail.join("；"), "error");
+  }
+  async function deleteSingleEntry(uid) {
+    const n = st.open;
+    const e = st.entries?.find((x) => String(x.uid) === String(uid));
+    if (!n || !e) return;
+    if (!await confirmBox("删除条目", `删除「${wbEntryName(e)}」？${backupOn() ? "删除前会备份这本世界书，可在「清理 → 本地备份」找回。" : ""}`, "删除", true)) return;
+    if (!await backupOnce(n)) return;
+    try {
+      await deleteWorldEntry(n, uid);
+      toast("已删除", "success");
+    } catch (err) {
+      return toast("删除失败：" + err.message, "error");
+    }
+    return afterWrite(n);
+  }
+  async function duplicateEntry(uid) {
+    const n = st.open;
+    const e = st.entries?.find((x) => String(x.uid) === String(uid));
+    if (!n || !e) return;
+    if (!await backupOnce(n)) return;
+    const copy = structuredClone(e);
+    copy.comment = `${wbEntryName(e)}（副本）`;
+    try {
+      await writeWorldEntries(n, [copy], e.uid);
+      toast(`已复制「${wbEntryName(e)}」`, "success");
+    } catch (err) {
+      return toast("复制失败：" + err.message, "error");
+    }
+    await afterWrite(n);
+  }
+  async function deleteSelectedEntries() {
+    const n = st.open;
+    const uids = [...st.entryDelSel];
+    if (!n || !uids.length) return;
+    if (!await confirmBox("删除条目", `删除选中的 ${uids.length} 条？${backupOn() ? "删除前会备份这本世界书，可在「清理 → 本地备份」找回。" : ""}`, "删除", true)) return;
+    if (!await backupOnce(n)) return;
+    try {
+      const removed = await deleteWorldEntries(n, uids);
+      toast(`已删除 ${removed} 条`, "success");
+    } catch (err) {
+      return toast("删除失败：" + err.message, "error");
+    }
+    setEntryDelMode(false);
+    await afterWrite(n);
+  }
+  async function openBookMenu() {
+    const n = st.open;
+    if (!n) return;
+    const v = await pickBox(`世界书「${n}」`, [
+      { label: "重命名世界书", value: "rename" },
+      { label: "批量删除条目", value: "delentries" },
+      { label: "删除这本世界书", value: "delbook", danger: true }
+    ]);
+    if (v === "rename") return renameOpen();
+    if (v === "delentries") return setEntryDelMode(true);
+    if (v === "delbook") return deleteOpenBook();
+  }
+  async function openEntryMenu(uid) {
+    const e = st.entries?.find((x) => String(x.uid) === String(uid));
+    if (!e) return;
+    const v = await pickBox(wbEntryName(e), [
+      { label: "编辑", value: "edit" },
+      { label: "复制一条", value: "dup" },
+      { label: "删除条目", value: "del", danger: true }
+    ]);
+    if (v === "edit") return editEntry(uid);
+    if (v === "dup") return duplicateEntry(uid);
+    if (v === "del") return deleteSingleEntry(uid);
   }
   // 每打开一本书，第一次写入前备份一次
   // 2.12.3 改世界书名称：标题行原地改，回车保存、Esc 取消
@@ -641,6 +842,18 @@ function mountBooks(page) {
     if (box) box.scrollTop = box.scrollHeight;
   }
   detail.addEventListener("click", async (e) => {
+    const ed = e.target.closest("[data-ed]")?.dataset.ed;
+    if (ed) {
+      if (ed === "cancel") return setEntryDelMode(false);
+      if (ed === "all") {
+        const vis = visibleEntryUids();
+        if (vis.length && vis.every((u) => st.entryDelSel.has(u))) vis.forEach((u) => st.entryDelSel.delete(u));
+        else vis.forEach((u) => st.entryDelSel.add(u));
+        return paintEntryDelBar();
+      }
+      if (ed === "confirm") return deleteSelectedEntries();
+      return;
+    }
     const a = e.target.closest("[data-e], [data-scope]");
     if (a?.dataset.scope) {
       const ci = char();
@@ -653,8 +866,7 @@ function mountBooks(page) {
     }
     const act = a?.dataset.e;
     if (act === "back") return backToList();
-    if (act === "rename") return renameOpen();
-    if (act === "delbook") return deleteOpenBook();
+    if (act === "bookmenu") return openBookMenu();
     if (act === "search" || act === "searchclose") {
       const qbox = detail.querySelector(".pa-bk-q");
       const q = detail.querySelector("[data-e=q]");
@@ -675,6 +887,12 @@ function mountBooks(page) {
     }
     const r = e.target.closest(".pa-wbe-row");
     if (!r) return;
+    if (st.entryDelMode) {
+      const u = r.dataset.uid;
+      st.entryDelSel.has(u) ? st.entryDelSel.delete(u) : st.entryDelSel.add(u);
+      return paintEntryDelBar();
+    }
+    if (act === "emenu") return openEntryMenu(r.dataset.uid);
     if (act === "toggle") {
       const n = st.open;
       const on = a.checked;
@@ -700,7 +918,7 @@ function mountBooks(page) {
   // ---------- 工具栏
   page.querySelector(".pa-bk-bar").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-b]")?.dataset.b;
-    if (b === "delmany") return deleteManyBooks();
+    if (b === "delmany") return setBookDelMode(!st.delMode);
     if (b === "search" || b === "searchclose") {
       const r = page.querySelector(".pa-bk-bar .pa-findrow");
       r.hidden = b === "searchclose" || !r.hidden;

@@ -123,7 +123,6 @@ function mountOrganize(page) {
         <div class="pa-toolbar">
             <div class="pa-picker-slot"></div>
             <button class="pa-icon-btn" data-tool="search" aria-label="搜索条目" title="搜索条目">${ICON.search}</button>
-            <button class="pa-icon-btn pa-del" data-tool="delpreset" aria-label="删除预设" title="删除预设（可多选）">${ICON.trash}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="add" aria-label="新建" title="新建条目或分组">${ICON.plus}</button>
             <button class="pa-icon-btn pa-tools-more" data-tool="menu" aria-label="工具" title="工具">${ICON.more}</button>
             <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜名称、分组名、标签或正文" aria-label="搜索条目"><button type="button" class="pa-icon-btn pa-qx" data-tool="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
@@ -162,7 +161,24 @@ function mountOrganize(page) {
     st.selected.clear();
     st.mode = null;
     setFocusPreset(name);
-  }, { use: true });
+  }, {
+    use: true,
+    manage: {
+      title: "删除预设",
+      buttonLabel: "删除预设…",
+      unit: "个",
+      hint: "删除后酒馆里找不回来，需要的话先下载备份。",
+      items: () => {
+        const cur = currentPresetName(), users = presetUsers();
+        return listPresets().map((n) => ({ name: n, label: n, disabled: n === cur, why: n === cur ? "正在用，先在酒馆里换一个才能删" : users[n]?.length ? `${users[n].join("、")}用着它，删除后无法套用` : "" }));
+      },
+      download: async (xs) => {
+        for (const x of xs) downloadBlob(new Blob([JSON.stringify(readPreset(x.name), null, 4)], { type: "application/json" }), `${x.name}.json`);
+        return `已让浏览器下载 ${xs.length} 个文件（${esc(xs.map((x) => `${x.name}.json`).join("、"))}），可在下载记录里确认。`;
+      },
+      onDelete: deletePresetsList
+    }
+  });
   const draft = () => getDraft(focusPreset());
   // 2.6.8 分组折叠记住最后一次的状态：按「预设名 + 分组名（同名第几个）」存在设置里（fold.org），没动过的组按预设里存的状态。
   // 以前只在内存里记、按分组编号记：重新加载或切换预设后回到预设里存的状态，编号变了也对不上，合上的组又展开
@@ -298,19 +314,9 @@ function mountOrganize(page) {
     saveSettings();
     render();
   }
-  // 2.12.12 删除预设：同「清理 → 预设」，删前可下载备份；正在用的不能删
-  // 2.12.15 可多选：列出全部预设，默认勾着正在看的这个（正在用的灰着）
-  async function deletePresetHere() {
-    const cur = currentPresetName(), here = draft().name, users = presetUsers();
-    const items = listPresets().map((n) => ({ name: n, label: n, checked: n === here, disabled: n === cur, why: n === cur ? "正在用，先在酒馆里换一个才能删" : users[n]?.length ? `${users[n].join("、")}用着它，删除后无法套用` : "" }));
-    const pick = await pickDeleteMany({
-      title: "删除预设", items, hint: "删除后酒馆里找不回来，需要的话先下载备份。",
-      download: async (xs) => {
-        for (const x of xs) downloadBlob(new Blob([JSON.stringify(readPreset(x.name), null, 4)], { type: "application/json" }), `${x.name}.json`);
-        return `已让浏览器下载 ${xs.length} 个文件（${esc(xs.map((x) => `${x.name}.json`).join("、"))}），可在下载记录里确认。`;
-      }
-    });
-    if (!pick?.length) return;
+  // 删除选中的预设（由预设选择器卡片内的「删除预设…」触发）
+  async function deletePresetsList(pick) {
+    if (!pick?.length) return false;
     const done = [], fail = [];
     for (const x of pick) {
       try {
@@ -324,6 +330,7 @@ function mountOrganize(page) {
     if (done.includes(focusPreset())) setFocusPreset(currentPresetName());
     if (done.length) toast(done.length === 1 ? `已删除预设「${done[0]}」` : `已删除 ${done.length} 个预设`, "success");
     if (fail.length) toast("没删掉：" + fail.join("；"), "error");
+    return true;
   }
   // 页签行的眼睛改了设置之后
   const tkRepaint = () => render();
@@ -333,18 +340,60 @@ function mountOrganize(page) {
     const d = draft();
     return settings().keepClickOrder ? [...st.selected] : d.sortByOrder([...st.selected]);
   };
+  // 纸卡滑位：条目/分组排序后的轻量位移过渡（大列表或减少动态时跳过）
+  function glideList(fn) {
+    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return fn();
+    const nodes = [...list.querySelectorAll(".pa-row[data-id], .pa-group[data-gid]")];
+    if (!nodes.length || nodes.length > 180) return fn();
+    const before = new Map();
+    const lr = list.getBoundingClientRect();
+    for (const el2 of nodes) {
+      const r = el2.getBoundingClientRect();
+      if (r.bottom < lr.top - 120 || r.top > lr.bottom + 120) continue;
+      const k = el2.dataset.id ? `r:${el2.dataset.id}` : `g:${el2.dataset.gid}`;
+      if (!before.has(k)) before.set(k, r.top);
+    }
+    fn();
+    if (!before.size) return;
+    const moved = [];
+    for (const el2 of list.querySelectorAll(".pa-row[data-id], .pa-group[data-gid]")) {
+      const k = el2.dataset.id ? `r:${el2.dataset.id}` : `g:${el2.dataset.gid}`;
+      const oldTop = before.get(k);
+      if (oldTop === void 0) continue;
+      const dy = oldTop - el2.getBoundingClientRect().top;
+      if (Math.abs(dy) < 1 || Math.abs(dy) > 480) continue;
+      el2.style.transition = "none";
+      el2.style.transform = `translateY(${dy}px)`;
+      moved.push(el2);
+    }
+    if (!moved.length) return;
+    void list.offsetHeight;
+    for (const el2 of moved) {
+      el2.style.transition = "transform 200ms cubic-bezier(0.22, 1, 0.36, 1)";
+      el2.style.transform = "";
+    }
+    setTimeout(() => {
+      for (const el2 of moved) {
+        if (!el2.isConnected) continue;
+        el2.style.transition = "";
+        el2.style.transform = "";
+      }
+    }, 220);
+  }
   // gid：放进哪个组；null＝放在组外（整组选中的分组保持成组）
   function doMove(where, gid, label = "移动") {
     const d = draft();
     const ids = ordered();
-    mutate(d, label, (x) => x.place(ids, where, gid, { keep: st.keep }));
-    st.mode = null;
-    st.keep = [];
-    st.selected.clear();
-    if (gid) setOpen(d, gid, true);
+    glideList(() => {
+      mutate(d, label, (x) => x.place(ids, where, gid, { keep: st.keep }));
+      st.mode = null;
+      st.keep = [];
+      st.selected.clear();
+      if (gid) setOpen(d, gid, true);
+      flash(ids);
+      render();
+    });
     toast(`已移动 ${ids.length} 条`, "success");
-    flash(ids);
-    render();
   }
   function flash(ids) {
     ids.forEach((i) => st.highlight.add(i));
@@ -372,6 +421,99 @@ function mountOrganize(page) {
     st.mode = null;
     showGroup(gid);
   }
+  function applyGroupTri(gid, target) {
+    const d = draft();
+    const cur = d.groupTriState(gid);
+    if (target === cur) {
+      patchSwitch({ kind: "group", gid });
+      return;
+    }
+    if (target === "mid" && cur === "all" && !d.hasGroupSnap(gid)) {
+      patchSwitch({ kind: "group", gid });
+      toast("暂无自定义开关快照，可先手动调整组内条目");
+      return;
+    }
+    patchNext = { kind: "group", gid };
+    const label = target === "off" ? "分组全关" : target === "all" ? "分组全开" : "分组恢复自定义";
+    mutate(d, label, (x) => x.setGroupTriState(gid, target));
+  }
+  function triZoneAt(tri, clientX) {
+    const r = tri.getBoundingClientRect();
+    const ratio = r.width > 0 ? (clientX - r.left) / r.width : 0.5;
+    return ratio < 1 / 3 ? "off" : ratio < 2 / 3 ? "mid" : "all";
+  }
+  function triToggleFallback(d, gid) {
+    const cur = d.groupTriState(gid);
+    if (cur !== "off") return "off";
+    const mem = d.order.filter((o) => d.groupOf(o.identifier) === gid);
+    const hasOff = mem.some((o) => o.enabled === false);
+    return hasOff || d.hasGroupSnap(gid) ? "mid" : "all";
+  }
+  // 三段式分组总开关：支持直接拖动，也支持点击左 / 中 / 右三区
+  list.addEventListener("pointerdown", (e) => {
+    const tri = e.target.closest(".pa-tri[data-act=gtoggle]");
+    if (!tri || st.mode || e.button > 0) return;
+    const head = tri.closest(".pa-ghead");
+    if (!head) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const gid = head.dataset.gid;
+    const startX = e.clientX;
+    let moved = false;
+    let preview = triZoneAt(tri, e.clientX);
+    const pid = e.pointerId;
+    try { tri.setPointerCapture(pid); } catch {}
+    const onMove = (ev) => {
+      if (ev.pointerId !== pid) return;
+      if (!moved && Math.abs(ev.clientX - startX) > 4) {
+        moved = true;
+        tri.classList.add("pa-tri-drag");
+      }
+      if (!moved) return;
+      preview = triZoneAt(tri, ev.clientX);
+      tri.dataset.state = preview;
+    };
+    const finish = (ev, commit) => {
+      if (ev.pointerId !== pid) return;
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onCancel);
+      tri.classList.remove("pa-tri-drag");
+      tri._paPtrAt = Date.now();
+      const d = draft();
+      if (!commit) {
+        tri.dataset.state = d.groupTriState(gid);
+        return;
+      }
+      const zone = triZoneAt(tri, ev.clientX);
+      const cur = d.groupTriState(gid);
+      const target = moved ? zone : (zone !== cur ? zone : triToggleFallback(d, gid));
+      applyGroupTri(gid, target);
+    };
+    const onUp = (ev) => finish(ev, true);
+    const onCancel = (ev) => finish(ev, false);
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onCancel);
+  });
+  list.addEventListener("keydown", (e) => {
+    const tri = e.target.closest?.(".pa-tri[data-act=gtoggle]");
+    if (!tri || st.mode) return;
+    const gid = tri.closest(".pa-ghead")?.dataset.gid;
+    if (!gid) return;
+    const d = draft();
+    const cur = d.groupTriState(gid);
+    let next = null;
+    if (e.key === "ArrowLeft") next = cur === "all" ? (d.hasGroupSnap(gid) ? "mid" : "off") : "off";
+    else if (e.key === "ArrowRight") next = cur === "off" ? (d.order.some((o) => d.groupOf(o.identifier) === gid && o.enabled === false) || d.hasGroupSnap(gid) ? "mid" : "all") : "all";
+    else if (e.key === "Home") next = "off";
+    else if (e.key === "End") next = "all";
+    else if (e.key === " " || e.key === "Enter") next = triToggleFallback(d, gid);
+    if (!next) return;
+    e.preventDefault();
+    e.stopPropagation();
+    applyGroupTri(gid, next);
+  });
   list.addEventListener("click", async (e) => {
     if (e.target.closest("[data-repair-groups]")) return repairGroups(draft());
     if (e.target.closest("[data-act=qbody]")) {
@@ -441,8 +583,11 @@ function mountOrganize(page) {
         return render();
       }
       if (act === "gtoggle") {
-        patchNext = { kind: "group", gid };
-        mutate(d, "分组开关", (x) => x.setGroupEnabled(gid, actEl.checked));
+        if (actEl._paPtrAt && Date.now() - actEl._paPtrAt < 400) return;
+        const zone = e.clientX || e.clientY ? triZoneAt(actEl, e.clientX) : null;
+        const cur = d.groupTriState(gid);
+        const target = zone && zone !== cur ? zone : triToggleFallback(d, gid);
+        applyGroupTri(gid, target);
         return;
       }
       if (act === "gmenu") return groupMenu(d, gid);
@@ -475,14 +620,11 @@ function mountOrganize(page) {
         { label: "智能分组", sub: "识别未分组条目的归属，或归整分散分区", value: "smart" },
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
         { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" },
-        ...(tkSync() ? [{ label: `每条的 token 数：${tkEach() ? "显示" : "不显示"}`, sub: "点击切换", value: "tk" }] : []),
         { label: "导入…", sub: "预设、世界书、正则", value: "import" }
       ]);
       if (!t) return;
     }
-    if (t === "tk") return tkToggle();
     if (t === "import") return importSheet();
-    if (t === "delpreset") return deletePresetHere();
     if (t === "search" || t === "searchclose") {
       const row = page.querySelector(".pa-findrow");
       row.hidden = t === "searchclose" || !row.hidden;
@@ -530,9 +672,11 @@ function mountOrganize(page) {
     if (a === "end") doMove({ index: draft().order.length }, null, "移到最后");
     if (a === "up" || a === "down") {
       const ids = ordered();
-      mutate(draft(), "移动", (x) => x.moveStep(ids, a === "up" ? -1 : 1));
-      flash(ids);
-      render();
+      glideList(() => {
+        mutate(draft(), "移动", (x) => x.moveStep(ids, a === "up" ? -1 : 1));
+        flash(ids);
+        render();
+      });
     }
   });
   selbar.addEventListener("click", async (e) => {
@@ -552,8 +696,7 @@ function mountOrganize(page) {
     }
     if (a === "more") {
       const v = await pickBox(`已选 ${ids.length} 条`, [
-        { label: "建成分组…", value: "newgroup" },
-        { label: "移入分组…", value: "intogroup" },
+        { label: "移入分组…", sub: "可选已有分组，或新建分组", value: "intogroup" },
         { label: "移出分组", value: "ungroup" },
         { label: "按变量名排序…", sub: "按条目登记的变量名（如 文风1、文风2）分类，类别内按编号排", value: "sorttags" }
       ]);
@@ -641,9 +784,7 @@ function mountOrganize(page) {
     const parts = d.blocks().filter((b) => b.groupId === gid).length;
     const items = [
       { label: "重命名", value: "rename" },
-      { pair: [{ label: "组内全部开启", value: "allon" }, { label: "组内全部关闭", value: "alloff" }] },
-      { label: "移动整组…", sub: "再点目标位置", value: "move" },
-      { pair: [{ label: "↑ 上移一位", value: "up" }, { label: "↓ 下移一位", value: "down" }] }
+      { label: "移动整组…", sub: "再点目标位置", value: "move" }
     ];
     if (parts > 1) items.push({ label: `合并分散的 ${parts} 段`, value: "gather" });
     items.push({ label: "解散分组", sub: "条目保留在原位置", value: "dissolve", danger: true });
@@ -660,13 +801,6 @@ function mountOrganize(page) {
       render();
     }
     if (v === "gather") return repairGroups(d, gid);
-    // 组内每条的开关一起开或关（分组标题上的开关只管分组本身）
-    if (v === "allon" || v === "alloff") {
-      const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid).map((o) => o.identifier);
-      mutate(d, v === "allon" ? "组内全部开启" : "组内全部关闭", (x) => x.setEnabled(ids, v === "allon"));
-      toast(`「${g.name}」组内 ${ids.length} 条已全部${v === "allon" ? "开启" : "关闭"}`, "success");
-    }
-    if (v === "up" || v === "down") mutate(d, "移动分组", (x) => x.moveGroupBlock(gid, v === "up" ? -1 : 1));
     if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留在原位置。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }
   // 新建条目：先起名，放在选中的那条后面（没选就放最后），然后打开编辑
@@ -987,8 +1121,11 @@ function mountOrganize(page) {
       });
       return;
     }
-    mutate(d, group ? "移动分组" : "拖动", (x) => x.place(ids, target.where, target.gid, { keep: group ? [group] : [] }));
-    flash(ids);
+    glideList(() => {
+      mutate(d, group ? "移动分组" : "拖动", (x) => x.place(ids, target.where, target.gid, { keep: group ? [group] : [] }));
+      flash(ids);
+      render();
+    });
   };
   list.addEventListener("pointermove", (e) => {
     if (drag && e.pointerId === drag.pid) {
@@ -1000,16 +1137,37 @@ function mountOrganize(page) {
     if (drag && e.pointerId === drag.pid) endDrag(true);
   });
   list.addEventListener("pointercancel", () => endDrag(false));
+  function paintTriEl(tri, state, onN, total) {
+    if (!tri) return;
+    tri.dataset.state = state;
+    tri.setAttribute("aria-valuenow", state === "off" ? "0" : state === "mid" ? "1" : "2");
+    tri.setAttribute("aria-valuetext", state === "off" ? "全关" : state === "mid" ? `自定义（${onN}/${total}）` : "全开");
+  }
   // 2.3.6 单条开关、分组开关只改了开关状态：就地改这一行（或这一组）和计数，不重建整个列表
   let patchNext = null;
   function patchSwitch(p) {
     const d = draft();
+    const en = new Map(d.order.map((x) => [x.identifier, x.enabled !== false]));
     if (p.kind === "group") {
-      list.querySelectorAll(`.pa-group[data-gid="${CSS.escape(p.gid)}"]`).forEach((sec) => {
-        const off = d.groupOff(p.gid);
+      const off = d.groupOff(p.gid);
+      const triState = d.groupTriState(p.gid);
+      const blocks = d.blocks().filter((x) => x.groupId === p.gid);
+      list.querySelectorAll(`.pa-group[data-gid="${CSS.escape(p.gid)}"]`).forEach((sec, idx) => {
         sec.classList.toggle("pa-goff", off);
-        const box = sec.querySelector(":scope > .pa-ghead [data-act=gtoggle]");
-        if (box) box.checked = !off;
+        const b = blocks[idx] || blocks[0];
+        const ids = b?.ids || [];
+        const onN = ids.filter((i) => en.get(i)).length;
+        paintTriEl(sec.querySelector(":scope > .pa-ghead [data-act=gtoggle]"), triState, onN, ids.length);
+        const count = sec.querySelector(":scope > .pa-ghead .pa-count");
+        if (count) count.textContent = `${onN}/${ids.length}`;
+        const gtk = sec.querySelector(":scope > .pa-ghead > .pa-gtk");
+        if (gtk) gtk.textContent = tkFmt(tkSumOf(d, ids, (i) => en.get(i)));
+        sec.querySelectorAll(":scope > .pa-gbody > .pa-row[data-id]").forEach((row) => {
+          const on = en.get(row.dataset.id);
+          row.classList.toggle("pa-off", !on);
+          const box = row.querySelector("[data-act=toggle]");
+          if (box) box.checked = !!on;
+        });
       });
       paintTkTotal(d);
       return true;
@@ -1017,15 +1175,18 @@ function mountOrganize(page) {
     const row = list.querySelector(`.pa-row[data-id="${CSS.escape(p.id)}"]`);
     const b = d.blocks().find((x) => x.ids.includes(p.id));
     if (!row || !b) return false;
-    const en = new Map(d.order.map((x) => [x.identifier, x.enabled !== false]));
     row.classList.toggle("pa-off", !en.get(p.id));
     const box = row.querySelector("[data-act=toggle]");
     if (box) box.checked = en.get(p.id);
-    const count = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead .pa-count");
-    if (count) count.textContent = `${b.ids.filter((i) => en.get(i)).length}/${b.ids.length}`;
-    // 开关改了合计：分组头和页签行的 token 数跟着改
-    const gtk = row.closest(".pa-group")?.querySelector(":scope > .pa-ghead > .pa-gtk");
-    if (gtk) gtk.textContent = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
+    const sec = row.closest(".pa-group");
+    if (sec) {
+      const onN = b.ids.filter((i) => en.get(i)).length;
+      const count = sec.querySelector(":scope > .pa-ghead .pa-count");
+      if (count) count.textContent = `${onN}/${b.ids.length}`;
+      const gtk = sec.querySelector(":scope > .pa-ghead > .pa-gtk");
+      if (gtk) gtk.textContent = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
+      if (b.groupId) paintTriEl(sec.querySelector(":scope > .pa-ghead [data-act=gtoggle]"), d.groupTriState(b.groupId), onN, b.ids.length);
+    }
     paintTkTotal(d);
     return true;
   }

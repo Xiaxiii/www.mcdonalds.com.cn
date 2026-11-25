@@ -55,7 +55,7 @@ async function sortTagsDialog(d, ids) {
     paint();
   });
   paint();
-  const ok = await sheet({ title: "按变量名排序", body, wide: true, noFocus: true, actions: [{ label: "取消", value: false }, { label: "应用", kind: "primary", value: true }] });
+  const ok = await sheet({ title: "按变量名排序", place: "center", body, wide: true, noFocus: true, actions: [{ label: "取消", value: false }, { label: "应用", kind: "primary", value: true }] });
   if (!ok) return;
   if (JSON.stringify(d.toPreset()) !== original) return toast("预设已变化，请重新排序", "warning");
   const sorted = sortTagIds(d, ids, categories);

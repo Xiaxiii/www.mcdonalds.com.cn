@@ -348,6 +348,12 @@ function themeCards() {
         <b>${esc(t.name)}</b></button>`;
   }).join("")}</div>`;
 }
+function crossfadeTheme(root) {
+  if (!root || window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) return;
+  clearTimeout(root._paXfadeTimer);
+  root.classList.add("pa-theme-xfade");
+  root._paXfadeTimer = setTimeout(() => root.classList.remove("pa-theme-xfade"), 300);
+}
 function bindThemeCards(box, after) {
   box.addEventListener("click", (e) => {
     const b = e.target.closest("[data-theme-id]");
@@ -355,7 +361,9 @@ function bindThemeCards(box, after) {
     themePrefs();
     settings().theme = b.dataset.themeId;
     saveSettings();
-    applyTheme(document.getElementById("mcd-root"));
+    const root = document.getElementById("mcd-root");
+    crossfadeTheme(root);
+    applyTheme(root);
     box.querySelectorAll("[data-theme-id]").forEach((x) => x.setAttribute("aria-pressed", String(x === b)));
     after?.();
   });
@@ -365,7 +373,9 @@ function bindThemeCards(box, after) {
     themePrefs();
     settings().followSystem = t.checked;
     saveSettings();
-    applyTheme(document.getElementById("mcd-root"));
+    const root = document.getElementById("mcd-root");
+    crossfadeTheme(root);
+    applyTheme(root);
     box.innerHTML = themeCards();
     box.querySelector("[data-follow-system]")?.focus({ preventScroll: true });
     after?.();

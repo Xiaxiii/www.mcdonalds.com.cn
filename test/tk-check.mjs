@@ -4,8 +4,9 @@
 // 用法：在仓库根目录 bash test/run-browser.sh（需要 8765 端口的静态服务）
 import { chromium } from "playwright";
 import assert from "node:assert";
+import { fileURLToPath } from "node:url";
 import { expandAll } from "./choose.mjs";
-const S = new URL("./shots/", import.meta.url).pathname;
+const S = fileURLToPath(new URL("./shots/", import.meta.url));
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = [];
@@ -62,12 +63,15 @@ const g = await page.$eval(".pa-list .pa-group", (sec) => {
   return {
     head: Number(head.querySelector(".pa-gtk").textContent.replace(/,/g, "")),
     rows: [...sec.querySelectorAll(".pa-row:not(.pa-off) > .pa-tk")].map((x) => Number(x.textContent.replace(/,/g, "") || 0)),
-    right: [...sec.querySelectorAll(".pa-row > .pa-tk, :scope > .pa-ghead > .pa-gtk")].map((x) => Math.round(r(x).right)),
+    rowRight: [...sec.querySelectorAll(".pa-row > .pa-tk")].map((x) => Math.round(r(x).right)),
+    headRight: Math.round(r(head.querySelector(".pa-gtk")).right),
+    headMenuLeft: Math.round(r(head.querySelector("[data-act=gmenu]")).left),
     countAfterName: Math.round(r(head.querySelector(".pa-count")).left - r(head.querySelector(".pa-gname")).right)
   };
 });
 assert.ok(g.rows.length > 0 && g.head === g.rows.reduce((a, b) => a + b, 0), "分组头的合计等于组内开着的条目之和：" + JSON.stringify(g));
-assert.strictEqual(new Set(g.right).size, 1, "分组头和条目的数字右端对齐：" + g.right.join());
+assert.strictEqual(new Set(g.rowRight).size, 1, "条目的数字右端对齐：" + g.rowRight.join());
+assert.ok(g.headRight <= g.headMenuLeft && g.headMenuLeft - g.headRight <= 12, "分组头合计紧靠 ⋯ 菜单左侧：" + JSON.stringify(g));
 assert.ok(g.countAfterName >= 4 && g.countAfterName <= 12, "「5/7」紧跟组名：" + JSON.stringify(g));
 await page.screenshot({ path: S + "tk-1-each.png" });
 console.log("✓ 点圆点：每条旁显示 token 数；分组头「5/7」紧跟组名，合计在右边一列");
@@ -86,17 +90,19 @@ await page.waitForTimeout(250);
 assert.strictEqual(await totalNum(), before);
 console.log("✓ 开关条目后合计、分组头就地更新");
 
-// 再点收起；⋯ 菜单里也能切换
+// 再点收起；手机 ⋯ 菜单里不再重复放「每条的 token 数」（由右上角常驻按钮统一控制）
 await page.click("[data-tkeye]");
 await page.waitForTimeout(200);
 assert.strictEqual(await page.locator(".pa-list .pa-tk").count(), 0, "再点收起");
 await page.click("[data-page=organize] [data-tool=menu]");
 const item = page.locator(".pa-sheet-mask:not(.pa-out) .pa-pick-item").filter({ hasText: "每条的 token 数" });
-assert.strictEqual(await item.count(), 1, "⋯ 菜单里有「每条的 token 数」");
-await item.click();
+assert.strictEqual(await item.count(), 0, "⋯ 菜单不再重复放「每条的 token 数」");
+await page.keyboard.press("Escape");
+await page.waitForTimeout(200);
+await page.click("[data-tkeye]");
 await page.waitForTimeout(250);
-assert.ok(await page.locator(".pa-list .pa-row > .pa-tk").count() > 0, "从菜单打开");
-console.log("✓ 再点收起；⋯ 菜单里也能切换");
+assert.ok(await page.locator(".pa-list .pa-row > .pa-tk").count() > 0, "再点常驻圆点重新打开");
+console.log("✓ 再点收起；⋯ 菜单已去除重复开关");
 
 // 世界书：列表写每本开着的条目合计，条目页每条一列，页签行写正在用的书里常驻条目的合计；正则页不显示
 await page.click('.pa-subnav [data-tab="books"]');

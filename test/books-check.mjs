@@ -1,7 +1,8 @@
 // 2.12.0 预设 → 世界书（按角色卡绑定）、正则。用法同 clean-check.mjs
 import { chromium } from "playwright";
 import assert from "node:assert";
-const S = new URL("./shots/", import.meta.url).pathname;
+import { fileURLToPath } from "node:url";
+const S = fileURLToPath(new URL("./shots/", import.meta.url));
 const exe = process.env.PW_CHROME || undefined;
 const browser = await chromium.launch({ executablePath: exe });
 const ctx = await browser.newContext({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
@@ -168,8 +169,9 @@ await page.waitForTimeout(200);
 const g = await page.evaluate(async () => { const wi = await import("/test/site/scripts/world-info.js"); return { sel: [...wi.selected_world_info], lore: wi.world_info.charLore }; });
 assert.ok(g.sel.includes("城市设定"), "加进全局世界书");
 assert.deepStrictEqual(g.lore, [], "改成全局后不再留在角色附加世界书里");
-// 改世界书名称：全局列表跟着改，旧的删掉
-await page.click('.pa-bk-dhead [data-e="rename"].pa-bk-rename');
+// 改世界书名称：收进顶栏 ⋯ 菜单；全局列表跟着改，旧的删掉
+await page.click('.pa-bk-dhead [data-e="bookmenu"]');
+await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '重命名世界书' }).click();
 await page.waitForSelector(".pa-bk-dname .pa-inline-input");
 await page.waitForTimeout(100);
 const sel = await page.$eval(".pa-bk-dname .pa-inline-input", (x) => [x.selectionStart, x.selectionEnd, x.value.length]);
@@ -198,14 +200,16 @@ await page.click('[data-b="searchclose"]');
 // 改角色卡自带那本的名字：角色卡跟着改
 await page.click('[data-sec="char"] .pa-bk-row[data-book="林遥的世界"] [data-b=peek]');
 await page.waitForSelector(".pa-wbe-row");
-await page.click(".pa-bk-dname");
+await page.click('.pa-bk-dhead [data-e="bookmenu"]');
+await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '重命名世界书' }).click();
 await page.waitForSelector(".pa-bk-dname .pa-inline-input");
 await page.fill(".pa-bk-dname .pa-inline-input", "林遥的过去");
 await page.keyboard.press("Enter");
 await page.waitForTimeout(600);
 assert.strictEqual(await page.evaluate(() => window.SillyTavern.getContext().characters[0].data.extensions.world), "林遥的过去", "角色卡自带的链接跟着改");
 assert.match(await secText("char"), /林遥的过去[\s\S]*角色卡自带/);
-await page.click(".pa-bk-dname");
+await page.click('.pa-bk-dhead [data-e="bookmenu"]');
+await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '重命名世界书' }).click();
 await page.waitForSelector(".pa-bk-dname .pa-inline-input");
 await page.fill(".pa-bk-dname .pa-inline-input", "通用文风");
 await page.keyboard.press("Enter");

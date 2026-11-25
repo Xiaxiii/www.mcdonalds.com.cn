@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { fileURLToPath } from 'node:url';
 import { chromium } from 'playwright';
 import fixture from './fixtures/group-toggle.cjs';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
@@ -26,9 +27,16 @@ async function waitGroup(page, id, on) {
     return p.extensions.baibaiToolkit.presetPromptGroups.groups.find(g => g.id === id).enabled === on;
   }, { title, id, on });
 }
+async function clickTri(page, id, zone) {
+  const tri = group(page, id).locator('.pa-tri[data-act=gtoggle]');
+  const box = await tri.boundingBox();
+  const frac = zone === 'off' ? 0.16 : zone === 'mid' ? 0.5 : 0.84;
+  await page.mouse.click(box.x + box.width * frac, box.y + box.height / 2);
+}
 async function toggleGroup(page, id, on) {
-  await group(page, id).locator('.pa-switch-s').click();
-  assert.equal(await group(page, id).locator('[data-act=gtoggle]').isChecked(), on);
+  await clickTri(page, id, on ? 'mid' : 'off');
+  const st = await group(page, id).locator('[data-act=gtoggle]').getAttribute('data-state');
+  assert.equal(st === 'off', !on);
   await waitGroup(page, id, on);
 }
 try {
@@ -48,12 +56,14 @@ try {
     const theater = group(page, 'theater'), extras = group(page, 'extras');
     assert.equal(await theater.locator('.pa-count').innerText(), '1/3');
     assert.equal(await extras.locator('.pa-count').innerText(), '0/2');
-    assert.equal(await extras.locator('[data-act=gtoggle]').isChecked(), true, '内部全关不改变分组开关');
+    assert.equal(await theater.locator('[data-act=gtoggle]').getAttribute('data-state'), 'mid', '部分开启显示为中间虚线态');
+    assert.equal(await extras.locator('[data-act=gtoggle]').getAttribute('data-state'), 'mid', '内部全关不改变分组总开关为全关');
     await toggleGroup(page, 'theater', false);
+    assert.equal(await theater.evaluate(e => e.classList.contains('pa-goff')), true, '全关时分组整体降噪');
     assert.deepEqual(states(await saved(page)), states(original));
     assert.equal(await theater.locator('.pa-count').innerText(), '1/3');
     assert.deepEqual(await theater.locator('.pa-row [data-act=toggle]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, false]);
-    if (mobile && gateSupported) await theater.screenshot({ path: new URL('./shots/group-toggle-phone.png', import.meta.url).pathname });
+    if (mobile && gateSupported) await theater.screenshot({ path: fileURLToPath(new URL('./shots/group-toggle-phone.png', import.meta.url)) });
 
     // 关闭分组期间仍可调整自己的独立选项，再开启不会覆盖。
     for (const id of ['night', 'day']) await theater.locator(`[data-id="${id}"] .pa-switch`).click();
@@ -75,18 +85,23 @@ try {
     assert.deepEqual((await saved(page)).prompts, original.prompts);
     assert.equal(await theater.evaluate(e => e.scrollWidth > e.clientWidth + 2), false);
 
-    // 2.5.0 分组菜单「组内全部开启 / 关闭」：改组内每一条，再撤销回去
+    // 三段式总开关：最右全开 → 中间还原自定义快照；分组 ⋯ 菜单不再有重复的「组内全部开启/关闭」与上下移
     await extras.locator('[data-act=gmenu]').click();
-    await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '组内全部开启' }).click();
+    const menuTexts = await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item').allInnerTexts();
+    assert.equal(menuTexts.some(t => /组内全部|上移一位|下移一位/.test(t)), false, '分组菜单已移除冗余项：' + menuTexts.join(','));
+    await page.keyboard.press('Escape');
+    await page.waitForTimeout(200);
+    await clickTri(page, 'extras', 'all');
     for (let i = 0; i < 25 && (await extras.locator('.pa-count').innerText()) !== '2/2'; i++) await page.waitForTimeout(200);
-    assert.equal(await extras.locator('.pa-count').innerText(), '2/2', '组内全部开启');
-    await extras.locator('[data-act=gmenu]').click();
-    await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '组内全部关闭' }).click();
+    assert.equal(await extras.locator('.pa-count').innerText(), '2/2', '三段式滑到最右全开');
+    assert.equal(await extras.locator('[data-act=gtoggle]').getAttribute('data-state'), 'all');
+    await clickTri(page, 'extras', 'mid');
     for (let i = 0; i < 25 && (await extras.locator('.pa-count').innerText()) !== '0/2'; i++) await page.waitForTimeout(200);
-    assert.equal(await extras.locator('.pa-count').innerText(), '0/2', '组内全部关闭');
+    assert.equal(await extras.locator('.pa-count').innerText(), '0/2', '三段式回到中间还原快照');
+    assert.equal(await extras.locator('[data-act=gtoggle]').getAttribute('data-state'), 'mid');
     // 等自动保存写回，后面套用方案时才不会问「有未保存的修改」
     for (let i = 0; i < 30 && JSON.stringify(states(await saved(page))) !== JSON.stringify(chosen); i++) await page.waitForTimeout(200);
-    assert.deepEqual(states(await saved(page)), chosen, '全部关闭后回到原来的开关');
+    assert.deepEqual(states(await saved(page)), chosen, '还原快照后回到原来的开关');
     for (let i = 0; i < 30 && await page.locator('.pa-savebar [data-g="confirm"]').isVisible(); i++) await page.waitForTimeout(200);
 
     // 旧方案仅记录分组状态时，也不能暗中全开未记录的条目。

@@ -31,6 +31,8 @@ var Draft = class {
     this.dirty = false;
     // 2.11.21 改动计数：每次改动加一。保存时记下，写完对比，就知道保存期间有没有新改动（不必再整份序列化比对）
     this.rev = 0;
+    // 三段式分组总开关的自定义成员快照（仅内存态，不写进预设 JSON）
+    this._groupSnap = new Map();
     this._normalize();
   }
   _normalize() {
@@ -142,7 +144,8 @@ var Draft = class {
     const { prompts: _p, extensions: _e, ...rest } = this.preset;
     const h = {
       label, prompts: clone(this.preset.prompts), groups: clone(this.groups), extensions: clone(this.preset.extensions), rest: clone(rest),
-      flags: { hadBaibai: this.hadBaibai, hadEntryGrouping: this.hadEntryGrouping, loadedGroupIds: [...(this.loadedGroupIds || [])] }
+      flags: { hadBaibai: this.hadBaibai, hadEntryGrouping: this.hadEntryGrouping, loadedGroupIds: [...(this.loadedGroupIds || [])] },
+      groupSnap: [...(this._groupSnap || new Map()).entries()].map(([k, v]) => [k, { ...v }])
     };
     this.history.push(h);
     // 每份快照都是整份预设。大预设少留几份，免得手机内存吃紧整页重载
@@ -169,6 +172,7 @@ var Draft = class {
       if (h.extensions) this.preset.extensions = h.extensions;
     }
     this.groups = h.groups;
+    if (h.groupSnap) this._groupSnap = new Map(h.groupSnap.map(([k, v]) => [k, { ...v }]));
     this.dirty = true;
     this.rev = (this.rev || 0) + 1;
     return h.label;
@@ -420,6 +424,63 @@ var Draft = class {
     g.enabled = !!on;
     delete g.restoreOn;
   }
+  /** 三段式分组总开关状态："off"（全关）| "mid"（部分开启/自定义）| "all"（全开） */
+  groupTriState(gid) {
+    if (this.groupOff(gid)) return "off";
+    const mem = this.order.filter((o) => this.groupOf(o.identifier) === gid);
+    if (!mem.length || mem.every((o) => o.enabled !== false)) return "all";
+    return "mid";
+  }
+  hasGroupSnap(gid) {
+    const snap = this._groupSnap?.get(gid);
+    if (!snap) return false;
+    return this.order.some((o) => this.groupOf(o.identifier) === gid && snap[o.identifier] === false);
+  }
+  _saveGroupSnap(gid) {
+    const mem = this.order.filter((o) => this.groupOf(o.identifier) === gid);
+    if (!mem.length || mem.every((o) => o.enabled !== false)) return;
+    if (!this._groupSnap) this._groupSnap = new Map();
+    this._groupSnap.set(gid, Object.fromEntries(mem.map((o) => [o.identifier, o.enabled !== false])));
+  }
+  /** 三段式切换：全关不动成员且记住快照；全开先记快照再全开成员；中间还原快照或保持现有自定义状态 */
+  setGroupTriState(gid, state) {
+    const g = this.group(gid);
+    if (!g) return false;
+    const mem = this.order.filter((o) => this.groupOf(o.identifier) === gid);
+    const allOn = mem.length > 0 && mem.every((o) => o.enabled !== false);
+    if (state === "off") {
+      if (!allOn) this._saveGroupSnap(gid);
+      this.setGroupEnabled(gid, false);
+      return true;
+    }
+    if (state === "all") {
+      if (!allOn) this._saveGroupSnap(gid);
+      this.setGroupEnabled(gid, true);
+      for (const o of mem) o.enabled = true;
+      return true;
+    }
+    if (state === "mid") {
+      if (!allOn) {
+        this._saveGroupSnap(gid);
+        this.setGroupEnabled(gid, true);
+        return true;
+      }
+      const snap = this._groupSnap?.get(gid);
+      if (snap && mem.some((o) => snap[o.identifier] === false)) {
+        this.setGroupEnabled(gid, true);
+        for (const o of mem) {
+          if (Object.prototype.hasOwnProperty.call(snap, o.identifier)) o.enabled = !!snap[o.identifier];
+        }
+        return true;
+      }
+      if (this.groupOff(gid)) {
+        this.setGroupEnabled(gid, true);
+        return true;
+      }
+      return false;
+    }
+    return false;
+  }
   /** 把分散成几段的分组收拢到第一段的位置 */
   gatherGroup(gid) {
     const ids = this.order.filter((o) => this.groupOf(o.identifier) === gid).map((o) => o.identifier);
@@ -463,7 +524,14 @@ var Draft = class {
   }
   setEnabled(ids, on) {
     const set = new Set(ids);
-    for (const o of this.order) if (set.has(o.identifier)) o.enabled = !!on;
+    const touched = new Set();
+    for (const o of this.order) {
+      if (!set.has(o.identifier)) continue;
+      o.enabled = !!on;
+      const gid = this.groupOf(o.identifier);
+      if (gid) touched.add(gid);
+    }
+    for (const gid of touched) this._saveGroupSnap(gid);
   }
   /**
    * 1.7.5 双层分组：预设里同时存了柏宝箱分组和 entryGrouping，而 entryGrouping 里的分组与柏宝箱分组同名、成员也在其中，

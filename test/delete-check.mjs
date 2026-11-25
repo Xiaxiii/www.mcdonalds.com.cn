@@ -2,7 +2,8 @@
 // 用法：在仓库根目录 bash test/run-browser.sh
 import { chromium } from "playwright";
 import assert from "node:assert";
-const S = new URL("./shots/", import.meta.url).pathname;
+import { fileURLToPath } from "node:url";
+const S = fileURLToPath(new URL("./shots/", import.meta.url));
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const page = await browser.newPage({ viewport: { width: 390, height: 844 }, deviceScaleFactor: 2, hasTouch: true, isMobile: true });
 const errs = [];
@@ -35,31 +36,49 @@ const nextTo = (a, b) => page.evaluate(([a, b]) => { const x = document.querySel
 const pickRows = () => page.$$eval(`${top} .pa-dm-row`, (xs) => xs.map((x) => (x.querySelector("input").disabled ? "×" : x.querySelector("input").checked ? "✓" : "·") + x.querySelector(".pa-dm-name").textContent));
 const tick = (name) => page.locator(`${top} .pa-dm-row`, { hasText: name }).locator("input").check();
 
-// 正则：行上没有垃圾桶；搜索旁的垃圾桶多选删除
+// 正则：原地多选删除模式（留在列表页、原地浮现搜索与全选，退出收起）
 await page.evaluate(() => window.__mcdonalds.open("rx"));
 await page.waitForTimeout(400);
 assert.strictEqual(await page.locator(".pa-rx-row .pa-del").count(), 0, "行上不再有垃圾桶");
 assert.ok(await nextTo("[data-page=rx] [data-r=search]", "[data-page=rx] [data-r=delmany]") < 12, "垃圾桶紧挨搜索");
 await page.screenshot({ path: S + "delete-1-rx.png" });
 await page.click("[data-page=rx] [data-r=delmany]");
-assert.deepStrictEqual(await pickRows(), ["·去掉多余空行", "·状态栏美化"]);
-assert.ok(await page.locator(`${top} .pa-sheet-actions .pa-btn-danger`).isDisabled(), "没勾时删除不能点");
-await tick("去掉多余空行");
-assert.strictEqual((await page.textContent(`${top} .pa-sheet-actions .pa-btn-danger`)).trim(), "删除 1 条");
+await page.waitForSelector("[data-page=rx] .pa-rx-delbar:not([hidden])");
+assert.strictEqual(await page.locator(".pa-sheet-mask:not(.pa-out)").count(), 0, "正则多选删除不再弹出底部抽屉");
+assert.ok(await page.locator("[data-page=rx] .pa-findrow").isVisible(), "原地浮现搜索框");
+assert.ok(await page.locator("[data-page=rx] [data-rd=confirm]").isDisabled(), "没勾时删除不能点");
+await page.locator(".pa-rx-row", { hasText: "去掉多余空行" }).click();
+assert.strictEqual((await page.textContent("[data-page=rx] [data-rd=confirm]")).trim(), "删除 1 条");
+await page.click("[data-page=rx] [data-rd=confirm]");
 await confirm();
 assert.deepStrictEqual(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.regex.map((r) => r.scriptName)), ["状态栏美化"]);
-console.log("✓ 正则：搜索旁的垃圾桶，多选删除");
+assert.ok(await page.locator("[data-page=rx] .pa-rx-delbar").isHidden(), "删完自动退出多选删除模式");
+console.log("✓ 正则：原地多选删除");
 
-// 世界书：书名旁的垃圾桶仍删这一本，可先备份
+// 世界书详情页：顶栏只留 ← 书名 + 🔍 + ＋ + ⋯；单条目 ⋯ 支持复制/删除；顶栏 ⋯ 管整本书与批量删条目
 await page.evaluate(() => window.__mcdonalds.open("books"));
 await page.waitForTimeout(400);
 assert.ok(await nextTo("[data-page=books] .pa-bk-bar [data-b=search]", "[data-page=books] .pa-bk-bar [data-b=delmany]") < 12, "列表的垃圾桶紧挨搜索");
 await page.locator('.pa-bk-row[data-book="示例世界书"] .pa-peek').click();
 await page.waitForTimeout(400);
-const pos = await page.evaluate(() => { const r = (s) => document.querySelector(s).getBoundingClientRect(); return { pen: r(".pa-bk-rename").right, del: r(".pa-bk-dhead .pa-del").left, search: r('.pa-bk-dhead [data-e="search"]').left }; });
-assert.ok(pos.del - pos.pen < 12 && pos.search - pos.del > 40, "垃圾桶挨着铅笔，和搜索分开：" + JSON.stringify(pos));
+assert.strictEqual(await page.locator(".pa-bk-dhead .pa-del, .pa-bk-dhead .pa-bk-rename").count(), 0, "详情页顶栏不再外露铅笔和垃圾桶");
+assert.strictEqual(await page.locator('.pa-bk-dhead [data-e="bookmenu"]').count(), 1, "详情页顶栏提供 ⋯ 菜单");
 await page.screenshot({ path: S + "delete-2-book.png" });
-await page.click('.pa-bk-dhead [data-e="delbook"]');
+// 单条目 ⋯ 复制一条再删掉
+const beforeCnt = await page.locator(".pa-wbe-row").count();
+if (beforeCnt > 0) {
+  await page.locator(".pa-wbe-row .pa-wbe-more").first().click();
+  await page.locator(`${top} .pa-pick-item`, { hasText: "复制一条" }).click();
+  await page.waitForTimeout(350);
+  assert.strictEqual(await page.locator(".pa-wbe-row").count(), beforeCnt + 1, "单条目 ⋯ 可复制一条");
+  await page.locator(".pa-wbe-row .pa-wbe-more").nth(1).click();
+  await page.locator(`${top} .pa-pick-item`, { hasText: "删除条目" }).click();
+  await confirm();
+  assert.strictEqual(await page.locator(".pa-wbe-row").count(), beforeCnt, "单条目 ⋯ 可删除条目");
+}
+// 顶栏 ⋯ 删整本书，可先备份
+await page.click('.pa-bk-dhead [data-e="bookmenu"]');
+await page.locator(`${top} .pa-pick-item`, { hasText: "删除这本世界书" }).click();
 await page.waitForSelector(`${top} .pa-sheet-actions`);
 await Promise.all([page.waitForEvent("download"), page.locator(`${top} .pa-sheet-actions .pa-btn`, { hasText: "下载备份" }).click()]);
 assert.deepStrictEqual(await page.evaluate(() => window.__dl), ["示例世界书.json"], "文件名就是书名，可直接导入");
@@ -69,31 +88,36 @@ const books = () => page.evaluate(async () => { const wi = await import("/test/s
 assert.ok(!(await books()).includes("示例世界书"), "整本书删掉：" + (await books()).join());
 assert.ok(await page.locator(".pa-bk-detail").isHidden(), "回到世界书列表");
 assert.ok((await toasts()).some((t) => t.includes("已删除世界书「示例世界书」")));
-// 列表上方的垃圾桶：多选
+// 列表上方的垃圾桶：原地多选删除
 const left = await books();
 await page.click("[data-page=books] .pa-bk-bar [data-b=delmany]");
-assert.deepStrictEqual((await pickRows()).map((x) => x.slice(1)), left);
-await page.locator(`${top} .pa-dm-all input`).check();
-assert.strictEqual((await page.textContent(`${top} .pa-sheet-actions .pa-btn-danger`)).trim(), `删除 ${left.length} 本`);
+await page.waitForSelector("[data-page=books] .pa-bk-delbar:not([hidden])");
+assert.strictEqual(await page.locator(".pa-sheet-mask:not(.pa-out)").count(), 0, "世界书列表多选删除不弹底部抽屉");
+await page.click("[data-page=books] [data-bd=all]");
+assert.strictEqual((await page.textContent("[data-page=books] [data-bd=confirm]")).trim(), `删除 ${left.length} 本`);
+await page.click("[data-page=books] [data-bd=confirm]");
 await confirm();
 assert.deepStrictEqual(await books(), [], "勾选的书都删掉");
-console.log("✓ 世界书：书名旁删这一本；搜索旁多选删除");
+console.log("✓ 世界书：详情页双层 ⋯；列表原地多选删除");
 
-// 预设：搜索旁的垃圾桶，多选；正在用的灰着不能勾
+// 预设：工具栏不再外露垃圾桶，收进预设选择器居中卡片内
 await page.evaluate(() => window.__mcdonalds.open("organize"));
 await page.waitForTimeout(400);
-assert.ok(await nextTo("[data-page=organize] [data-tool=search]", "[data-page=organize] [data-tool=delpreset]") < 12, "垃圾桶紧挨搜索");
-await page.click("[data-page=organize] [data-tool=delpreset]");
+assert.strictEqual(await page.locator("[data-page=organize] [data-tool=delpreset]").count(), 0, "条目页工具栏不再外露删预设垃圾桶");
+await page.click("[data-page=organize] .pa-picker-slot .pa-namebtn");
+await page.waitForSelector(`${top} .pa-sheet-center`);
+await page.click(`${top} [data-np=delmode]`);
 const rows = await pickRows();
 assert.ok(rows.some((x) => x.startsWith("×")), "正在用的不能勾：" + rows.join());
 await tick("旧预设");
-await Promise.all([page.waitForEvent("download"), page.locator(`${top} .pa-sheet-actions .pa-btn`, { hasText: "下载备份" }).click()]);
+await Promise.all([page.waitForEvent("download"), page.locator(`${top} [data-np=dl]`).click()]);
 assert.deepStrictEqual((await page.evaluate(() => window.__dl)).slice(-1), ["旧预设.json"]);
 await page.waitForSelector(`${top} .pa-dl-note`);
 assert.deepStrictEqual((await pickRows()).filter((x) => x.startsWith("✓")), ["✓旧预设"], "下载后勾选不变");
-await confirm();
+await page.locator(`${top} [data-np=del]`).click();
+await page.waitForTimeout(400);
 assert.deepStrictEqual(deleted, ["旧预设"], "调用酒馆删除接口");
-console.log("✓ 预设：搜索旁的垃圾桶，多选删除，正在用的不能删");
+console.log("✓ 预设：收进预设选择器居中卡片删除，正在用的不能删");
 
 assert.deepStrictEqual(errs, []);
 console.log("删除检查通过");

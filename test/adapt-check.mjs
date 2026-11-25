@@ -33,9 +33,10 @@ const scan = (page, where) => page.evaluate((where) => {
   for (const box of layer.querySelectorAll(".pa-sheet-body, .pa-scroll, .pa-page, .pa-bk-dhead, .pa-rx-row, .pa-sub")) {
     if (shown(box) && box.scrollWidth > box.clientWidth + 2 && !/auto|scroll/.test(getComputedStyle(box).overflowX)) out.push(`内容溢出：${[...box.classList].join(".")} ${box.scrollWidth}>${box.clientWidth}`);
   }
-  // 书名栏：书名不能和图标挤在一起
+  // 书名栏：书名不能和搜索/操作图标挤在一起
   const nm = layer.querySelector(".pa-bk-dhead .pa-bk-dname");
-  if (nm && shown(nm)) { const n = nm.getBoundingClientRect(), pen = layer.querySelector(".pa-bk-rename").getBoundingClientRect(); if (n.right > pen.left + 1) out.push("书名压住铅笔"); }
+  const srch = layer.querySelector('.pa-bk-dhead [data-e="search"]');
+  if (nm && srch && shown(nm) && shown(srch)) { const n = nm.getBoundingClientRect(), s = srch.getBoundingClientRect(); if (n.right > s.left + 1) out.push("书名压住搜索图标"); }
   return [...new Set(out)].slice(0, 8).map((x) => `${where}：${x}`);
 }, where);
 

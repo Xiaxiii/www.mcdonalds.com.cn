@@ -104,10 +104,12 @@ try {
     assert.deepEqual(now.prompt_order, expected.prompt_order);
     assert.deepEqual(now.extensions.syntheticUnrelatedData, expected.extensions.syntheticUnrelatedData);
     const chosen = states(now);
-    await list.locator('[data-gid="perf-g0"] .pa-switch-s').click();
+    const tri = list.locator('[data-gid="perf-g0"] .pa-tri[data-act=gtoggle]');
+    const tb = await tri.boundingBox();
+    await page.mouse.click(tb.x + tb.width * 0.16, tb.y + tb.height / 2);
     await waitSaved(page, p => p.extensions.baibaiToolkit.presetPromptGroups.groups[0].enabled === false);
     assert.deepEqual(states(await saved(page)), chosen, '性能优化不能重新引入分组开关联动');
-    await list.locator('[data-gid="perf-g0"] .pa-switch-s').click();
+    await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height / 2);
     await waitSaved(page, p => p.extensions.baibaiToolkit.presetPromptGroups.groups[0].enabled === true);
     assert.deepEqual(states(await saved(page)), chosen);
     await foldAll(page);

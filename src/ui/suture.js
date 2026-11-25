@@ -1124,7 +1124,7 @@ function mountSuture(page, app) {
       paint();
       renderSrc();
     });
-    await sheet({ title: "已选的条目", body, actions: [{ label: "完成", kind: "primary", value: true }] });
+    await sheet({ title: "已选的条目", place: "center", body, actions: [{ label: "完成", kind: "primary", value: true }] });
     renderSrc();
   }
   // 这条材料所在的来源分组是不是整组都选了（酒馆位置条目不算）

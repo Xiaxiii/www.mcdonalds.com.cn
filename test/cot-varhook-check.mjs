@@ -40,8 +40,8 @@ try {
   await page.locator('.pa-cot [data-f=mention]').click();
   const row = page.locator('.pa-cov', { hasText: '饥饿' });
   await row.waitFor();
-  assert.match(await row.innerText(), /文字提及[\s\S]*writing_style → 爱欲与食欲cot/);
   await row.scrollIntoViewIfNeeded();
+  assert.match(await row.innerText(), /文字提及[\s\S]*writing_style → 爱欲与食欲cot/);
   await page.screenshot({ path: 'test/shots/cot-varhook-row.png' });
   await row.locator('[data-varhook]').click();
   let sheet = top(page);

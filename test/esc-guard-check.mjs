@@ -73,7 +73,7 @@ try {
   await page.evaluate(() => window.__mcdonalds.open('organize')); await page.waitForTimeout(300);
   const edges = async (p) => p.evaluate(() => {
     const x = (sel, side) => Math.round(document.querySelector(`#mcd-root [data-page=organize] ${sel}`).getBoundingClientRect()[side]);
-    return { headHandle: x('.pa-ghead .pa-handle', 'left'), looseHandle: x('.pa-loose .pa-row .pa-handle', 'left'), headSwitch: x('.pa-ghead .pa-switch', 'right'), looseSwitch: x('.pa-loose .pa-row .pa-switch', 'right'), headName: x('.pa-ghead .pa-gname', 'left'), looseName: x('.pa-loose .pa-row .pa-namebox', 'left'), title: x('.pa-toolbar .pa-picker-slot', 'left'), group: x('.pa-group', 'left') };
+    return { headHandle: x('.pa-ghead .pa-handle', 'left'), looseHandle: x('.pa-loose .pa-row .pa-handle', 'left'), headSwitch: x('.pa-ghead .pa-tri', 'right'), looseSwitch: x('.pa-loose .pa-row .pa-switch', 'right'), headName: x('.pa-ghead .pa-gname', 'left'), looseName: x('.pa-loose .pa-row .pa-namebox', 'left'), title: x('.pa-toolbar .pa-picker-slot', 'left'), group: x('.pa-group', 'left') };
   });
   let e = await edges(page);
   assert.equal(e.looseHandle, e.headHandle, '手柄同列'); assert.equal(e.looseSwitch, e.headSwitch, '开关同列'); assert.equal(e.looseName, e.headName, '名称同列');

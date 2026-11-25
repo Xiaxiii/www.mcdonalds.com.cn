@@ -42,4 +42,22 @@ test('空组的标记独立切换，不影响其他条目', () => {
   const d = make(), before = states(d); d.groups.groups.push({ id: 'empty', name: '空组', enabled: true });
   for (const on of [false, true]) { d.setGroupEnabled('empty', on); assert.equal(d.groupOff('empty'), !on); assert.deepEqual(states(d), before); }
 });
+test('三段式分组总开关：全关保留快照、全开后滑回中间还原自定义状态', () => {
+  const d = make(), before = states(d);
+  assert.equal(d.groupTriState('theater'), 'mid');
+  assert.equal(d.groupTriState('extras'), 'mid');
+  d.setGroupTriState('theater', 'off');
+  assert.equal(d.groupTriState('theater'), 'off');
+  assert.deepEqual(states(d), before, '滑到全关不改成员开关');
+  d.setGroupTriState('theater', 'all');
+  assert.equal(d.groupTriState('theater'), 'all');
+  assert.equal(d.order.filter(o => d.groupOf(o.identifier) === 'theater').every(o => o.enabled), true, '滑到最右全开所有成员');
+  d.setGroupTriState('theater', 'mid');
+  assert.equal(d.groupTriState('theater'), 'mid');
+  assert.deepEqual(states(d), before, '滑回中间还原原有部分开启状态');
+  d.setGroupTriState('theater', 'all');
+  d.setGroupTriState('theater', 'off');
+  d.setGroupTriState('theater', 'mid');
+  assert.deepEqual(states(d), before, '全开→全关→中间仍能还原原有快照');
+});
 console.log(`${passed} 项分组独立开关检查通过`);

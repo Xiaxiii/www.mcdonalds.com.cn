@@ -125,18 +125,27 @@ async function regexEditSheet(rule) {
   });
 }
 function mountRegexPage(page) {
-  const st = { query: "" };
+  const st = { query: "", delMode: false, delSel: new Set(), delOpenedSearch: false };
   page.innerHTML = `
     <div class="pa-toolbar">
       <div class="pa-picker-slot"></div>
       <button class="pa-icon-btn" data-r="search" aria-label="搜索正则" title="搜索正则">${ICON.search}</button>
-      <button class="pa-icon-btn pa-del" data-r="delmany" aria-label="删除正则" title="删除正则（可多选）">${ICON.trash}</button>
+      <button class="pa-icon-btn pa-del" data-r="delmany" aria-label="删除正则" aria-pressed="false" title="多选删除正则">${ICON.trash}</button>
       <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜正则名称或查找内容" aria-label="搜索正则"><button type="button" class="pa-icon-btn pa-qx" data-r="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
     </div>
     <div class="pa-scroll pa-rx-list" role="list" aria-label="正则"></div>
+    <div class="pa-selbar pa-delbar pa-rx-delbar" hidden>
+      <b class="pa-selcount"></b>
+      <button class="pa-link" data-rd="all">全选</button>
+      <div class="pa-delbar-acts">
+        <button class="pa-btn pa-btn-s" data-rd="cancel" data-esc-del>取消</button>
+        <button class="pa-btn pa-btn-s pa-btn-danger" data-rd="confirm" disabled>删除</button>
+      </div>
+    </div>
     ${splitterHtml("拖动调整正则列表和编辑栏的宽度")}
     <aside class="pa-editpane pa-rx-pane" aria-label="编辑正则" hidden></aside>`;
   const list = page.querySelector(".pa-rx-list");
+  const delBar = page.querySelector(".pa-rx-delbar");
   const paneEl = page.querySelector(".pa-rx-pane");
   paneSplit(page, page.querySelector(":scope > .pa-vsplit"), "rx");
   const search = page.querySelector(".pa-find");
@@ -223,10 +232,12 @@ function mountRegexPage(page) {
       const name = presetRegexRuleName(r);
       const on = !r.disabled;
       const where = (Array.isArray(r.placement) ? r.placement : []).map((p) => RX_PLACE[p]).filter(Boolean);
-      return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}${pane.kind === g.kind && pane.i === i ? " pa-editing" : ""}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
+      const picked = st.delMode && st.delSel.has(r);
+      return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}${!st.delMode && pane.kind === g.kind && pane.i === i ? " pa-editing" : ""}${picked ? " pa-sel" : ""}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
+          ${st.delMode ? '<span class="pa-check" aria-hidden="true"></span>' : ""}
           <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
-          <button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
-          <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>
+          ${st.delMode ? "" : `<button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
+          <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>`}
         </div>`;
     };
     const onCount = (g, idx) => idx.filter((i) => g.rules[i] && !g.rules[i].disabled).length;
@@ -261,6 +272,56 @@ function mountRegexPage(page) {
     if (q && !shownAny) html = '<p class="pa-empty">没有匹配的正则</p>';
     list.innerHTML = html;
     list.scrollTop = top;
+    paintDelBar();
+  }
+  function visibleRules() {
+    return [...list.querySelectorAll(".pa-rx-row")]
+      .filter((r) => !r.closest(".pa-collapsed"))
+      .map((r) => ruleOf(r.dataset.kind, Number(r.dataset.i)))
+      .filter(Boolean);
+  }
+  function paintDelBar() {
+    const allLive = new Set();
+    for (const g of groups()) for (const r of g.rules) if (r && typeof r === "object") allLive.add(r);
+    for (const r of [...st.delSel]) if (!allLive.has(r)) st.delSel.delete(r);
+    const btn = page.querySelector("[data-r=delmany]");
+    btn?.classList.toggle("on", st.delMode);
+    btn?.setAttribute("aria-pressed", String(st.delMode));
+    page.classList.toggle("pa-rx-delmode", st.delMode);
+    delBar.hidden = !st.delMode;
+    if (!st.delMode) return;
+    list.querySelectorAll(".pa-rx-row").forEach((el2) => {
+      const r = ruleOf(el2.dataset.kind, Number(el2.dataset.i));
+      el2.classList.toggle("pa-sel", !!r && st.delSel.has(r));
+    });
+    const n = st.delSel.size;
+    delBar.querySelector(".pa-selcount").textContent = `已选 ${n} 条`;
+    const vis = visibleRules();
+    const allSel = vis.length > 0 && vis.every((r) => st.delSel.has(r));
+    delBar.querySelector("[data-rd=all]").textContent = allSel ? "取消全选" : "全选";
+    const del = delBar.querySelector("[data-rd=confirm]");
+    del.disabled = !n;
+    del.textContent = n ? `删除 ${n} 条` : "删除";
+  }
+  function setDelMode(on) {
+    if (on) {
+      const total = groups().reduce((sum, g) => sum + g.rules.filter((r) => r && typeof r === "object").length, 0);
+      if (!total) return toast("没有可删的正则");
+    }
+    const qrow = page.querySelector(".pa-findrow");
+    st.delMode = !!on;
+    st.delSel.clear();
+    if (st.delMode) {
+      closePane();
+      st.delOpenedSearch = qrow.hidden;
+      if (qrow.hidden) qrow.hidden = false;
+    } else if (st.delOpenedSearch) {
+      st.delOpenedSearch = false;
+      qrow.hidden = true;
+      search.value = "";
+      st.query = "";
+    }
+    render();
   }
   function ruleOf(kind, i) {
     if (kind === "preset") { try { return presetRegexList(getDraft(focusPreset()))[i]; } catch { return null; } }
@@ -356,19 +417,36 @@ function mountRegexPage(page) {
     const row = e.target.closest(".pa-rx-row");
     if (!row) return;
     const kind = row.dataset.kind, i = Number(row.dataset.i);
+    if (st.delMode) {
+      const r = ruleOf(kind, i);
+      if (!r) return;
+      st.delSel.has(r) ? st.delSel.delete(r) : st.delSel.add(r);
+      return paintDelBar();
+    }
     if (a?.dataset.r === "toggle") return void toggle(kind, i, a.checked);
     if (e.target.closest(".pa-switch")) return;
     peek(kind, i);
   });
-  // 2.12.15 搜索旁的垃圾桶：预设、角色卡、全局三处的正则一起列出，多选删除。预设的可在页头撤销
-  async function removeMany() {
-    const items = [];
-    for (const g of groups()) g.rules.forEach((r, i) => {
-      if (r && typeof r === "object") items.push({ kind: g.kind, rule: r, label: presetRegexRuleName(r), sub: g.title });
-    });
-    if (!items.length) return toast("没有可删的正则");
-    const pick = await pickDeleteMany({ title: "删除正则", items, unit: "条", hint: "预设里的正则删除后可在页头撤销，角色卡和全局的不能撤销。" });
-    if (!pick?.length) return;
+  delBar.addEventListener("click", (e) => {
+    const a = e.target.closest("[data-rd]")?.dataset.rd;
+    if (!a) return;
+    if (a === "cancel") return setDelMode(false);
+    if (a === "all") {
+      const vis = visibleRules();
+      if (vis.length && vis.every((r) => st.delSel.has(r))) vis.forEach((r) => st.delSel.delete(r));
+      else vis.forEach((r) => st.delSel.add(r));
+      return paintDelBar();
+    }
+    if (a === "confirm") return void removeSelected();
+  });
+  // 原地多选删除选中的正则。预设的可在页头撤销
+  async function removeSelected() {
+    const pick = [];
+    for (const g of groups()) for (const r of g.rules) {
+      if (r && typeof r === "object" && st.delSel.has(r)) pick.push({ kind: g.kind, rule: r });
+    }
+    if (!pick.length) return;
+    if (!await confirmBox("删除正则", `删除选中的 ${pick.length} 条正则？预设里的正则删除后可在页头撤销，角色卡和全局的不能撤销。`, "删除", true)) return;
     let n = 0;
     const fail = [];
     for (const kind of ["preset", "char", "global"]) {
@@ -383,8 +461,8 @@ function mountRegexPage(page) {
           if (d.name === currentPresetName()) noteRegexDisplay({ markdownOnly: true });
           n += idx.length;
         } else {
-          const list = kind === "char" ? charRegexList(currentChar()) : globalRegexList();
-          const idx = mine.map((x) => list.indexOf(x.rule)).filter((i) => i >= 0).sort((a, b) => b - a);
+          const list2 = kind === "char" ? charRegexList(currentChar()) : globalRegexList();
+          const idx = mine.map((x) => list2.indexOf(x.rule)).filter((i) => i >= 0).sort((a, b) => b - a);
           for (const i of idx) {
             if (kind === "char") await deleteCharRegex(currentChar(), i);
             else deleteGlobalRegex(i);
@@ -398,11 +476,11 @@ function mountRegexPage(page) {
     if (n < pick.length && !fail.length) fail.push(`${pick.length - n} 条已变动`);
     if (n) toast(`已删除 ${n} 条正则`, "success");
     if (fail.length) toast("没删完：" + fail.join("；"), "error");
-    render();
+    setDelMode(false);
   }
   page.querySelector(".pa-toolbar").addEventListener("click", (e) => {
     const b = e.target.closest("[data-r]")?.dataset.r;
-    if (b === "delmany") return void removeMany();
+    if (b === "delmany") return void setDelMode(!st.delMode);
     if (b !== "search" && b !== "searchclose") return;
     const r = page.querySelector(".pa-findrow");
     r.hidden = b === "searchclose" || !r.hidden;
