@@ -1,4 +1,4 @@
-// 2.11.21 保存：保存进行中又改了一条，写完后接着再存一次且是最新内容；点「完成」按钮立刻收起，保存失败时按钮回来。
+// 2.11.21 保存：保存进行中又改了一条，写完后接着再存一次且是最新内容。2.12.16 页头没有「完成」：自动保存后「撤销」可用，保存失败时「重试保存」出现；不改预设的页面不显示保存栏。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/save-speed-check.mjs
 import assert from 'node:assert/strict';
 import { createRequire } from 'node:module';
@@ -60,39 +60,54 @@ try {
   assert.equal(await calls(), 2, '写完后没有新改动，不再多存');
   ok('保存进行中又改了一条：写完后接着再存一次，存的是最新内容');
 
+  // 2.12.16 页头没有「完成」：自动保存完成后显示「已自动保存」，「撤销」写明撤的是哪一步
+  assert.equal(await page.locator('[data-g=confirm]').count(), 0, '页头不再有「完成」');
   await toggle(5);
   await page.waitForFunction(() => window.__sv.calls.length === 3);
-  await page.locator('[data-g=confirm]').click();
-  assert.equal(await page.locator('[data-g=confirm]').isHidden(), true, '点「完成」后按钮立刻收起');
-  assert.equal(await page.locator('[data-g=undo]').isHidden(), true);
   assert.equal(await status(), '保存中…');
-  assert.ok(!(await page.evaluate(() => window.__toasts.some((t) => t.includes('已完成')))), '保存没结束前不提示完成');
+  const dotColor = await page.evaluate(() => getComputedStyle(document.querySelector('.pa-dirty-text'), '::before').backgroundColor);
+  assert.ok(!/rgb\(2(0[0-9]|[1-5][0-9]), (3[0-9]|[4-6][0-9]), (3[0-9]|[4-6][0-9])\)/.test(dotColor), `保存中圆点不用红色（${dotColor}）`);
   await release();
-  await page.waitForFunction(() => window.__toasts.some((t) => t.includes('已完成')));
-  assert.equal(await page.locator('.pa-savebar').isHidden(), true, '完成后没有待撤销的修改');
-  ok('点「完成」：按钮立刻收起、显示保存中，保存完才提示完成');
-
-  // 点「完成」时这批的保存还在进行，随后失败：「撤销」「重试保存」回来，不提示完成
-  await toggle(7);
+  await page.waitForFunction(() => document.querySelector('.pa-dirty-text')?.textContent === '已自动保存');
+  assert.equal(await page.locator('.pa-savebar [data-g=undo]').isVisible(), true, '自动保存后可撤销');
+  assert.match(await page.locator('.pa-savebar [data-g=undo]').getAttribute('title'), /^撤销：/);
+  await page.locator('.pa-savebar [data-g=undo]').click();
   await page.waitForFunction(() => window.__sv.calls.length === 4);
-  const toastsBefore = await page.evaluate(() => window.__toasts.length);
-  await page.locator('[data-g=confirm]').click();
-  assert.equal(await page.locator('[data-g=confirm]').isHidden(), true);
-  await page.waitForTimeout(200);
+  await release();
+  await page.waitForFunction(() => document.querySelector('.pa-dirty-text')?.textContent === '已自动保存');
+  const undone = await page.evaluate(() => window.__mock.presets[0].prompt_order[0].order.map((o) => o.enabled));
+  assert.equal(undone[5], before[5], '撤销后自动保存回原状态');
+  ok('没有「完成」：自动保存后「撤销」可用，撤销也自动保存');
+
+  // 不改预设的页面（世界书、连接）不显示预设的保存状态、撤销、备份
+  for (const k of ['books', 'conn', 'clean']) {
+    await page.evaluate((k) => window.__mcdonalds.open(k), k);
+    assert.equal(await page.locator('.pa-savebar').isHidden(), true, `「${k}」页不显示预设的保存栏`);
+  }
+  assert.equal(await page.locator('[data-g=backups]').isHidden(), true, '清理页不显示页头备份按钮');
+  await page.evaluate(() => window.__mcdonalds.open('organize'));
+  assert.equal(await page.locator('[data-g=backups]').isVisible(), true);
+  ok('世界书、连接、清理页不显示预设的撤销；备份按钮跟着页面');
+
+  // 保存失败：「重试保存」出现，修改留在草稿里
+  await toggle(7);
+  await page.waitForFunction(() => window.__sv.calls.length === 5);
   await page.evaluate(() => { window.__sv.fail = true; });
   await release();
   await page.waitForFunction(() => /保存失败/.test(document.querySelector('.pa-dirty-text')?.textContent || '') && !document.querySelector('[data-g=undo]').hidden);
   assert.equal(await page.locator('[data-g=save]').isVisible(), true, '保存失败后显示重试保存');
-  assert.equal(await calls(), 4, '「完成」等的就是这次保存，不另发一次');
-  assert.ok(!(await page.evaluate((n) => window.__toasts.slice(n).some((t) => t.includes('已完成')), toastsBefore)), '保存失败时不提示完成');
-  ok('点「完成」后保存失败：撤销、重试保存回来，修改留在草稿里');
+  await page.evaluate(() => window.__mcdonalds.open('conn'));
+  assert.equal(await page.locator('.pa-savebar').isVisible(), true, '保存失败时别的页面也看得到');
+  assert.equal(await page.locator('[data-g=undo]').isHidden(), true, '别的页面不显示预设的撤销');
+  await page.evaluate(() => window.__mcdonalds.open('organize'));
+  ok('保存失败：重试保存出现，别的页面也提示，修改留在草稿里');
 
   // 网络恢复后点「重试保存」
   await page.evaluate(() => { window.__sv.fail = false; });
   await page.locator('[data-g=save]').click();
   assert.equal(await status(), '保存中…', '重试进行中显示保存中，不再显示上次的失败');
   assert.equal(await page.locator('[data-g=save]').isHidden(), true);
-  await page.waitForFunction(() => window.__sv.calls.length === 5 && window.__sv.gates.length === 1);
+  await page.waitForFunction(() => window.__sv.calls.length === 6 && window.__sv.gates.length === 1);
   await release();
   await page.waitForFunction(() => document.querySelector('.pa-dirty-text')?.textContent === '已自动保存');
   const after = await page.evaluate(() => window.__mock.presets[0].prompt_order[0].order.map((o) => o.enabled));

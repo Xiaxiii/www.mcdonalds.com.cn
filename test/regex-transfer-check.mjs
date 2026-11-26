@@ -118,7 +118,7 @@ async function boot(width, targetPreset = target) {
     const settings = window.SillyTavern.getContext().extensionSettings;
     settings.regex = [{ id: 'global-kept', scriptName: '全局规则保持原样' }];
     settings.preset_allowed_regex = { openai: ['其他授权预设'] };
-    window.__mcdonalds.open('suture');
+    window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout = 'split'; window.__mcdonalds.open('suture');
   }, { target: targetPreset, source, targetName, sourceName });
   await choose(page, '.pa-src-name', sourceName);
   await choose(page, '.pa-dst-picker .pa-namebtn', targetName);

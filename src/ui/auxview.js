@@ -161,12 +161,12 @@ function mountAux(page) {
       title: isNew ? "新建渠道" : `编辑「${d.name || "渠道"}」`,
       body,
       noFocus: !isNew,
-      actions: [...isNew ? [] : [{ label: "删除", kind: "danger-soft", value: "del" }], { label: "取消", value: null }, { label: "保存", kind: "primary", value: "save", validate: check }]
+      guardDirty: true,
+      // 2.12.16 在关窗前问「删除渠道」：点「取消」时窗口和填写的内容都还在
+      actions: [...isNew ? [] : [{ label: "删除", kind: "danger-soft", value: "del", validate: () => confirmBox("删除渠道", `删除「${d.name || "渠道"}」？用它的功能改为跟随主 API。${fromSite ? "主 API 的站点不受影响。" : ""}`, "删除", true) }], { label: "取消", value: null }, { label: "保存", kind: "primary", value: "save", validate: check }]
     });
     if (r === "del") {
       if (tempId) await dropKey("custom", tempId);
-      const ok = await confirmBox("删除渠道", `删除「${d.name || "渠道"}」？用它的功能改为跟随主 API。${fromSite ? "主 API 的站点不受影响。" : ""}`, "删除", true);
-      if (!ok) return null;
       const a = auxSettings();
       a.channels = a.channels.filter((c) => c.id !== d.id);
       for (const [k, v] of Object.entries(a.use)) if (v === d.id) delete a.use[k];

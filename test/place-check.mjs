@@ -19,7 +19,7 @@ const F1 = {
   extensions: { baibaiToolkit: { presetPromptGroups: { version: 1, groups: [{ id: "g-style", name: "F1文风", order: 0, collapsed: true, enabled: true }, { id: "g-th", name: "F1小剧场", order: 1, collapsed: true, enabled: true }], prompts: { "f1-s1": { groupId: "g-style" }, "f1-s2": { groupId: "g-style" }, "f1-s3": { groupId: "g-style" }, "f1-t1": { groupId: "g-th" } } } } },
 };
 const T = "【众生相】Claude-Lite-v1.8";
-await page.evaluate((F1) => { window.__mock.names.push("F1"); window.__mock.presets.push(F1); window.__mcdonalds.open("suture"); }, F1);
+await page.evaluate((F1) => { window.__mock.names.push("F1"); window.__mock.presets.push(F1); window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout = "split"; window.__mcdonalds.open("suture"); }, F1);
 await page.waitForTimeout(400);
 await choose(page, ".pa-dst-picker .pa-namebtn", T); await page.waitForTimeout(300);
 await choose(page, ".pa-src-name", "F1"); await page.waitForTimeout(300);
@@ -138,13 +138,15 @@ check(L.includes("[新组B: 📏字数、🚫禁词]") && L.includes("[正文规
 console.log("after organize:", L.join(" | "));
 await page.screenshot({ path: "test/shots/p-6-organize.png" });
 
-// 6) 顶栏：有修改时显示「撤销」「完成」；点完成后收起；备份按钮能列出备份
-check(await page.locator('.pa-savebar [data-g="confirm"]').isVisible(), "有修改时显示「完成」");
-await page.click('.pa-savebar [data-g="confirm"]'); await page.waitForTimeout(600);
-check(!(await page.locator('.pa-savebar [data-g="confirm"]').isVisible()), "点完成后收起撤销/完成");
+// 6) 顶栏：有修改时显示「撤销」，没有「完成」；自动保存落盘；备份按钮一个窗口列出备份，每行直接下载、恢复
+check(await page.locator('.pa-savebar [data-g="undo"]').isVisible(), "有修改时显示「撤销」");
+check(await page.locator('.pa-savebar [data-g="confirm"]').count() === 0, "页头没有「完成」");
+for (let i = 0; i < 30 && (await page.locator(".pa-dirty-text").textContent()) !== "已自动保存"; i++) await page.waitForTimeout(200);
+check((await page.locator(".pa-dirty-text").textContent()) === "已自动保存", "修改自动保存");
 await page.click('.pa-top [data-g="backups"]'); await page.waitForTimeout(500);
-const nBk = await page.locator(".pa-sheet .pa-pick-item").count();
+const nBk = await page.locator(".pa-sheet .pa-bkrow").count();
 check(nBk >= 1 && nBk <= 10, `备份列表 ${nBk} 份（不超过 10）`);
+check(await page.locator('.pa-sheet .pa-bkrow [data-bkx="restore"]').count() === nBk && await page.locator('.pa-sheet .pa-bkrow [data-bkx="dl"]').count() === nBk, "每份备份一行，直接「下载」「恢复」");
 await page.click(".pa-sheet-x"); await page.waitForTimeout(300);
 
 // 7) 方案与 API：添加站点 → 获取模型列表 → 选择框里选模型 → 保存；方案记录站点

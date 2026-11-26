@@ -131,7 +131,11 @@ try {
   await page.waitForTimeout(300);
   const btn = page.locator('.pa-top [data-g=sulayout]');
   assert.ok(await btn.isVisible(), '缝合页顶栏有布局按钮');
-  assert.equal(await page.locator('[data-page=suture] .pa-swbar').isVisible(), false, '默认分栏');
+  // 2.12.16 没选过布局时，窄屏默认切换；点按钮改为分栏，再点回到切换
+  assert.equal(await page.locator('[data-page=suture] .pa-swbar').isVisible(), true, '窄屏默认切换');
+  await btn.click();
+  assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout), 'split');
+  assert.equal(await page.locator('[data-page=suture] .pa-swbar').isVisible(), false, '改为分栏');
   assert.ok(await page.locator('[data-page=suture] .pa-src').isVisible() && await page.locator('[data-page=suture] .pa-dst').isVisible());
   await btn.click();
   assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout), 'switch');

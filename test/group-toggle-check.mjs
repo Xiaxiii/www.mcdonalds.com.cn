@@ -102,7 +102,7 @@ try {
     // 等自动保存写回，后面套用方案时才不会问「有未保存的修改」
     for (let i = 0; i < 30 && JSON.stringify(states(await saved(page))) !== JSON.stringify(chosen); i++) await page.waitForTimeout(200);
     assert.deepEqual(states(await saved(page)), chosen, '还原快照后回到原来的开关');
-    for (let i = 0; i < 30 && await page.locator('.pa-savebar [data-g="confirm"]').isVisible(); i++) await page.waitForTimeout(200);
+    for (let i = 0; i < 30 && (await page.locator('.pa-dirty-text').textContent()) !== '已自动保存'; i++) await page.waitForTimeout(200);
 
     // 旧方案仅记录分组状态时，也不能暗中全开未记录的条目。
     await page.evaluate(title => {

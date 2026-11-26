@@ -337,7 +337,7 @@ async function modelPicker({ site = null, keys = null, list = [], cur = "", curK
         if (b.classList.contains("pa-kname") && b.dataset.m === cur && (ownersOf.get(cur) || []).some((x) => x.id === curKey)) k = curKey;
         picked = { model: b.dataset.m, keyId: k };
       } else picked = b.dataset.m;
-      w.querySelector(".pa-sheet-x").click();
+      w._close(null);
     });
     scrollToView(box.querySelector(".pa-krow.on, .pa-mpick-item.on"));
   } });
@@ -850,6 +850,17 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   const failMsg = (site, k) => `「${keyName(site, k)}」密钥请求失败（额度用完或已失效）`;
   // 编辑窗口里的一个密钥：已有的带着密钥库编号、模型；新加的只有编号
   const blankKey = () => ({ id: uid(), name: "", secretId: null, keyMask: "", localKey: false, model: "", models: [] });
+  // 删除站点：先问（编辑窗里在关窗前问，点「取消」时窗口和填写的内容都还在），再删
+  function askDelSite(site) {
+    const users = settings().schemes.filter((sc) => schemeConn(sc)?.siteId === site.id);
+    return confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。${users.length ? `${users.length} 个方案使用此站点，将保留其网址、模型和密钥记录。` : ""}`, "删除", true);
+  }
+  function dropSite(site) {
+    settings().schemes.filter((sc) => schemeConn(sc)?.siteId === site.id).forEach((sc) => { sc.conn = { ...schemeConn(sc), siteId: null }; delete sc.siteId; });
+    settings().sites = sites().filter((x) => x.id !== site.id);
+    if (settings().activeSiteId === site.id) settings().activeSiteId = null;
+    saveSettings();
+  }
   async function editSite(site) {
     const isNew = !site;
     const s = site ? structuredClone(site) : { id: uid(), name: "", source: "custom", url: "", model: "", models: [], secretId: null, keyMask: "", note: "" };
@@ -1132,7 +1143,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           btn.textContent = "获取模型列表";
         });
       },
-      actions: [...isNew ? [] : [{ label: "删除", kind: "danger-soft", value: "del" }], { label: "取消", value: null }, {
+      actions: [...isNew ? [] : [{ label: "删除", kind: "danger-soft", value: "del", validate: () => askDelSite(site) }], { label: "取消", value: null }, {
         label: "保存",
         kind: "primary",
         validate: (w) => {
@@ -1162,7 +1173,10 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     if (!r || r === "del") {
       for (const k of madeKeys) await dropKey(k.source, k.id);
       if (isNew) for (const id of madeLocal) setLocalKey(id, null);
-      if (r === "del") return act("del", site);
+      if (r === "del") {
+        dropSite(site);
+        render();
+      }
       return;
     }
     const final = liveKeys();
@@ -1712,12 +1726,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return render();
     }
     if (a === "del") {
-      const users = settings().schemes.filter((sc) => schemeConn(sc)?.siteId === site.id);
-      if (!await confirmBox("删除站点", `删除「${site.name}」？酒馆密钥库中的密钥不会删除。${users.length ? `${users.length} 个方案使用此站点，将保留其网址、模型和密钥记录。` : ""}`, "删除", true)) return;
-      users.forEach((sc) => { sc.conn = { ...schemeConn(sc), siteId: null }; delete sc.siteId; });
-      settings().sites = sites().filter((x) => x.id !== site.id);
-      if (settings().activeSiteId === site.id) settings().activeSiteId = null;
-      saveSettings();
+      if (!await askDelSite(site)) return;
+      dropSite(site);
       return render();
     }
     if (a === "testmodel") return testModel(btn);

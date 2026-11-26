@@ -46,7 +46,9 @@ assert.equal(await page.locator(srcQ).isVisible(), true);
 assert.equal(await page.inputValue(srcQ), kw);
 ok("重开后搜索框和词都在");
 
-// 目标：同样筛出来，点一条定缝合位置
+// 目标：手机上默认「从 | 到」切换，先切到「到」；同样筛出来，点一条定缝合位置
+assert.equal(await page.locator(".pa-swbar").isVisible(), true, "390 宽默认切换布局");
+await page.click('[data-sw="dst"]'); await page.waitForTimeout(200);
 await page.click("[data-st=dstsearch]"); await page.waitForTimeout(250);
 await page.fill(dstQ, kw); await page.waitForTimeout(400);
 const drow = page.locator(".pa-dst-list .pa-row").first();
@@ -57,10 +59,12 @@ await page.screenshot({ path: S + "ss-2-dst.png" });
 ok("目标：列表里筛出来，点一条定缝合位置");
 
 // ✕：清除并收起，恢复全部；再点放大镜同样收起
+await page.click('[data-sw="src"]'); await page.waitForTimeout(200);
 await page.click(".pa-qrow[data-qside=src] .pa-qx"); await page.waitForTimeout(300);
 assert.equal(await page.locator(srcQ).isVisible(), false);
 assert.equal(await page.locator(".pa-src-list .pa-row").count(), before, "清除后恢复原样");
 assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureQuery.qSrc), "");
+await page.click('[data-sw="dst"]'); await page.waitForTimeout(200);
 await page.click("[data-st=dstsearch]"); await page.waitForTimeout(300);
 assert.equal(await page.locator(dstQ).isVisible(), false, "再点放大镜收起");
 ok("✕ 或再点放大镜：清除并收起");

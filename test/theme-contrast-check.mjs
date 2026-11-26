@@ -69,7 +69,7 @@ try {
       Object.assign(m.live, structuredClone(m.presets.at(-1)));
       // 2.7.1 默认配色为「素」，这里检查跟随酒馆主题
       const st = window.SillyTavern.getContext().extensionSettings;
-      Object.assign(st.mcdonalds || (st.mcdonalds = {}), { theme: 'follow', ui271: true });
+      Object.assign(st.mcdonalds || (st.mcdonalds = {}), { theme: 'follow', ui271: true, sutureLayout: 'split' });
       window.__mcdonalds.open('suture');
     });
     await choose(page, '.pa-src-name', '对比度来源');

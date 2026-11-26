@@ -133,7 +133,7 @@ try {
     await page.evaluate(() => window.__perfContentNotify());
     assert.equal(await page.evaluate(() => window.__perf.renders.length) - beforeContent.renders, 0, '思维链可见时内容通知不会重画后台整理列表');
     assert.equal(await page.evaluate(() => window.__perf.analyses) - beforeContent.analyses, 1, '内容通知只重新分析可见思维链页一次');
-    await page.evaluate(() => window.__mcdonalds.open("suture"));
+    await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout = "split"; window.__mcdonalds.open("suture"); });
     await page.waitForSelector('.pa-src-list .pa-group');
     assert.equal(await page.locator('.pa-src-list .pa-row').count(), 0);
     await page.locator('.pa-src-list .pa-group').first().locator('.pa-gname').click();

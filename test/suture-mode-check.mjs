@@ -7,6 +7,7 @@ const page = await browser.newPage({ viewport: { width: 390, height: 844 }, hasT
 const errs = []; page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout = "split"; }); // 2.12.16 窄屏缝合默认切换；这里测缝合流程，固定为分栏
 const P = (id, name, content) => ({ identifier: id, name, content, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100 });
 const prompts = [P("m-a", "🖋️白描", "<白描>\n只写动作和对白。\n</白描>"), P("m-b", "🖋️古风", "<古风>\n半文半白。\n</古风>"), P("m-c", "📌收尾", "结尾不要总结。"), P("m-d", "📌开场", "开场直接进入场景。")];
 const F = { prompts, prompt_order: [{ character_id: 100001, order: prompts.map((p) => ({ identifier: p.identifier, enabled: true })) }] };

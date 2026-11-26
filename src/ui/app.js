@@ -87,7 +87,6 @@ function buildRoot() {
                 <div class="pa-savebar" role="status" hidden>
                     <span class="pa-dirty-text"></span>
                     <button class="pa-btn" data-g="undo">撤销</button>
-                    <button class="pa-btn pa-btn-primary" data-g="confirm" title="修改已自动保存。点「完成」结束这一批修改，之后不能再撤销">完成</button>
                     <button class="pa-btn pa-btn-primary" data-g="save" hidden>重试保存</button>
                 </div>
                 <button class="pa-icon-btn pa-sulayout" data-g="sulayout" aria-label="切换缝合布局" hidden></button>
@@ -102,7 +101,10 @@ function buildRoot() {
   document.body.append(rootEl2);
   setRoot(rootEl2);
   syncViewport();
-  const onVp = () => syncViewport();
+  const onVp = () => {
+    syncViewport();
+    if (current === "suture" && !settings().sutureLayout) { pages.suture?.relayout?.(); paintSutureLayoutBtn(true); }
+  };
   window.addEventListener("resize", onVp);
   window.addEventListener("orientationchange", onVp);
   window.visualViewport?.addEventListener("resize", onVp);
@@ -176,15 +178,7 @@ function buildRoot() {
         emitChange(d.name);
       }
     }
-    if (g === "confirm") {
-      try {
-        await confirmDraft(focusPreset());
-        toast("已完成，这批修改已保存", "success");
-      } catch (err) {
-        handleSaveError(focusPreset(), err);
-      }
-    }
-    if (g === "backups") return backupsSheet(focusPreset());
+    if (g === "backups") return openPageBackups();
     if (g === "sulayout") {
       pages.suture?.toggleLayout?.();
       return paintSutureLayoutBtn(true);
@@ -206,6 +200,19 @@ function buildRoot() {
     }
   });
   cleanups.push(onDraftChange(updateSavebar));
+  // 2.12.16 当前页的多选删除栏、清理页的勾选操作栏出现时，手机上收起底部导航（见样式 .pa-acting）
+  if (typeof MutationObserver === "function") {
+    const syncActing = () => rootEl2?.classList.toggle("pa-acting", !!rootEl2.querySelector(".pa-page:not([hidden]) :is(.pa-delbar, .pa-clean-act):not([hidden])"));
+    const actObs = new MutationObserver(syncActing);
+    actObs.observe(rootEl2.querySelector(".pa-main"), { subtree: true, attributes: true, attributeFilter: ["hidden"] });
+    cleanups.push(() => actObs.disconnect());
+  }
+}
+// 2.12.16 页头的保存状态、「撤销」只在改预设草稿的页面出现（条目、正则、思维链、变量、缝合到预设）；
+// 其他页面只在这个预设保存失败、暂停保存时出现，免得在世界书页点「撤销」撤掉了预设里的修改
+function isPresetPage() {
+  if (current === "suture") return pages.suture?.dstType?.() !== "world";
+  return current === "organize" || current === "rx" || current === "cot" || current === "vars";
 }
 function updateSavebar() {
   if (!rootEl2) return;
@@ -215,26 +222,53 @@ function updateSavebar() {
     d = getDraft(focusPreset());
   } catch {
   }
-  // 修改即时自动保存；有未确认的修改时显示「撤销」「确认」
-  // 2.11.21 上次保存失败、这次正在重试（再改一下、点了「完成」）：显示保存中，不显示上次的失败和「重试保存」
+  // 修改即时自动保存；改过之后显示保存状态和「撤销」
+  // 2.11.21 上次保存失败、这次正在重试（再改一下）：显示保存中，不显示上次的失败和「重试保存」
   const err = saveErrors.has(d?.name) && !saveJobs.has(d?.name) && !d?.confirming;
   const blocked = d ? saveBlocked.get(d.name) : null;
-  // 2.11.21 点了「完成」正在保存（confirming）：按钮先收起，只留保存状态
   const pending = !!d?.history.length && !d.confirming;
-  bar.hidden = !d || !pending && !err && !saveJobs.has(d.name) && !d.confirming;
+  const saving = !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty || d?.confirming);
+  bar.hidden = !d || (!isPresetPage() ? !err && !blocked : !pending && !err && !saving);
   bar.classList.toggle("pa-save-err", !!(err || blocked));
-  // 2.11.22 保存中显示红色呼吸灯，手机上只剩圆点时也能和「已自动保存」的绿点区分
-  bar.classList.toggle("pa-saving", !err && !blocked && !!(saveJobs.has(d?.name) || d?.dirty || d?.confirming));
+  bar.classList.toggle("pa-saving", saving);
   const dirtyText = rootEl2.querySelector(".pa-dirty-text");
   dirtyText.textContent = blocked
     ? (blocked.kind === "conflict" ? "已暂停保存：预设在别处被改过" : "已暂停保存：备份失败")
-    : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saveJobs.has(d?.name) || d?.dirty || d?.confirming ? "保存中…" : "已自动保存";
-  dirtyText.title = dirtyText.textContent;
+    : err ? `保存失败：${String(saveErrors.get(d.name)).slice(0, 40)}` : saving ? "保存中…" : "已自动保存";
+  dirtyText.dataset.short = blocked ? "已暂停" : err ? "保存失败" : saving ? "保存中" : "已保存";
+  dirtyText.title = (err || blocked) && !isPresetPage() ? `预设「${d.name}」：${dirtyText.textContent}` : dirtyText.textContent;
   const saveBtn = rootEl2.querySelector("[data-g=save]");
-  saveBtn.hidden = !err;
+  saveBtn.hidden = !err && !blocked;
   saveBtn.textContent = blocked ? "处理" : "重试保存";
-  rootEl2.querySelector("[data-g=undo]").hidden = !pending;
-  rootEl2.querySelector("[data-g=confirm]").hidden = !pending || err;
+  const undo = rootEl2.querySelector("[data-g=undo]");
+  undo.hidden = !pending || !isPresetPage();
+  const last = d?.history[d.history.length - 1]?.label;
+  undo.title = `撤销：${last || "上一步"}`;
+  undo.setAttribute("aria-label", undo.title);
+  paintBackupBtn();
+}
+// 页头的备份按钮跟着页面：预设相关页管当前预设，世界书页管世界书，其他页不显示（清理页自己有「本地备份」）
+function paintBackupBtn() {
+  const b = rootEl2?.querySelector("[data-g=backups]");
+  if (!b) return;
+  const wb = current === "books" || current === "suture" && pages.suture?.dstType?.() === "world";
+  const on = wb || isPresetPage();
+  b.hidden = !on;
+  if (!on) return;
+  const t = wb ? "世界书备份" : `「${focusPreset()}」的备份`;
+  b.title = `${t}（只存在这个浏览器里）`;
+  b.setAttribute("aria-label", t);
+}
+function openPageBackups() {
+  if (current === "books") {
+    const open = pages.books?.openWorldbook?.();
+    return open ? backupsSheet(WB_KEY + open) : worldBackupsPick();
+  }
+  if (current === "suture" && pages.suture?.dstType?.() === "world") {
+    const n = pages.suture?.dstName?.();
+    return n ? backupsSheet(WB_KEY + n) : worldBackupsPick();
+  }
+  return backupsSheet(focusPreset());
 }
 // 页面键：organize cot schemes conn reply suture clean health look；栏目键 preset、more 打开上次所在的分页。
 // 兼容旧写法：open("more", "health") 等
@@ -303,7 +337,7 @@ function paintSutureLayoutBtn(on) {
   if (!b) return;
   b.hidden = !on;
   if (!on) return;
-  const next = settings().sutureLayout === "switch" ? "split" : "switch";
+  const next = (pages.suture?.layout?.() || sutureDefaultLayout()) === "switch" ? "split" : "switch";
   b.innerHTML = LAYOUT_ICON[next];
   const label = next === "split" ? "改为分栏：从、到同屏" : "改为切换：一次显示一栏";
   b.setAttribute("aria-label", label);
@@ -457,6 +491,7 @@ async function close({ fromBack = false } = {}) {
       toast("已全部保存", "success");
     }
   }
+  endDraftBatches();
   rootEl2.hidden = true;
   document.documentElement.classList.remove("mcd-open");
   document.getElementById("mcd-ball")?.removeAttribute("hidden");
@@ -1028,28 +1063,115 @@ async function start() {
   console.log(`[麦当劳] ${VERSION} 已加载`);
 }
 // 备份：每批修改开始前自动备份一次修改前的版本，每个预设保留最近 backupMax() 份（2.4.2 可关闭）
-async function backupsSheet(name) {
+// 2.12.16 key 是预设名，或「世界书：书名」。一个窗口列出全部备份，每行直接「下载」「恢复」，不再点一份再弹第二个窗口选操作。
+// onChange：恢复后回调（如清理页重新统计）
+var WB_KEY = "世界书：";
+async function backupsSheet(key, { onChange } = {}) {
+  const wb = key.startsWith(WB_KEY) ? key.slice(WB_KEY.length) : null;
   let list = [];
   try {
     // 旧备份在保存之后才清理（2.11.21），清理前可能多出一份：只列最近的 backupMax() 份
-    list = (await backupList(name)).slice(0, backupMax());
+    list = (await backupList(key)).slice(0, backupMax());
   } catch (e) {
     return toast("读取备份失败：" + e.message, "error");
   }
-  if (!list.length) return toast(backupOn() ? `「${name}」暂无备份` : "自动备份已关闭，可在「清理 → 本地备份」开启");
-  const items = list.map((b) => ({ label: new Date(b.time).toLocaleString(), sub: b.reason, value: b.id }));
-  const id = await pickBox(`「${name}」的备份（${list.length} 份）`, items, { hint: `${backupOn() ? "每批修改前自动备份一次。" : "自动备份已关闭。"}备份只存在本浏览器，换设备或清除数据后丢失，重要版本请下载。点一份可恢复或下载。` });
-  if (!id) return;
-  const b = await backupGet(id);
-  const how = await pickBox("选择操作", [{ label: "恢复", sub: "恢复后自动保存，可撤销", value: "restore" }, { label: "下载 JSON 文件", value: "download" }]);
-  if (how === "download") {
-    downloadBlob(new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" }), `${name}-备份-${new Date(b.time).toISOString().slice(0, 16).replace(/[:T]/g, "")}.json`);
+  const what = wb ? `世界书「${wb}」` : `「${key}」`;
+  if (!list.length) return toast(backupOn() ? `${what}暂无备份` : "自动备份已关闭，可在「清理 → 本地备份」开启");
+  const stamp = (t) => new Date(t).toISOString().slice(0, 16).replace(/[-:T]/g, "");
+  const body = el(`<div>
+      <p class="pa-hint">共 ${list.length} 份。${backupOn() ? (wb ? "每次修改这本书前自动备份一次。" : "每批修改前自动备份一次。") : "自动备份已关闭。"}备份只存在本浏览器，换设备或清除数据后丢失，重要版本请下载。</p>
+      <div class="pa-clist pa-bklist">${list.map((b) => `<div class="pa-crow pa-bkrow">
+        <span class="pa-crow-main"><b>${esc(new Date(b.time).toLocaleString())}</b>${b.reason ? `<span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${esc(b.reason)}</span></span>` : ""}</span>
+        <span class="pa-crow-btns"><button class="pa-btn pa-btn-s" data-bkx="dl" data-id="${b.id}">下载</button><button class="pa-btn pa-btn-s pa-btn-soft" data-bkx="restore" data-id="${b.id}">恢复</button></span>
+      </div>`).join("")}</div>
+    </div>`);
+  let restoreId = null;
+  await sheet({
+    title: `${what}的备份`,
+    place: "center",
+    body,
+    actions: [{ label: "关闭", value: null }],
+    onMount: (w) => body.addEventListener("click", async (e) => {
+      const btn = e.target.closest("[data-bkx]");
+      if (!btn) return;
+      const id = Number(btn.dataset.id);
+      if (btn.dataset.bkx === "restore") {
+        restoreId = id;
+        return w._close(null);
+      }
+      try {
+        const b = await backupGet(id);
+        if (!b) throw new Error("这份备份已不在");
+        downloadBlob(new Blob([JSON.stringify(b.data, null, 4)], { type: "application/json" }), `${wb ?? key}-备份-${stamp(b.time)}.json`);
+      } catch (err) {
+        toast("下载失败：" + err.message, "error");
+      }
+    })
+  });
+  if (restoreId == null) return;
+  let b;
+  try {
+    b = await backupGet(restoreId);
+    if (!b) throw new Error("这份备份已不在");
+  } catch (e) {
+    return toast("读取备份失败：" + e.message, "error");
   }
-  if (how === "restore") {
-    const d = getDraft(name);
-    mutate(d, "恢复备份", (x) => x.replaceWith(b.data));
-    toast("已恢复", "success");
+  if (wb != null) {
+    if (!await restoreWorldBackup(wb, b)) return;
+  } else {
+    try {
+      const d = getDraft(key);
+      mutate(d, "恢复备份", (x) => x.replaceWith(b.data));
+    } catch (e) {
+      return toast("恢复失败：" + e.message, "error");
+    }
+    toast("已恢复，可撤销", "success");
   }
+  onChange?.();
+}
+// 恢复世界书：先把现在的版本也备份一份（书还在时），再整本写回；整本删掉了的书会加回世界书列表
+async function restoreWorldBackup(name, b) {
+  const wi = mods.wi;
+  if (typeof wi?.saveWorldInfo !== "function") { toast("酒馆版本较旧，不能在这里恢复世界书", "error"); return false; }
+  const exists = listWorldbooks().includes(name);
+  if (exists) {
+    if (!backupOn() && !await confirmBox("恢复世界书", `自动备份已关闭，「${name}」现在的内容会被备份里的版本覆盖，找不回来。`, "恢复", true)) return false;
+    try {
+      await backupPut(WB_KEY + name, structuredClone(await wi.loadWorldInfo(name)), "恢复备份前");
+    } catch (e) {
+      if (!await confirmBox("备份失败", `恢复前备份「${name}」现在的内容没有成功（${e.message}）。仍要恢复吗？`, "仍要恢复", true)) return false;
+    }
+  }
+  try {
+    await wi.saveWorldInfo(name, structuredClone(b.data), true);
+    if (!exists) {
+      if (typeof wi.updateWorldInfoList === "function") await wi.updateWorldInfoList();
+      else if (Array.isArray(wi.world_names) && !wi.world_names.includes(name)) wi.world_names.push(name);
+    }
+  } catch (e) {
+    toast("恢复失败：" + e.message, "error");
+    return false;
+  }
+  pages.books?.refreshBook?.(name);
+  toast(`已恢复世界书「${name}」`, "success");
+  return true;
+}
+// 世界书页没打开哪本书时：先选一本有备份的书
+async function worldBackupsPick() {
+  let all = [];
+  try { all = await backupAll(); } catch (e) { return toast("读取备份失败：" + e.message, "error"); }
+  const by = new Map();
+  for (const b of all) {
+    if (!String(b.preset).startsWith(WB_KEY)) continue;
+    const g = by.get(b.preset) || by.set(b.preset, { n: 0, t: 0 }).get(b.preset);
+    g.n++;
+    g.t = Math.max(g.t, b.time);
+  }
+  if (!by.size) return toast(backupOn() ? "还没有世界书的备份。修改世界书前会自动备份" : "自动备份已关闭，可在「清理 → 本地备份」开启");
+  const max = backupMax();
+  const items = [...by].sort((a, b) => b[1].t - a[1].t).map(([k, g]) => ({ label: k.slice(WB_KEY.length), sub: `${Math.min(g.n, max)} 份 · 最近 ${new Date(g.t).toLocaleString()}`, value: k }));
+  const k = await pickBox("世界书备份", items);
+  if (k) return backupsSheet(k);
 }
 // 1.4.1：扩展名称可修改，默认「麦当劳」。酒馆「扩展管理」列表里的名称来自 manifest.json，无法按用户修改
 var DEFAULT_APP_NAME = "麦当劳";

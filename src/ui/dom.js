@@ -115,12 +115,15 @@ function scrollToView(node, block = "center", smooth = false) {
 const nextPaint = () => new Promise((r) => requestAnimationFrame(() => setTimeout(r, 0)));
 // 2.5.0 最近点的按钮：菜单贴着它弹出，不再从屏幕底部升上来
 var lastTap = null;
+// 2.12.16 弹窗的关闭键、正在淡出的弹窗里点的不算：下一级菜单贴着它会悬在半空（旧弹窗 150ms 后才移除）
 const noteTap = (e) => {
   const b = e.target?.closest?.("button, [role=button], [data-a], [data-act], [data-tool], [data-s]");
-  if (b) lastTap = { el: b, t: Date.now() };
+  if (!b || b.closest(".pa-sheet-x, .pa-out")) return;
+  lastTap = { el: b, t: Date.now() };
 };
 function recentAnchor() {
-  return lastTap && Date.now() - lastTap.t < 1500 && lastTap.el.isConnected && lastTap.el.offsetParent ? lastTap.el : null;
+  const a = lastTap?.el;
+  return a && Date.now() - lastTap.t < 1500 && a.isConnected && a.offsetParent && !a.closest(".pa-out") ? a : null;
 }
 // 2.5.0 ⓘ 按钮（data-tipbtn）展开同一块里的说明（data-tipnote），整个面板共用，不用每处单独绑定
 const onTipBtn = (e) => {
@@ -194,6 +197,8 @@ function sheet(opt) {
       wrap.dispatchEvent(new Event("pa-closed"));
       resolve(v);
     };
+    // 2.12.16 选中列表项后直接关窗：不模拟点 ✕（会触发 guardDirty 询问、被记成最近点的按钮）
+    wrap._close = done;
     for (const a of opt.actions || [{ label: "确定", kind: "primary", value: true }]) {
       const b = el(`<button class="pa-btn ${a.kind ? "pa-btn-" + a.kind : ""}">${esc(a.label)}</button>`);
       b.addEventListener("click", async () => {
@@ -454,7 +459,7 @@ async function pickBox(title, items, { hint = "", anchor = recentAnchor() } = {}
       if (!b) return;
       const [i, j] = b.dataset.v.split(".");
       resolveFn(j === undefined ? items[Number(i)].value : items[Number(i)].pair[Number(j)].value);
-      w.querySelector(".pa-sheet-x").click();
+      w._close(null);
     });
   } });
   let picked = null;

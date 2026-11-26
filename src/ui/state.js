@@ -429,3 +429,7 @@ async function confirmDraft(name) {
     notifyDraft(name);
   }
 }
+// 2.12.16 页头不再有「完成」：关面板时这一批修改结束（撤销记录保留），下次打开后的第一次修改重新备份
+function endDraftBatches() {
+  for (const d of drafts.values()) if (!d.dirty) d.batchSaved = false;
+}

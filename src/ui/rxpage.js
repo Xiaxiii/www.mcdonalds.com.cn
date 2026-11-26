@@ -112,11 +112,12 @@ function regexEditForm(rule) {
   };
   return { body, read, validate };
 }
-async function regexEditSheet(rule) {
+// 2.12.16 onDelete 在窗口关闭前问「删除正则」并删掉：在确认框点「取消」时窗口和填写的内容都还在
+async function regexEditSheet(rule, { onDelete } = {}) {
   const { body, read, validate } = regexEditForm(rule);
   return sheet({
     title: rule.scriptName || "编辑正则", body, wide: true, noFocus: true, guardDirty: true,
-    actions: [{ label: "删除", kind: "danger-soft", value: "delete" }, { label: "取消", value: null }, { label: "保存", kind: "primary", value: read, validate }],
+    actions: [...onDelete ? [{ label: "删除", kind: "danger-soft", value: "delete", validate: async () => !!await onDelete() }] : [], { label: "取消", value: null }, { label: "保存", kind: "primary", value: read, validate }],
     onMount: (w) => {
       const sh = w.querySelector(".pa-sheet");
       sh.classList.add("pa-sheet-rxedit");
@@ -182,9 +183,7 @@ function mountRegexPage(page) {
     }
     const { kind, i, rule } = pane;
     if (a === "del") {
-      const before = ruleOf(kind, i);
-      await remove(kind, i, rule);
-      if (ruleOf(kind, i) !== before || !before) closePane();
+      if (await remove(kind, i, rule)) closePane();
       return;
     }
     if (a === "save") {
@@ -344,12 +343,13 @@ function mountRegexPage(page) {
     render();
   }
   // 删除一条正则：编辑窗口里的「删除」走这里。预设的可在页头撤销
+  // 删掉了返回 true；取消、没删成返回 false
   async function remove(kind, i, r = ruleOf(kind, i)) {
-    if (!r) return;
+    if (!r) return false;
     const name = presetRegexRuleName(r);
     const undo = kind === "preset" ? "可在页头撤销。" : "删除后不能撤销。";
-    if (!await confirmBox("删除正则", `删除「${name}」？${undo}`, "删除", true)) return;
-    if (ruleOf(kind, i) !== r) return toast("这条正则已变动，没有删除，请重试", "warning");
+    if (!await confirmBox("删除正则", `删除「${name}」？${undo}`, "删除", true)) return false;
+    if (ruleOf(kind, i) !== r) { toast("这条正则已变动，没有删除，请重试", "warning"); return false; }
     try {
       if (kind === "preset") {
         const d = getDraft(focusPreset());
@@ -360,15 +360,18 @@ function mountRegexPage(page) {
       toast(`已删除「${name}」`, "success");
     } catch (e) {
       toast("删除失败：" + e.message, "error");
+      render();
+      return false;
     }
     render();
+    return true;
   }
   async function peek(kind, i) {
     const r = ruleOf(kind, i);
     if (!r) return;
     if (wide()) return openPane(kind, i, r);
-    const next = await regexEditSheet(r);
-    if (!next) return;
+    const next = await regexEditSheet(r, { onDelete: () => remove(kind, i, r) });
+    if (!next || next === "delete") return;
     return applyEdit(kind, i, r, next);
   }
   // 写回改好的正则。成功返回 true

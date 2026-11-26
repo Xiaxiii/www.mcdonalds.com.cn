@@ -13,7 +13,7 @@ async function importSheet() {
       const inp = e.target.closest("input[type=file]");
       if (!inp?.files?.[0]) return;
       got = { kind: inp.dataset.imp, file: inp.files[0] };
-      w.querySelector(".pa-sheet-x").click();
+      w._close(null);
     });
   } });
   if (!got) return;

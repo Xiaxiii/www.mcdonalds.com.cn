@@ -11,6 +11,7 @@ const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout = "split"; }); // 2.12.16 窄屏缝合默认切换；这里测缝合流程，固定为分栏
 const T = "【众生相】Claude-Lite-v1.8";
 const P = (id, name, content, x = {}) => ({ identifier: id, name, content, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100, ...x });
 const F1 = { prompts: [P("f1-a", "开场白", "开场白要短。"), P("f1-d", "深度提醒", "回复不超过三段。", { injection_position: 1, injection_depth: 2, role: "user" })], prompt_order: [{ character_id: 100001, order: [{ identifier: "f1-a", enabled: true }, { identifier: "f1-d", enabled: true }] }] };

@@ -60,7 +60,7 @@ async function boot() {
     m.presets.splice(0, m.presets.length, target, source);
     m.live.preset_settings_openai = targetName;
     Object.assign(m.live, structuredClone(target));
-    window.__mcdonalds.open('suture');
+    window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout = 'split'; window.__mcdonalds.open('suture');
   }, { target, source, targetName, sourceName });
   await choose(page, '.pa-src-name', sourceName);
   await choose(page, '.pa-dst-picker .pa-namebtn', targetName);

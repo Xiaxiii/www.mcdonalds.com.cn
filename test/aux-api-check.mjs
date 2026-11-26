@@ -22,7 +22,7 @@ await page.evaluate(async (F) => {
   window.__active = () => sec.secret_state.api_key_custom.find((x) => x.active)?.id;
   window.__secrets = () => sec.secret_state.api_key_custom;
   const ctx = window.SillyTavern.getContext();
-  ctx.extensionSettings.mcdonalds = { sites: [{ id: "hs", name: "火山", source: "custom", url: "https://ark.example/api/v3", secretId: "k-hs", model: "ds-flash", models: ["ds-flash", "doubao-pro"] }] };
+  ctx.extensionSettings.mcdonalds = { sutureLayout: "split", sites: [{ id: "hs", name: "火山", source: "custom", url: "https://ark.example/api/v3", secretId: "k-hs", model: "ds-flash", models: ["ds-flash", "doubao-pro"] }] };
   ctx.getChatCompletionModel = () => window.__mock.live.custom_model;
   window.__sent = [];
   ctx.ChatCompletionService = {
@@ -231,7 +231,14 @@ await page.waitForTimeout(300);
 await chRow(sf.id).locator('[data-a="edit"]').click();
 await page.locator(`${top} .pa-sheet-actions .pa-btn`, { hasText: "删除" }).click();
 await page.waitForTimeout(300);
-await page.locator(`${top} .pa-sheet-actions .pa-btn`, { hasText: "删除" }).click();
+// 2.12.16 确认框叠在渠道编辑窗上面：先点「取消」，编辑窗还在
+const lastSheet = () => page.locator(".pa-sheet-mask:not(.pa-out)").last();
+await lastSheet().locator(".pa-sheet-actions .pa-btn", { hasText: "取消" }).click();
+await page.waitForTimeout(300);
+check(await page.locator(".pa-sheet-mask:not(.pa-out)").count() === 1 && (await lastSheet().locator(".pa-sheet-head").innerText()).includes("编辑"), "删除确认框点取消：渠道编辑窗还在");
+await lastSheet().locator(".pa-sheet-actions .pa-btn", { hasText: "删除" }).click();
+await page.waitForTimeout(300);
+await lastSheet().locator(".pa-sheet-actions .pa-btn", { hasText: "删除" }).click();
 await page.waitForTimeout(500);
 const del = await aux();
 check(del.channels.length === 1 && !del.use.review && !(await page.evaluate((id) => window.__secrets().some((x) => x.id === id), sf.secretId)), "删除渠道：用途改回跟随主 API，密钥从密钥库删掉");

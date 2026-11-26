@@ -8,7 +8,7 @@ const errs = [];
 page.on("pageerror", (e) => errs.push(e.message));
 await page.goto("http://127.0.0.1:8765/test/site/index.html");
 await page.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
-await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds = {}; window.__mcdonalds.open("suture"); });
+await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { sutureLayout: "split" }; window.__mcdonalds.open("suture"); });
 await page.waitForTimeout(400);
 const fold = (side) => page.evaluate((side) => [...document.querySelectorAll(`.pa-${side}-list .pa-group`)].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".pa-gname")?.textContent.trim()).join(" "), side);
 // 换掉所有分组编号（模拟没有编号的分组被重新读取），并让草稿重新读取
@@ -64,7 +64,7 @@ const page2 = await browser.newPage({ viewport: { width: 390, height: 844 }, isM
 page2.on("pageerror", (e) => errs.push(e.message));
 await page2.goto("http://127.0.0.1:8765/test/site/index.html");
 await page2.waitForFunction(() => window.__mcdonalds?.open, null, { timeout: 15000 });
-await page2.evaluate((saved) => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { sutureFold: saved }; window.__mcdonalds.open("suture"); }, await store());
+await page2.evaluate((saved) => { window.SillyTavern.getContext().extensionSettings.mcdonalds = { sutureFold: saved, sutureLayout: "split" }; window.__mcdonalds.open("suture"); }, await store());
 await page2.waitForTimeout(500);
 const fold2 = (side) => page2.evaluate((side) => [...document.querySelectorAll(`.pa-${side}-list .pa-group`)].map((g) => (g.classList.contains("pa-collapsed") ? "-" : "+") + g.querySelector(".pa-gname")?.textContent.trim()).join(" "), side);
 assert.equal(await fold2("dst"), dstNow, "重新加载后目标栏与最后一次相同");

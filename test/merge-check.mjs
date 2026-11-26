@@ -21,6 +21,7 @@ async function open(viewport, extra = {}) {
   page.on('pageerror', (e) => errors.push(e.message));
   await page.goto(URL);
   await page.waitForFunction(() => window.__mcdonalds?.open);
+  await page.evaluate(() => { window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureLayout = "split"; }); // 2.12.16 窄屏缝合默认切换；这里测缝合流程，固定为分栏
   await page.evaluate(({ oldPreset, newPreset, oldName, newName }) => {
     const m = window.__mock;
     m.names.splice(0, m.names.length, oldName, newName);

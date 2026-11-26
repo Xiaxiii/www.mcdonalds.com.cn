@@ -41,8 +41,11 @@ function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
       if (!ta.isConnected) return;
       const box = ta.closest(".pa-sheet-body, .pa-editpane-body");
       const top = box?.scrollTop;
+      // 2.12.16 量内容高度时先不撑满（样式里正文框会撑满剩下的高度），量完再放开
+      ta.style.flexGrow = "0";
       ta.style.height = "auto";
       ta.style.height = ta.scrollHeight + 2 + "px";
+      ta.style.flexGrow = "";
       if (box && top != null) box.scrollTop = top;
     };
     ta.addEventListener("input", fit);

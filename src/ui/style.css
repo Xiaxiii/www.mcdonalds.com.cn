@@ -683,6 +683,16 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-rank > p { grid-column: 1 / -1; }
 #mcd-root .pa-rank span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 #mcd-root .pa-rank em { text-align: right; font-style: normal; color: var(--pa-dim); font-variant-numeric: tabular-nums; white-space: nowrap; font-size: .92em; }
+/* 2.12.16 清理 → 本地备份：每行可点，打开这个预设或世界书的备份 */
+#mcd-root .pa-bkrank { display: grid; grid-template-columns: none; gap: 2px; margin-inline: -8px; }
+#mcd-root .pa-bkrank > .pa-bkrank-row { display: grid; grid-template-columns: minmax(0, 1fr) 26% auto 12px; gap: 8px; align-items: center; min-height: 40px; padding: 4px 8px; border: 0; border-radius: 8px; background: transparent; color: inherit; font: inherit; text-align: left; cursor: pointer; }
+#mcd-root .pa-bkrank-go { font-style: normal; color: var(--pa-dim); text-align: center; }
+@media (hover: hover) { #mcd-root .pa-bkrank > .pa-bkrank-row:hover { background: var(--pa-card-2); } }
+#mcd-root .pa-bkrank > .pa-bkrank-row:focus-visible { outline: 2px solid var(--pa-thread, var(--pa-accent)); outline-offset: -2px; }
+/* 备份窗口：每行时间、原因，右边「下载」「恢复」 */
+#mcd-root .pa-bklist { gap: 6px; }
+#mcd-root .pa-bklist .pa-bkrow { grid-template-columns: minmax(0, 1fr) auto; cursor: default; padding: 8px 10px; }
+#mcd-root .pa-bklist .pa-crow-btns { grid-column: auto; flex-wrap: nowrap; }
 #mcd-root .pa-bar { display: block; height: 6px; border-radius: 3px; overflow: hidden; }
 #mcd-root .pa-bar b { display: block; height: 100%; background: var(--pa-thread); border-radius: 3px; }
 #mcd-root .pa-health .pa-card-act { margin: 10px 0 4px; }
@@ -703,8 +713,12 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
   #mcd-root .pa-rtable { grid-template-columns: minmax(0, 1fr) auto auto; }
   #mcd-root .pa-rtable:not(.pa-rt-detail) .pa-rt-head span:nth-child(2), #mcd-root .pa-rtable:not(.pa-rt-detail) .pa-rt-row span:nth-child(2),
   #mcd-root .pa-rtable:not(.pa-rt-detail) .pa-rt-head span:nth-child(4), #mcd-root .pa-rtable:not(.pa-rt-detail) .pa-rt-row span:nth-child(4) { display: none; }
-  #mcd-root .pa-rt-detail { min-width: 560px; grid-template-columns: minmax(0, 2fr) auto auto auto auto; }
+  /* 2.12.16 每笔明细：手机上三列（地址，下面一行写分类、首字节／接收、传输；开始；耗时），不再横向截字 */
+  #mcd-root .pa-rt-detail { grid-template-columns: minmax(0, 1fr) auto auto; }
+  #mcd-root .pa-rt-detail .pa-rt-head span:nth-child(n+4), #mcd-root .pa-rt-detail .pa-rt-row > span:nth-child(n+4) { display: none; }
 }
+#mcd-root .pa-rt-row span small.pa-rt-more { display: none; }
+@media (max-width: 560px) { #mcd-root .pa-rt-row span small.pa-rt-more { display: block; } }
 /* 1.9.0 扩展页设置框：加载与兼容（在 #mcd-root 之外，跟随酒馆主题） */
 #mcd-settings .pa-set-sec-h { font-weight: 600; margin: 2px 0 6px; }
 #mcd-settings .pa-set-kv { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 3px 12px; font-size: .92em; }
@@ -1667,8 +1681,8 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 @media (min-width: 1000px) { #mcd-root .pa-tabs { background: var(--pa-side, transparent); } }
 #mcd-root .pa-dirty-text::before { content: ""; display: inline-block; width: 7px; height: 7px; margin-right: 7px; border-radius: 50%; background: var(--pa-ok); vertical-align: 1px; }
 #mcd-root .pa-savebar.pa-save-err .pa-dirty-text::before { background: var(--pa-warn); }
-/* 2.11.22 保存中：红色呼吸灯（亮→暗→亮），保存完变回绿色实心圆点。手机上圆点所在的框只有 8px 宽，外发光会被裁掉，只变明暗 */
-#mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { background: #cf3434; background: color-mix(in srgb, #dc2626 78%, var(--pa-text)); animation: pa-breathe 1.2s ease-in-out infinite; }
+/* 2.11.22 保存中：呼吸灯（亮→暗→亮），保存完变回绿色实心圆点。2.12.16 用主题色，不用红色（红色只在保存失败、暂停保存时） */
+#mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { background: var(--pa-thread); animation: pa-breathe 1.2s ease-in-out infinite; }
 @keyframes pa-breathe { 0%, 100% { opacity: 1; } 50% { opacity: .28; } }
 @media (prefers-reduced-motion: reduce) { #mcd-root .pa-savebar.pa-saving .pa-dirty-text::before { animation: none !important; opacity: .72; } }
 
@@ -2177,15 +2191,19 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* ===== 2.9.1 ===== */
 /* 条目名过长时省略，不压到右边的眼睛和开关上 */
 #mcd-root .pa-row .pa-nameline > .pa-name { flex: 0 1 auto; min-width: 0; }
-/* 撤销、完成移到页头右侧，底部不再多一条栏 */
+/* 撤销移到页头右侧，底部不再多一条栏 */
 #mcd-root .pa-top > .pa-savebar { grid-area: auto; flex: none; min-width: 0; min-height: 0; padding: 0; gap: 6px; border: 0; background: none !important; box-shadow: none; -webkit-backdrop-filter: none !important; backdrop-filter: none !important; }
 #mcd-root .pa-top > .pa-savebar[hidden] { display: none; }
 #mcd-root .pa-top > .pa-savebar .pa-dirty-text { flex: 0 1 auto; max-width: 11em; font-size: .8em; }
 #mcd-root .pa-top > .pa-savebar .pa-btn { min-height: 34px; padding: 2px 12px; font-size: .9em; }
+/* 2.12.16 手机上写短字（已保存、保存中、保存失败），极窄屏（< 360px）才只剩圆点 */
 @media (max-width: 560px) {
-    #mcd-root .pa-top > .pa-savebar:not(.pa-save-err) .pa-dirty-text { width: 8px; max-width: 8px; white-space: nowrap; overflow: hidden; color: transparent; }
-    #mcd-root .pa-top > .pa-savebar .pa-dirty-text::before { margin-right: 0; }
-    #mcd-root .pa-top > .pa-savebar.pa-save-err .pa-dirty-text { max-width: 7em; }
+    #mcd-root .pa-top > .pa-savebar .pa-dirty-text { font-size: 0; max-width: none; flex: none; }
+    #mcd-root .pa-top > .pa-savebar .pa-dirty-text::after { content: attr(data-short); font-size: 12px; vertical-align: 0; }
+}
+@media (max-width: 359px) {
+    #mcd-root .pa-top > .pa-savebar:not(.pa-save-err) .pa-dirty-text::after { content: none; }
+    #mcd-root .pa-top > .pa-savebar:not(.pa-save-err) .pa-dirty-text::before { margin-right: 0; }
 }
 /* 手机上多选时，多选栏占用底部导航的位置；点「取消」恢复 */
 /* 2.11.17 底部留白与底部导航同算法（--pa-sab）：App 内嵌网页不再多出一截空白 */
@@ -2209,14 +2227,18 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-mpick-list { display: block; }
 #mcd-root .pa-mpick-list > .pa-mpick-item { width: 100%; }
 #mcd-root .pa-mpick-list:not(.pa-kpick) > .pa-mpick-item + .pa-mpick-item { margin-top: 4px; }
-/* 手机、平板底部导航：只留图标，当前页为带文字的胶囊 */
+/* 手机、平板底部导航：2.12.16 五栏等宽，每栏图标在上、两字标签在下，都常驻显示；当前页加底色、加粗 */
 @media (max-width: 999px) {
-    #mcd-root .pa-tabs { align-items: center; gap: 4px; padding-top: 6px; padding-bottom: calc(6px + var(--pa-sab, env(safe-area-inset-bottom))); padding-left: calc(10px + env(safe-area-inset-left)); padding-right: calc(10px + env(safe-area-inset-right)); }
-    #mcd-root .pa-tabs button { flex-direction: row; gap: 7px; min-height: 44px; border-radius: 999px; }
-    #mcd-root .pa-tabs button svg { width: 21px; height: 21px; flex: none; }
-    #mcd-root .pa-tabs button > span { display: none; }
-    #mcd-root .pa-tabs button[aria-current="page"] { flex: 0 0 auto; padding: 0 18px; background: var(--pa-card-2); }
-    #mcd-root .pa-tabs button[aria-current="page"] > span { display: inline; font-size: max(13px, 1.1em); white-space: nowrap; }
+    #mcd-root .pa-tabs { align-items: stretch; gap: 4px; padding-top: 4px; padding-bottom: calc(4px + var(--pa-sab, env(safe-area-inset-bottom))); padding-left: calc(8px + env(safe-area-inset-left)); padding-right: calc(8px + env(safe-area-inset-right)); }
+    #mcd-root .pa-tabs button { flex: 1 1 0; min-width: 0; flex-direction: column; justify-content: center; gap: 2px; min-height: 48px; padding: 4px 2px; border-radius: 10px; }
+    #mcd-root .pa-tabs button svg { width: 20px; height: 20px; flex: none; }
+    #mcd-root .pa-tabs button > span { display: block; font-size: 12px; line-height: 1.2; white-space: nowrap; }
+    #mcd-root .pa-tabs button[aria-current="page"] { background: var(--pa-card-2); color: var(--pa-text); font-weight: 600; }
+}
+/* 2.12.16 原地多选删除、清理页勾选时，操作栏占用底部导航的位置，不叠成两层；切页或取消时恢复 */
+@media (max-width: 999px) {
+    #mcd-root.pa-acting .pa-tabs { display: none; }
+    #mcd-root.pa-acting .pa-page:not([hidden]) :is(.pa-delbar, .pa-clean-act):not([hidden]) { padding-bottom: calc(10px + var(--pa-sab, env(safe-area-inset-bottom))); }
 }
 /* ===== 2.9.4 ===== */
 /* 模型按钮和模型行不是输入框，不放大到 16px；行内边距收回 */
@@ -2672,9 +2694,11 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-rx-row.pa-editing { background: var(--pa-sel); box-shadow: inset 3px 0 0 var(--pa-info, var(--pa-thread)); }
 #mcd-root .pa-editpane-foot .pa-ep-del { margin-right: auto; }
 @media (min-width: 1000px) {
-    /* 编辑栏开着时左栏窄，下拉框先缩，搜索、垃圾桶等图标留在同一行 */
-    #mcd-root .pa-edit-open > .pa-toolbar > .pa-picker-slot { flex: 1 1 0; }
-    #mcd-root .pa-edit-open > .pa-toolbar { flex-wrap: nowrap; }
+    /* 编辑栏开着时左栏窄，下拉框先缩，搜索、垃圾桶等图标留在同一行。
+       2.12.16 仍允许换行：展开的搜索框（占满一行）落到左栏第二行，不把「预设」按钮压扁、不把 ✕ 挤到编辑栏底下 */
+    #mcd-root .pa-edit-open > .pa-toolbar { flex-wrap: wrap; min-width: 0; }
+    #mcd-root .pa-edit-open > .pa-toolbar > .pa-picker-slot { flex: 1 1 160px; min-width: 0; }
+    #mcd-root .pa-edit-open > .pa-toolbar > .pa-findrow { order: 9; flex: 1 0 100%; min-width: 0; }
 }
 
 /* 主题切换：极简柔光 280ms 柔和色彩过渡 */
@@ -2763,3 +2787,23 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
     /* 工具栏、备份详情里的删除按钮触屏下已是 42px，不再外扩 */
     #mcd-root .pa-toolbar > .pa-del::before, #mcd-root .pa-tools .pa-del::before, #mcd-root .pa-bk-dhead .pa-del::before { content: none; }
 }
+
+/* ===== 2.12.16 ===== */
+/* 连接 → 主 API：「2 组 ▾」、铅笔、删除胶囊悬停时不变成浅底白字 */
+@media (hover: hover) {
+    #mcd-root .pa-swpill.pa-fold-pill:hover, #mcd-root .pa-site-multi.open .pa-swpill.pa-fold-pill:hover { background: var(--pa-card-2); color: var(--pa-text); border-color: var(--pa-thread); }
+    #mcd-root .pa-swpill.pa-edit-pill:hover { background: var(--pa-card-2); color: var(--pa-text); border-color: var(--pa-thread); }
+    #mcd-root .pa-swpill.pa-danger-pill:hover { background: var(--pa-card-2); color: var(--pa-warn); border-color: var(--pa-warn); }
+}
+#mcd-root .pa-site-multi.open .pa-swpill.pa-fold-pill { color: var(--pa-text); }
+/* 多密钥分组名：四五个字（如「按次分组」）放得下 */
+#mcd-root .pa-input.pa-key-name { flex: 0 1 7.2em; min-width: 5.8em; padding-inline: 8px; }
+/* 清理 → 扩展数据：长提示胶囊折行，不把行撑出屏幕、不压右边的体积 */
+#mcd-root .pa-crow > *, #mcd-root .pa-crow-main > b { min-width: 0; }
+#mcd-root .pa-crow-tags .pa-chip { white-space: normal; line-height: 1.35; height: auto; padding-block: 2px; overflow-wrap: anywhere; }
+
+/* 编辑条目（弹窗、宽屏编辑栏）：正文短时正文框撑满剩下的高度，下面不留一大片空白；正文长时框随内容增高，整个窗口一起滚动 */
+#mcd-root .pa-sheet-edit .pa-sheet-body, #mcd-root .pa-editpane-body { display: flex; flex-direction: column; }
+#mcd-root .pa-sheet-edit .pa-sheet-body > .pa-form, #mcd-root .pa-editpane-body > .pa-form { display: flex; flex-direction: column; gap: 10px; flex: 1 0 auto; }
+#mcd-root .pa-sheet-edit .pa-form > *, #mcd-root .pa-editpane-body > .pa-form > * { flex: none; }
+#mcd-root .pa-sheet-edit .pa-form > .pa-edit-text, #mcd-root .pa-editpane-body > .pa-form > .pa-edit-text { flex: 1 0 auto; min-height: 12em; }

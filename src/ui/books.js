@@ -9,8 +9,9 @@ function wbKeysText(e) {
 function wbEntryName(e) {
   return String(e?.comment || "").trim() || wbKeysText(e).join("、") || `条目 ${e?.uid}`;
 }
-// 编辑世界书条目：名称、触发、关键词、插入位置、深度、顺序、正文。返回改了的字段（没改返回 {}），取消返回 null，删除返回 "delete"
-async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = true } = {}) {
+// 编辑世界书条目：名称、触发、关键词、插入位置、深度、顺序、正文。返回改了的字段（没改返回 {}），取消返回 null，删掉了返回 "delete"
+// 2.12.16 onDelete 在窗口关闭前确认并删除，返回 true 才关窗；确认框点「取消」时窗口和填写的内容都还在
+async function wbEntrySheet(e, { title = "编辑条目", hint = "", onDelete = null } = {}) {
   const pos = Number(e.position ?? 0);
   const keys = wbKeysText(e).join(", ");
   const body = el(`<div class="pa-form">
@@ -34,8 +35,11 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
     if (!ta.isConnected) return;
     const box = ta.closest(".pa-sheet-body");
     const top = box?.scrollTop;
+    // 2.12.16 量内容高度时先不撑满（样式里正文框会撑满剩下的高度），量完再放开
+    ta.style.flexGrow = "0";
     ta.style.height = "auto";
     ta.style.height = ta.scrollHeight + 2 + "px";
+    ta.style.flexGrow = "";
     if (box && top != null) box.scrollTop = top;
   };
   ta.addEventListener("input", fit);
@@ -91,7 +95,7 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", canDelete = 
     return out;
   };
   const acts = [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: read }];
-  if (canDelete) acts.unshift({ label: "删除", kind: "danger-soft", value: "delete" });
+  if (onDelete) acts.unshift({ label: "删除", kind: "danger-soft", value: "delete", validate: async () => !!await onDelete() });
   return sheet({
     title, body, wide: true, noFocus: true, guardDirty: true, actions: acts,
     onMount: (w) => {
@@ -681,19 +685,22 @@ function mountBooks(page) {
     if (done.length) toast(done.length === 1 ? `已删除世界书「${done[0]}」` : `已删除 ${done.length} 本世界书`, "success");
     if (fail.length) toast("没删掉：" + fail.join("；"), "error");
   }
+  // 删掉了返回 true；取消、没删成返回 false
   async function deleteSingleEntry(uid) {
     const n = st.open;
     const e = st.entries?.find((x) => String(x.uid) === String(uid));
-    if (!n || !e) return;
-    if (!await confirmBox("删除条目", `删除「${wbEntryName(e)}」？${backupOn() ? "删除前会备份这本世界书，可在「清理 → 本地备份」找回。" : ""}`, "删除", true)) return;
-    if (!await backupOnce(n)) return;
+    if (!n || !e) return false;
+    if (!await confirmBox("删除条目", `删除「${wbEntryName(e)}」？${backupOn() ? "删除前会备份这本世界书，可在页头的备份按钮或「清理 → 本地备份」恢复。" : ""}`, "删除", true)) return false;
+    if (!await backupOnce(n)) return false;
     try {
       await deleteWorldEntry(n, uid);
       toast("已删除", "success");
     } catch (err) {
-      return toast("删除失败：" + err.message, "error");
+      toast("删除失败：" + err.message, "error");
+      return false;
     }
-    return afterWrite(n);
+    afterWrite(n);
+    return true;
   }
   async function duplicateEntry(uid) {
     const n = st.open;
@@ -714,7 +721,7 @@ function mountBooks(page) {
     const n = st.open;
     const uids = [...st.entryDelSel];
     if (!n || !uids.length) return;
-    if (!await confirmBox("删除条目", `删除选中的 ${uids.length} 条？${backupOn() ? "删除前会备份这本世界书，可在「清理 → 本地备份」找回。" : ""}`, "删除", true)) return;
+    if (!await confirmBox("删除条目", `删除选中的 ${uids.length} 条？${backupOn() ? "删除前会备份这本世界书，可在页头的备份按钮或「清理 → 本地备份」恢复。" : ""}`, "删除", true)) return;
     if (!await backupOnce(n)) return;
     try {
       const removed = await deleteWorldEntries(n, uids);
@@ -731,9 +738,11 @@ function mountBooks(page) {
     const v = await pickBox(`世界书「${n}」`, [
       { label: "重命名世界书", value: "rename" },
       { label: "批量删除条目", value: "delentries" },
+      { label: "查看本地备份", value: "backups" },
       { label: "删除这本世界书", value: "delbook", danger: true }
     ]);
     if (v === "rename") return renameOpen();
+    if (v === "backups") return backupsSheet(`世界书：${n}`);
     if (v === "delentries") return setEntryDelMode(true);
     if (v === "delbook") return deleteOpenBook();
   }
@@ -799,20 +808,8 @@ function mountBooks(page) {
     const n = st.open;
     const e = st.entries?.find((x) => String(x.uid) === String(uid));
     if (!e) return;
-    const r = await wbEntrySheet(e, { title: wbEntryName(e) });
-    if (!r) return;
-    if (r === "delete") {
-      if (!await confirmBox("删除条目", `删除「${wbEntryName(e)}」？${backupOn() ? "删除前会备份这本世界书，可在「清理 → 本地备份」找回。" : ""}`, "删除", true)) return;
-      if (!await backupOnce(n)) return;
-      try {
-        await deleteWorldEntry(n, uid);
-        toast("已删除", "success");
-      } catch (err) {
-        return toast("删除失败：" + err.message, "error");
-      }
-      return afterWrite(n);
-    }
-    if (!Object.keys(r).length) return;
+    const r = await wbEntrySheet(e, { title: wbEntryName(e), onDelete: () => deleteSingleEntry(uid) });
+    if (!r || r === "delete" || !Object.keys(r).length) return;
     if (!await backupOnce(n)) return;
     try {
       await updateWorldEntry(n, uid, r);
@@ -826,7 +823,7 @@ function mountBooks(page) {
     const n = st.open;
     if (!n) return;
     const blank = { comment: "", content: "", constant: false, key: [], position: 0, depth: 4, order: 100, role: 0 };
-    const r = await wbEntrySheet(blank, { title: "新建条目", hint: `保存后写入世界书「${n}」，放在最后。`, canDelete: false });
+    const r = await wbEntrySheet(blank, { title: "新建条目", hint: `保存后写入世界书「${n}」，放在最后。` });
     if (!r || r === "delete") return;
     const fields = { ...blank, ...r, disable: false };
     if (!await backupOnce(n)) return;
@@ -970,6 +967,13 @@ function mountBooks(page) {
   });
   return {
     tkRepaint,
+    // 2.12.16 页头的备份按钮：打开着的书
+    openWorldbook: () => st.open,
+    // 恢复备份后：重读这本书（打开着时重画条目）
+    refreshBook(n) {
+      st.backedUp.delete(n);
+      return afterWrite(n);
+    },
     render(_k, fresh) {
       if (fresh) st.counts.clear();
       tkSync();

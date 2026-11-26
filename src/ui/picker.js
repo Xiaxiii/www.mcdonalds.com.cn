@@ -84,7 +84,7 @@ async function pickName({ title, items, current = null, search, extra = null, ma
     };
     body.querySelector(".pa-npick-extra")?.addEventListener("click", (e) => {
       picked = e.currentTarget.dataset.v;
-      w.querySelector(".pa-sheet-x").click();
+      w._close(null);
     });
     dmHead.addEventListener("change", (e) => {
       if (e.target.dataset?.np !== "all") return;
@@ -104,7 +104,7 @@ async function pickName({ title, items, current = null, search, extra = null, ma
       const b = e.target.closest("[data-v]");
       if (!b) return;
       picked = b.dataset.v;
-      w.querySelector(".pa-sheet-x").click();
+      w._close(null);
     });
     foot?.addEventListener("click", async (e) => {
       const act = e.target.closest("[data-np]")?.dataset.np;
@@ -123,7 +123,7 @@ async function pickName({ title, items, current = null, search, extra = null, ma
       }
       if (act === "del" && manage.onDelete) {
         const ok = await manage.onDelete(chosen);
-        if (ok !== false) wrapEl.querySelector(".pa-sheet-x").click();
+        if (ok !== false) wrapEl._close(null);
       }
     });
     scrollToView(box.querySelector(".on"));

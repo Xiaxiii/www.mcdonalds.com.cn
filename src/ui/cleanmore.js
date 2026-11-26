@@ -562,7 +562,7 @@ function mountCleanKind(kind, box) {
             ${info.draftN ? `<p>未保存的草稿约 ${fmtSize(info.drafts)}。</p>` : ""}
             ${info.est?.usage ? `<p>这个网站在本浏览器中共占用约 ${fmtSize(info.est.usage)}（含酒馆和其他扩展）。</p>` : ""}`)}
           <div class="pa-card-act"><button class="pa-btn pa-btn-s" data-x="trim" ${extra().list.length ? "" : "disabled"}>立即精简</button><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-x="clear" ${info.count ? "" : "disabled"}>删除全部备份</button></div></div>
-        <div class="pa-rank">${info.groups.map((g) => `<div><span>${esc(g.name)}（${g.list.length} 份）</span><i class="pa-bar"><b style="width:${Math.max(2, Math.round(g.size / max * 100))}%"></b></i><em>${fmtSize(g.size)}</em></div>`).join("") || '<p class="pa-hint">没有备份。</p>'}</div>`;
+        <div class="pa-rank pa-bkrank">${info.groups.map((g) => `<button type="button" class="pa-bkrank-row" data-x="bk" data-k="${esc(g.name)}" title="查看「${esc(g.name)}」的备份，下载或恢复"><span>${esc(g.name)}（${g.list.length} 份）</span><i class="pa-bar"><b style="width:${Math.max(2, Math.round(g.size / max * 100))}%"></b></i><em>${fmtSize(g.size)}</em><i class="pa-bkrank-go" aria-hidden="true">›</i></button>`).join("") || '<p class="pa-hint">没有备份。</p>'}</div>`;
     };
     const setMax = (v) => {
       const n = Math.min(30, Math.max(1, Math.round(Number(v)) || backupMax()));
@@ -589,8 +589,11 @@ function mountCleanKind(kind, box) {
         foldSet("clean", "backup", !bkIsOpen());
         return draw();
       }
-      const x = e.target.closest("[data-x]")?.dataset.x;
+      const xb = e.target.closest("[data-x]");
+      const x = xb?.dataset.x;
       if (!x || S.busy || !info) return;
+      // 2.12.16 点一行：这个预设或世界书的备份，可下载、恢复
+      if (x === "bk") return backupsSheet(xb.dataset.k, { onChange: () => load().then(draw) });
       let del;
       if (x === "clear") {
         if (!await confirmBox("删除全部备份", `删除本浏览器中的全部 ${info.count} 份备份。`, "删除", true)) return;

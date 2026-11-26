@@ -164,7 +164,7 @@ function mountHealth(sec, { goClean } = {}) {
     detail.innerHTML = `<h3 class="pa-h">每笔请求（按开始时间，最多 400 笔）</h3>
       <div class="pa-hscroll"><div class="pa-rtable pa-rt-detail" role="table">
         <div class="pa-rt-head" role="row"><span>地址（已隐去名称）</span><span>开始</span><span>耗时</span><span>首字节／接收</span><span>传输／解压后</span></div>
-        ${rows.map((x) => `<div class="pa-rt-row" role="row"><span>${esc(redactUrl(x.url))}<small>${esc(CAT_LABEL[x.cat] || x.cat)}${x.provider ? ` · ${esc(x.provider)}接口` : ""}${x.sw ? " · Service Worker" : ""}${cacheText[x.cache] ? ` · ${cacheText[x.cache]}` : ""}</small></span><span>${fmtMs(x.start)}</span><span>${fmtMs(x.dur)}</span><span>${x.ttfb == null ? "—" : fmtMs(x.ttfb)} / ${x.recv == null ? "—" : fmtMs(x.recv)}</span><span>${x.transfer == null ? "未取得" : `${fmtSize(x.transfer)} / ${fmtSize(x.decoded)}`}</span></div>`).join("")}
+        ${rows.map((x) => `<div class="pa-rt-row" role="row"><span>${esc(redactUrl(x.url))}<small>${esc(CAT_LABEL[x.cat] || x.cat)}${x.provider ? ` · ${esc(x.provider)}接口` : ""}${x.sw ? " · Service Worker" : ""}${cacheText[x.cache] ? ` · ${cacheText[x.cache]}` : ""}</small><small class="pa-rt-more">首字节 ${x.ttfb == null ? "—" : fmtMs(x.ttfb)} / 接收 ${x.recv == null ? "—" : fmtMs(x.recv)} · ${x.transfer == null ? "传输未取得" : `${fmtSize(x.transfer)} / ${fmtSize(x.decoded)}`}</small></span><span>${fmtMs(x.start)}</span><span>${fmtMs(x.dur)}</span><span>${x.ttfb == null ? "—" : fmtMs(x.ttfb)} / ${x.recv == null ? "—" : fmtMs(x.recv)}</span><span>${x.transfer == null ? "未取得" : `${fmtSize(x.transfer)} / ${fmtSize(x.decoded)}`}</span></div>`).join("")}
       </div></div>
       <p class="pa-hint">「首字节」是从发出请求到收到第一个字节，包含网络往返，不等于服务器处理时间。</p>`;
     detail.hidden = false;

@@ -43,6 +43,7 @@ function bindSutureEnableTools(body, items) {
   });
   refresh();
 }
+var sutureDefaultLayout = () => window.matchMedia?.("(max-width: 759px)").matches ? "switch" : "split";
 function mountSuture(page, app) {
   const st = {
     srcType: "preset",
@@ -68,7 +69,11 @@ function mountSuture(page, app) {
     wbMarker: null
   };
   // 2.8.0 两种布局：split 分栏（从、到同屏）；switch 切换（一次只显示一栏，顶部切换）
-  const layout = () => settings().sutureLayout === "switch" ? "switch" : "split";
+  // 2.12.16 没手动选过时按屏宽：窄屏（< 760px）切换、宽屏分栏
+  const layout = () => {
+    const v = settings().sutureLayout;
+    return v === "switch" || v === "split" ? v : sutureDefaultLayout();
+  };
   let side = "src";
   page.innerHTML = `
     <div class="pa-swbar" role="tablist" aria-label="来源与目标"><button type="button" role="tab" data-sw="src">从<small class="pa-sw-n"></small></button><button type="button" role="tab" data-sw="dst">到<small class="pa-sw-pos"></small></button></div>
@@ -593,6 +598,8 @@ function mountSuture(page, app) {
     page.querySelector(".pa-dst-wbslot").hidden = type !== "world";
     renderSrcPick();
     renderDst();
+    // 页头的保存状态、备份按钮跟着目标类型（缝到世界书时不显示预设的「撤销」）
+    if (typeof updateSavebar === "function") updateSavebar();
   }
   page.querySelector(".pa-dst-wbslot").addEventListener("click", async (e) => {
     if (!e.target.closest(".pa-dst-wb")) return;
@@ -1833,7 +1840,12 @@ function mountSuture(page, app) {
       return layout();
     },
     layout,
+    dstType: () => st.dstType,
+    dstName: () => st.dstType === "world" ? st.dstWorld : null,
+    // 没手动选过布局时，屏宽跨过 760px 跟着换
+    relayout: paintLayout,
     render() {
+      paintLayout();
       dstPicker.refresh();
       renderSrcPick();
       renderSrc();
