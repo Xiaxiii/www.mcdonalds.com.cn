@@ -424,5 +424,7 @@ function mountCleanup(sec) {
       b.disabled = false;
     }
   });
-  return { render };
+  // 2.12.16 从设置页「自动备份」跳过来：直接打开某一栏（如本地备份）
+  const showKind = (k) => sec.querySelector(`.pa-ckinds [data-kind="${k}"]`)?.click();
+  return { render, showKind };
 }

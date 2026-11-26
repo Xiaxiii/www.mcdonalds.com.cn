@@ -1371,10 +1371,11 @@ html.mcd-open #toast-container > .toast { cursor: pointer; }
 #mcd-root .pa-theme[aria-pressed="true"] { outline-width: 1.5px; outline-offset: 1px; }
 #mcd-root .pa-fs-note, #mcd-root .pa-entry-note:not([hidden]) { display: block; margin-top: 4px; }
 
-/* 思维链统计：手机上一行五格 */
+/* 思维链统计：手机上一行放下 */
 #mcd-root .pa-cot-sum > div { text-align: center; }
 @media (max-width: 599px) {
-    #mcd-root .pa-cot-sum { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    /* 2.12.17 有几格排几列，一行放下，不剩一格孤零零在第二行 */
+    #mcd-root .pa-cot-sum { grid-template-columns: none; grid-auto-flow: column; grid-auto-columns: minmax(0, 1fr); }
     #mcd-root .pa-cot-sum > div { padding: 5px 2px; }
     #mcd-root .pa-cot-sum b { font-size: 1.15em; }
     #mcd-root .pa-cot-sum span { white-space: nowrap; }
@@ -2807,3 +2808,36 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-sheet-edit .pa-sheet-body > .pa-form, #mcd-root .pa-editpane-body > .pa-form { display: flex; flex-direction: column; gap: 10px; flex: 1 0 auto; }
 #mcd-root .pa-sheet-edit .pa-form > *, #mcd-root .pa-editpane-body > .pa-form > * { flex: none; }
 #mcd-root .pa-sheet-edit .pa-form > .pa-edit-text, #mcd-root .pa-editpane-body > .pa-form > .pa-edit-text { flex: 1 0 auto; min-height: 12em; }
+/* 设置页分组：通用与备份、外观、关于。选项行左边箭头加标题展开，右边开关 */
+#mcd-root .pa-setpage { padding-bottom: 24px; }
+#mcd-root .pa-setpage > .pa-set-group:first-child { margin-top: 6px; }
+#mcd-root .pa-setcard { display: grid; border: 1px solid var(--pa-line); border-radius: 12px; background: var(--pa-tint); overflow: hidden; }
+#mcd-root .pa-setrow { display: flex; align-items: center; gap: 10px; min-height: 48px; padding: 8px 12px; border: 0; border-bottom: 1px solid var(--pa-line); background: transparent; color: inherit; font: inherit; text-align: left; }
+#mcd-root .pa-setrow:last-child { border-bottom: 0; }
+#mcd-root .pa-setrow-col { flex-direction: column; align-items: stretch; gap: 6px; }
+#mcd-root .pa-setk { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
+#mcd-root .pa-setk small { color: var(--pa-dim); font-size: max(12px, .82em); }
+#mcd-root .pa-setv { flex: none; color: var(--pa-dim); font-variant-numeric: tabular-nums; }
+#mcd-root .pa-setlink { width: 100%; cursor: pointer; }
+#mcd-root .pa-setlink > i { font-style: normal; color: var(--pa-dim); }
+@media (hover: hover) { #mcd-root .pa-setlink:hover { background: var(--pa-card); } }
+#mcd-root .pa-setlink:focus-visible { outline: 2px solid var(--pa-thread); outline-offset: -2px; }
+#mcd-root .pa-set-name .pa-setv .pa-inline-input { min-width: 10em; }
+#mcd-root .pa-set-opts { margin-top: 10px; }
+#mcd-root .pa-opthead .pa-switch.pa-optcheck { display: inline-block; flex: none; margin: 0 0 0 auto; padding: 0; }
+#mcd-root .pa-opthead .pa-optcount { margin-left: 2px; }
+/* 2.12.17 世界书列表行：右边一个轻的 › 表示点进去看条目（不再有眼睛按钮）；没有世界书时直接新建、导入 */
+#mcd-root .pa-bk-go { flex: none; font-style: normal; color: var(--pa-dim); padding: 0 2px; }
+#mcd-root .pa-empty-acts { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; margin-top: 10px; }
+#mcd-root .pa-empty-acts .pa-file { cursor: pointer; }
+/* 编辑方案：条目开关范围一框 */
+#mcd-root .pa-scope-set { display: grid; gap: 6px; margin: 0; padding: 8px 10px 10px; border: 1px solid var(--pa-line); border-radius: 10px; min-width: 0; }
+#mcd-root .pa-scope-set > legend { padding: 0 4px; color: var(--pa-dim); font-size: max(12px, .86em); }
+/* 搬到新版、合并新版：选旧版、新版，中间一个互换按钮 */
+#mcd-root .pa-verpick { gap: 8px; }
+#mcd-root .pa-verpick .pa-verswap { justify-self: center; }
+/* 三段式分组开关：没有中间档时不画中间的圆点 */
+#mcd-root .pa-tri.pa-tri-nomid .pa-tri-dots span:nth-child(2) { visibility: hidden; }
+/* 2.12.17 触屏：行右侧的眼睛和开关各自的点按范围不再重叠 */
+@media (pointer: coarse) { #mcd-root .pa-row > .pa-peek + .pa-switch { margin-left: 6px; } #mcd-root .pa-row > .pa-peek + .pa-switch::before { inset: -11px -3px; } }
+

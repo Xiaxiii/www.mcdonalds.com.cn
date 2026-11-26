@@ -179,7 +179,7 @@ try {
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(100);
   // 没有留底（更新前存的）：关掉重开编辑窗口，酒馆拒绝时说明，允许时显示并留底
   await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("mcdonalds:keycopy:")) localStorage.removeItem(k); });
-  await page.locator(".pa-sheet .pa-sheet-x").last().click(); await page.waitForTimeout(300);
+  await page.locator(".pa-sheet .pa-sheet-x").last().click(); await page.waitForTimeout(200); await page.waitForTimeout(300);
   await page.locator(".pa-plan-sites .pa-site-multi .pa-site-mhead b").click(); await page.waitForTimeout(200);
   await row1().locator("[data-f=keyeye]").click(); await page.waitForTimeout(200);
   assert.match(await page.locator(".pa-sheet .pa-key-note").textContent(), /重新粘贴一次[\s\S]*allowKeysExposure/);
@@ -223,12 +223,12 @@ try {
   assert.equal(await pro.locator(".pa-kmore").textContent(), "+3");
   await pro.locator(".pa-kmore").click();
   assert.deepEqual(await page.locator(".pa-krow", { hasText: "gemini-2.5-pro" }).locator(".pa-kchip").allTextContents(), ["按次", "按量", "特价", "密钥 4"], "没填名称的叫「密钥 N」");
-  await page.locator(".pa-sheet-x").last().click();
+  await page.locator(".pa-sheet-x").last().click(); await page.waitForTimeout(200);
   // 多密钥站点：按模型、按分类、按分组
   await page.click("[data-a=livemodel]");
   await page.locator(".pa-kpick").waitFor();
   assert.deepEqual(await page.locator(".pa-kview button").allTextContents(), ["按模型", "按分类", "按分组"]);
-  await page.locator(".pa-sheet-x").last().click();
+  await page.locator(".pa-sheet-x").last().click(); await page.waitForTimeout(200);
   ok("标签超过 2 个收成「+N」，点开全部");
 
   // 7) 编辑删到只剩一个密钥：写回站点上，和单密钥站点一样

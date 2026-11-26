@@ -20,6 +20,7 @@ try {
   assert.doesNotMatch(await page.locator('[data-page=reply]').innerHTML(), /lxs/i);
   ok('说明文字不出现具体角色卡的标签名');
 
+  await page.locator('[data-page=reply] [data-r=mode][data-m=paste]').click(); // 2.12.17 范本诊断在「粘贴文字」里
   await R('diagnose').click();
   assert.match(await R('result').innerText(), /先在上面的框里粘贴/);
   await R('body').fill('content');
@@ -63,7 +64,8 @@ try {
     await p.goto(SITE);
     await p.waitForFunction(() => window.__mcdonalds?.open);
     await p.evaluate(() => window.__mcdonalds.open('reply-rules'));
-    await p.locator('[data-page=reply] [data-r="diagnose"]').waitFor();
+    await p.locator('[data-page=reply] [data-r="mode"]').first().waitFor();
+    await p.locator('[data-page=reply] [data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
     await p.locator('[data-page=reply] [data-r="sample"]').fill(SAMPLE);
     await p.locator('[data-page=reply] [data-r="diagnose"]').click();
     const m = await p.evaluate(() => {

@@ -63,9 +63,12 @@ const state = (page) => page.evaluate(() => {
   assert.deepEqual(s.page, ["reply"]);
   const rp = page.locator("[data-page=reply]");
   for (const q of ['[data-r="latest"]', '[data-r="body"]', '[data-r="enabled"]']) assert.ok(await rp.locator(q).isVisible(), `回复单页显示 ${q}`);
-  assert.equal(await rp.locator('[data-r="ai-latest"]').isVisible(), false, "AI 语义审查默认收起");
-  await rp.locator("details.pa-rai > summary").click();
-  assert.ok(await rp.locator('[data-r="ai-latest"]').isVisible(), "展开后显示 AI 语义审查");
+  // 2.12.17 顶部「最近回复 | 粘贴文字」：默认查最近回复，结构检查和 AI 审查并排，粘贴框收起
+  assert.ok(await rp.locator('[data-r="ai-latest"]').isVisible(), "AI 审查和结构检查并排");
+  assert.equal(await rp.locator('[data-r="sample"]').isVisible(), false, "默认不显示粘贴框");
+  await rp.locator('[data-r="mode"][data-m="paste"]').click();
+  assert.ok(await rp.locator('[data-r="sample"]').isVisible() && await rp.locator('[data-r="ai-paste"]').isVisible(), "切到粘贴文字：粘贴框和检查、AI 审查");
+  await rp.locator('[data-r="mode"][data-m="latest"]').click();
   await page.fill('[data-page=reply] [data-r="body"]', "content");
   await page.locator('[data-page=reply] [data-r="body"]').dispatchEvent("change");
   await page.waitForTimeout(200);

@@ -113,7 +113,7 @@ await page.click('[data-sec="other"] .pa-bk-row[data-book="城市设定"] .pa-sw
 await page.waitForTimeout(200);
 assert.match(await secText("char"), /城市设定/, "再开又挂回角色名下");
 // 条目页
-await page.click('[data-sec="char"] .pa-bk-row[data-book="城市设定"] [data-b=peek]');
+await page.click('[data-sec="char"] .pa-bk-row[data-book="城市设定"] .pa-name');
 await page.waitForSelector(".pa-wbe-row");
 assert.ok(await page.$eval(".pa-bk-list", (x) => x.offsetParent === null), "手机上条目页盖住列表");
 t = await page.$eval(".pa-bk-detail", (x) => x.innerText);
@@ -198,7 +198,7 @@ const rows = await page.$$eval(".pa-bk-row", (rs) => rs.map((r) => r.dataset.boo
 assert.deepStrictEqual(rows, ["通用文风"], "按名称搜世界书");
 await page.click('[data-b="searchclose"]');
 // 改角色卡自带那本的名字：角色卡跟着改
-await page.click('[data-sec="char"] .pa-bk-row[data-book="林遥的世界"] [data-b=peek]');
+await page.click('[data-sec="char"] .pa-bk-row[data-book="林遥的世界"] .pa-name');
 await page.waitForSelector(".pa-wbe-row");
 await page.click('.pa-bk-dhead [data-e="bookmenu"]');
 await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '重命名世界书' }).click();
@@ -256,7 +256,7 @@ const allowed = await page.evaluate(() => ({ list: window.SillyTavern.getContext
 assert.deepStrictEqual(allowed.list, [allowed.name], "允许预设正则");
 assert.ok(!await page.$('[data-r="allow"]'), "允许后不再提示");
 // 编辑角色卡的正则：查找原样显示；坏的正则不让存，错误写在框下面
-await page.click('.pa-rx-row[data-kind="char"] [data-r=peek]');
+await page.click('.pa-rx-row[data-kind="char"] .pa-name');
 await page.waitForSelector(".pa-sheet-rxedit");
 assert.match(await page.$eval('.pa-sheet-rxedit [data-x="find"]', (x) => x.value), /<状态>/, "查找原样放进编辑框");
 await page.fill('.pa-sheet-rxedit [data-x="find"]', "/(未闭合/g");
@@ -277,7 +277,7 @@ assert.deepStrictEqual(wef2[2][0].placement, [1, 2], "作用于写回");
 assert.strictEqual(wef2[2][0].id, "r1", "保留原编号");
 assert.match(await page.$eval(".pa-rx-list", (x) => x.innerText), /林遥状态栏·新/);
 // 编辑全局正则
-await page.click('.pa-rx-row[data-kind="global"] [data-r=peek]');
+await page.click('.pa-rx-row[data-kind="global"] .pa-name');
 await page.waitForSelector(".pa-sheet-rxedit");
 await page.fill('.pa-sheet-rxedit [data-x="replace"]', "\\n");
 await page.uncheck('.pa-sheet-rxedit [data-place="2"]');
@@ -292,14 +292,14 @@ const g0 = await page.evaluate(() => window.SillyTavern.getContext().extensionSe
 assert.strictEqual(g0.replaceString, "\\n");
 assert.strictEqual(g0.markdownOnly, true, "全局正则改动写回酒馆设置");
 // 编辑预设的正则：走预设的自动保存
-await page.click('.pa-rx-row[data-kind="preset"][data-i="3"] [data-r=peek]');
+await page.click('.pa-rx-row[data-kind="preset"][data-i="3"] .pa-name');
 await page.waitForSelector(".pa-sheet-rxedit");
 await page.fill('.pa-sheet-rxedit [data-x="name"]', "单独一条·改");
 await page.click(".pa-sheet-rxedit .pa-btn-primary");
 await page.waitForTimeout(900);
 assert.strictEqual(await page.evaluate(() => window.__mock.live.extensions.regex_scripts[3].scriptName), "单独一条·改", "预设正则改名后自动保存");
 // 删除全局正则
-await page.click('.pa-rx-row[data-kind="global"] [data-r=peek]');
+await page.click('.pa-rx-row[data-kind="global"] .pa-name');
 await page.waitForSelector(".pa-sheet-rxedit");
 await page.click(".pa-sheet-rxedit .pa-btn-danger-soft");
 await page.waitForSelector(".pa-sheet-center");

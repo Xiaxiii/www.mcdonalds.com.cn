@@ -150,8 +150,9 @@ try {
     // 缝后开关默认与来源一致：source-1 在来源里关着
     assert.deepEqual(await page.locator('.pa-review [data-c=on]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, true, true]);
     assert.equal(await page.locator('[data-enable-count]').innerText(), '部分开启：3 / 4');
-    const master = page.locator('[data-enable-toggle]');
-    assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [false, true]);
+    // 2.12.17 三段「全关 | 按来源 | 全开」
+    const pressed = (k) => page.locator(`[data-enable=${k}]`).getAttribute('aria-pressed');
+    assert.deepEqual([await pressed('on'), await pressed('off'), await pressed('source')], ['false', 'false', 'true'], '默认按来源');
     await page.evaluate(() => {
       window.__perf.bulk = {
         article: document.querySelector('.pa-review .pa-item'), input: document.querySelector('.pa-review [data-c=on]'),
@@ -159,26 +160,24 @@ try {
       };
     });
     for (const on of [true, false, true, false]) {
-      await master.setChecked(on);
+      await page.click(`[data-enable=${on ? 'on' : 'off'}]`);
       assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), on ? 4 : 0);
       assert.equal(await page.locator('[data-enable-count]').innerText(), `缝后开启：${on ? 4 : 0} / 4`);
-      assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [on, false]);
+      assert.equal(await pressed(on ? 'on' : 'off'), 'true');
     }
     await page.locator('.pa-review [data-c=on]').first().check();
     assert.equal(await page.locator('[data-enable-count]').innerText(), '部分开启：1 / 4');
-    assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [false, true]);
-    // 原生checkbox的混合态可以直接用键盘切换；总开关仅作用于当前预览。
-    await master.focus();
+    assert.deepEqual([await pressed('on'), await pressed('off')], ['false', 'false']);
+    // 键盘：分段按钮可用 Tab 聚焦、空格切换；只作用于当前预览
+    await page.locator('[data-enable=on]').focus();
     await page.keyboard.press('Space');
     assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), 4);
     assert.equal(await page.locator('[data-enable-count]').innerText(), '缝后开启：4 / 4');
-    assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [true, false]);
+    await page.locator('[data-enable=off]').focus();
     await page.keyboard.press('Space');
     assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), 0);
-    assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [false, false]);
     await page.locator('.pa-review [data-c=on]').first().check();
     assert.equal(await page.locator('[data-enable-count]').innerText(), '部分开启：1 / 4');
-    assert.deepEqual(await master.evaluate(x => [x.checked, x.indeterminate]), [false, true]);
     assert.deepEqual(await page.evaluate(() => ({
       article: window.__perf.bulk.article.isConnected, input: window.__perf.bulk.input.isConnected,
       analyses: window.__perf.analyses - window.__perf.bulk.analyses, regions: window.__perf.regions - window.__perf.bulk.regions,

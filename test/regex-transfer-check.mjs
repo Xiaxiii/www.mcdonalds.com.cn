@@ -124,12 +124,15 @@ async function boot(width, targetPreset = target) {
   await choose(page, '.pa-dst-picker .pa-namebtn', targetName);
   return page;
 }
-// 2.6.1：缝合正则在来源类型「正则」里（选中即打开）；之后点来源栏的「选择正则…」再打开。正则文件读入后自动打开
+// 2.12.17：缝合正则在来源旁「⋯」工具菜单里；正则文件读入后点来源栏的「选择正则…」或自动打开
 async function clickRegex(page) {
   await page.waitForTimeout(150);
   if (await page.locator('.pa-sheet-mask:not(.pa-out) .pa-regex-transfer').count()) return;
   if (await page.locator('.pa-rx-src [data-st=regex]').isVisible()) return page.click('.pa-rx-src [data-st=regex]');
-  return chooseSrcType(page, 'regex');
+  // 2.12.17 来源旁「⋯」→「缝合正则…」
+  await page.click('[data-st=srcmenu]'); await page.waitForTimeout(200);
+  await page.locator('.pa-sheet-mask:not(.pa-out) .pa-pick-item', { hasText: '缝合正则' }).click();
+  await page.waitForTimeout(300);
 }
 async function openRegex(page) {
   assert.equal(await page.locator('[data-st=go]').isDisabled(), true, '无需选择提示词或位置');

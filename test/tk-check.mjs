@@ -115,7 +115,7 @@ const wb = await page.evaluate(async () => {
 assert.strictEqual(await totalText(), `常驻 ${wb.constant} tk`, "页签行：常驻条目合计");
 const meta = await page.$eval('.pa-bk-row[data-book="示例世界书"] .pa-meta', (x) => x.textContent);
 assert.ok(meta.includes(`· ${wb.on} tk`), "书的那一行写开着的条目合计：" + meta);
-await page.locator('.pa-bk-row[data-book="示例世界书"] .pa-peek').click();
+await page.locator('.pa-bk-row[data-book="示例世界书"] .pa-name').click();
 await page.waitForSelector(".pa-wbe-row .pa-tk");
 const wbe = await page.evaluate(() => ({ rows: [...document.querySelectorAll(".pa-wbe-row > .pa-tk")].map((x) => Number(x.textContent)), sum: document.querySelector(".pa-bk-sum").textContent }));
 assert.strictEqual(wbe.rows.reduce((a, b) => a + b, 0), wb.on, "条目页每条的 token 数：" + wbe.rows.join());

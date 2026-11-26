@@ -78,12 +78,21 @@ function entryForm(p, { marker = false, promptOnly = false, hint = "" } = {}) {
   return { body, read, dirty: () => JSON.stringify(read()) !== initial };
 }
 // 编辑条目弹窗（整理页、缝合页共用）。输入时不保存；点「保存」才写入，点「取消」或 ✕ 不改动
-async function editEntrySheet(p, { marker = false, promptOnly = false, hint = "", title = "编辑条目" } = {}) {
+// 2.12.17 onDelete：关窗前确认并删除，返回 true 才关窗（确认框点「取消」时窗口和内容都在）；
+// onCopy(填的值)：把现在填的内容另存一条，返回 "copy"；focusName：打开时光标放进名称框（新建条目）
+async function editEntrySheet(p, { marker = false, promptOnly = false, hint = "", title = "编辑条目", onDelete = null, onCopy = null, focusName = false } = {}) {
   const f = entryForm(p, { marker, promptOnly, hint });
   return sheet({
     title, body: f.body, wide: true, noFocus: true, guardDirty: true,
-    onMount: (w) => { if (!marker) w.querySelector(".pa-sheet").classList.add("pa-sheet-edit"); },
-    actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: f.read }]
+    onMount: (w) => {
+      if (!marker) w.querySelector(".pa-sheet").classList.add("pa-sheet-edit");
+      if (focusName) setTimeout(() => { const n = w.querySelector("[data-f=name]"); n?.focus(); n?.select(); }, 60);
+    },
+    actions: [
+      ...onDelete ? [{ label: "删除", kind: "danger-soft", value: "delete", validate: async () => !!await onDelete() }] : [],
+      ...onCopy ? [{ label: "复制", value: "copy", validate: async () => !!await onCopy(f.read()) }] : [],
+      { label: "取消", value: null }, { label: "保存", kind: "primary", value: f.read }
+    ]
   });
 }
 // 把弹窗填的值换成条目字段；只返回有变化的部分（没有变化返回 null）
@@ -221,7 +230,7 @@ function mountOrganize(page) {
     const dups = placing || st.query || settings().mirrorIgnore?.[d.name] ? [] : d.dupEntryGroups();
     const dupBanner = dups.length ? dupBannerHtml(d, dups) : "";
     const fragments = placing || st.query ? [] : fragmentedGroups(d);
-    const repairBanner = fragments.length ? `<div class="pa-card pa-group-repair"><p><b>检测到 ${fragments.length} 个分区被拆成多段</b></p><small>${esc(fragments.slice(0, 4).map((g) => `${g.name}（${g.parts} 段）`).join("、"))}${fragments.length > 4 ? " 等" : ""}。可以按已有归属收拢到各组首段，先预览再应用。</small><div class="pa-card-act"><button class="pa-btn pa-btn-s" data-repair-groups>归整分区</button></div></div>` : "";
+    const repairBanner = fragments.length ? `<div class="pa-card pa-group-repair"><p><b>检测到 ${fragments.length} 个分组被拆成多段</b></p><small>${esc(fragments.slice(0, 4).map((g) => `${g.name}（${g.parts} 段）`).join("、"))}${fragments.length > 4 ? " 等" : ""}。可以按已有归属收拢到各组首段，先预览再应用。</small><div class="pa-card-act"><button class="pa-btn pa-btn-s" data-repair-groups>归整分组</button></div></div>` : "";
     const tk = tkSync() && tkEach();
     // 2.12.15 切回这一页、草稿和显示条件都没变时不重建列表（大预设整列表重建要几十到上百毫秒，切页就卡一下）
     const sig = JSON.stringify([draftId(d), d.rev, currentPresetName(), placing, st.mode, st.query, st.searchBody, [...st.selected], [...(st.collapsed || [])], [...st.highlight], tk, dupBanner.length, repairBanner.length, settings()]);
@@ -440,9 +449,11 @@ function mountOrganize(page) {
     const label = target === "off" ? "分组全关" : target === "all" ? "分组全开" : "分组恢复自定义";
     mutate(d, label, (x) => x.setGroupTriState(gid, target));
   }
+  // 2.12.17 没有中间档（全开、没有自定义快照）时只有两档：中点以左算全关，以右算全开，不再吸到中间又弹回
   function triZoneAt(tri, clientX) {
     const r = tri.getBoundingClientRect();
     const ratio = r.width > 0 ? (clientX - r.left) / r.width : 0.5;
+    if (tri.classList.contains("pa-tri-nomid")) return ratio < 0.5 ? "off" : "all";
     return ratio < 1 / 3 ? "off" : ratio < 2 / 3 ? "mid" : "all";
   }
   function triToggleFallback(d, gid) {
@@ -620,7 +631,7 @@ function mountOrganize(page) {
     if (t === "menu") {
       const keep = settings().keepClickOrder;
       t = await pickBox("工具", [
-        { label: "智能分组", sub: "识别未分组条目的归属，或归整分散分区", value: "smart" },
+        { label: "智能分组", sub: "识别未分组条目的归属，或归整分散分组", value: "smart" },
         { label: allFolded(d) ? "全部展开" : "全部折叠", value: "fold" },
         { label: `多选排列：${keep ? "按点选先后" : "保持原顺序"}`, sub: "移动、建组时，多选条目按什么先后排列。点击切换", value: "clickorder" },
         { label: "导入…", sub: "预设、世界书、正则", value: "import" }
@@ -806,24 +817,57 @@ function mountOrganize(page) {
     if (v === "gather") return repairGroups(d, gid);
     if (v === "dissolve" && await confirmBox("解散分组", `解散「${g.name}」？条目保留在原位置。`, "解散")) mutate(d, "解散分组", (x) => x.dissolveGroup(gid));
   }
-  // 新建条目：先起名，放在选中的那条后面（没选就放最后），然后打开编辑
+  // 新建条目：2.12.17 直接打开编辑窗（光标在名称框），点「保存」才写入；放在选中的那条后面（没选就放最后）
   async function newEntry() {
     const d = draft();
-    const name = await promptBox("新条目名称", "", "例如：文风·简洁");
-    if (!name) return;
     const sel = ordered();
     const after = sel.length ? sel[sel.length - 1] : null;
+    const blank = { name: "", content: "", role: "system", injection_position: 0, injection_depth: 4, injection_order: 100 };
+    const r = await editEntrySheet(blank, { title: "新建条目", hint: after ? `保存后放在「${d.prompt(after)?.name || after}」后面。` : "保存后放在最后。", focusName: true });
+    if (!r || typeof r !== "object") return;
+    const dd = getDraft(d.name);
+    const f = entryChanges(blank, r) || {};
+    const name = String(r.name || "").trim() || "新条目";
+    const at = after && dd.prompt(after) ? after : null;
     let id = null;
-    mutate(d, `新建条目「${name}」`, (x) => {
-      const where = after ? { after } : { index: x.order.length };
-      [id] = x.insertPrompts([{ prompt: { identifier: uid(), name, content: "", role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100, injection_trigger: [], forbid_overrides: false }, enabled: true }], where, after ? x.groupOf(after) : null);
+    mutate(dd, `新建条目「${name}」`, (x) => {
+      const where = at ? { after: at } : { index: x.order.length };
+      [id] = x.insertPrompts([{ prompt: { identifier: uid(), system_prompt: false, marker: false, injection_trigger: [], forbid_overrides: false, ...blank, ...f, name }, enabled: true }], where, at ? x.groupOf(at) : null);
     });
     st.selected.clear();
-    const g = d.groupOf(id);
-    if (g) setOpen(d, g, true);
+    const g = dd.groupOf(id);
+    if (g) setOpen(dd, g, true);
     flash([id]);
     render();
-    return peek(getDraft(d.name), id);
+    toast(`已新建「${name}」`, "success");
+    if (wideEdit()) openPane(getDraft(d.name), id);
+  }
+  // 2.12.17 编辑窗、编辑栏里的「复制」「删除」（系统位置条目没有）。cur：编辑框里现在填的值，复制时带上没保存的修改
+  function copyEntry(d, id, cur = null) {
+    const dd = getDraft(d.name);
+    const p = dd.prompt(id);
+    if (!p) { toast("条目已不存在", "warning"); return null; }
+    const ch = cur ? entryChanges(p, cur) || {} : {};
+    let made = null;
+    mutate(dd, "复制条目", (x) => {
+      const on = x.order.find((o) => o.identifier === id)?.enabled !== false;
+      const base = { ...clone(p), ...ch };
+      [made] = x.insertPrompts([{ prompt: { ...base, identifier: uid(), name: `${base.name || id}（副本）` }, enabled: on }], { after: id }, x.groupOf(id));
+    });
+    flash([made]);
+    render();
+    toast("已复制，放在原条目后面", "success");
+    return made;
+  }
+  async function deleteEntry(d, id) {
+    const dd = getDraft(d.name);
+    const p = dd.prompt(id);
+    if (!p) return false;
+    if (!await confirmBox("删除条目", `删除「${p.name || id}」？可撤销${backupOn() ? "，也可从备份恢复" : ""}。`, "删除", true)) return false;
+    mutate(getDraft(d.name), "删除条目", (x) => x.deletePrompts([id]));
+    st.selected.delete(id);
+    render();
+    return true;
   }
   // 2.7.2 宽屏（≥1000px）在右侧编辑栏里编辑，列表不被遮住；手机仍用弹窗
   const paneEl = page.querySelector(".pa-editpane");
@@ -847,11 +891,12 @@ function mountOrganize(page) {
     if (!force && pane.form?.dirty() && pane.id !== id && !await confirmBox("放弃未保存的修改", `「${paneEl.querySelector(".pa-editpane-head b")?.textContent || ""}」的修改尚未保存。`, "放弃修改", true, "继续编辑")) return;
     const p = d.prompt(id);
     if (!p) return closePane();
-    const form = entryForm(p, { marker: d.isMarker(id) });
+    const marker = d.isMarker(id);
+    const form = entryForm(p, { marker });
     pane = { id, preset: d.name, form };
     paneEl.innerHTML = `<div class="pa-editpane-head"><b></b><button class="pa-icon-btn" data-ep="x" aria-label="关闭编辑栏" title="关闭"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div class="pa-editpane-body"></div>
-      <div class="pa-editpane-foot"><button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
+      <div class="pa-editpane-foot">${marker ? "" : '<button class="pa-btn pa-btn-danger-soft pa-ep-del" data-ep="del">删除</button><button class="pa-btn" data-ep="copy" title="把现在填的内容另存一条，放在这条后面">复制</button>'}<button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
     paneEl.querySelector(".pa-editpane-head b").textContent = p.name || id;
     paneEl.querySelector(".pa-editpane-body").append(form.body);
     paneEl.hidden = false;
@@ -879,6 +924,12 @@ function mountOrganize(page) {
     const a = e.target.closest("[data-ep]")?.dataset.ep;
     if (a === "close") closePane();
     else if (a === "save") savePane();
+    else if (a === "copy" && pane.id) {
+      const made = copyEntry(getDraft(pane.preset), pane.id, pane.form.read());
+      if (made) openPane(getDraft(pane.preset), made, { force: true });
+    } else if (a === "del" && pane.id) {
+      if (await deleteEntry(getDraft(pane.preset), pane.id)) closePane();
+    }
     else if (a === "x") {
       if (paneAsking) return;
       if (pane.form?.dirty()) {
@@ -894,8 +945,9 @@ function mountOrganize(page) {
     const p = d.prompt(id);
     if (!p) return;
     if (wideEdit()) return openPane(d, id);
-    const r = await editEntrySheet(p, { marker: d.isMarker(id) });
-    if (!r) return;
+    const marker = d.isMarker(id);
+    const r = await editEntrySheet(p, { marker, onDelete: marker ? null : () => deleteEntry(d, id), onCopy: marker ? null : (cur) => !!copyEntry(d, id, cur) });
+    if (!r || typeof r !== "object") return;
     // 弹窗开着时草稿可能被换过（切换预设、别处修改），按名称重新取
     const dd = getDraft(d.name);
     const cur = dd.prompt(id);
@@ -907,7 +959,7 @@ function mountOrganize(page) {
   }
   async function repairGroups(d, groupId) {
     const fragments = fragmentedGroups(d).filter((g) => !groupId || g.groupId === groupId);
-    if (!fragments.length) return toast("没有需要归整的分散分区");
+    if (!fragments.length) return toast("没有需要归整的分散分组");
     const original = JSON.stringify(d.toPreset());
     const positions = new Map(d.order.map((o, i) => [o.identifier, i + 1]));
     const body = el(`<div><p class="pa-hint">按已有分组归属，把同组条目集中到该组首次出现的位置。保留组内先后、条目正文和开关。此操作会调整预设的条目顺序，请核对预览后应用；之后可撤销。</p>
@@ -916,26 +968,26 @@ function mountOrganize(page) {
     const selected = () => fragments.filter((g, i) => body.querySelector(`[data-gather="${i}"]`).checked).map((g) => g.groupId);
     const paint = () => {
       const plan = planGroupGather(d, selected());
-      body.querySelector("[data-group-preview]").innerHTML = `<p class="pa-hint">${plan.groups.length ? `将归整 ${plan.groups.length} 个分区，共 ${plan.groups.reduce((n, g) => n + g.ids.length, 0)} 条成员。` : "未选择分区，不会移动条目。"}只按已有归属归整；未分组条目不会被猜测归类。</p><details><summary>查看归整后的完整顺序（${plan.order.length} 条）</summary><ol class="pa-group-preview">${plan.order.map((o, i) => `<li data-preview-id="${esc(o.identifier)}"><b>${esc(d.prompt(o.identifier)?.name || o.identifier)}</b><small>${esc(d.group(d.groupOf(o.identifier))?.name || "未分组")} · 原第 ${positions.get(o.identifier)} 条 → 第 ${i + 1} 条 · ${o.enabled === false ? "关闭" : "开启"}</small></li>`).join("")}</ol></details>`;
+      body.querySelector("[data-group-preview]").innerHTML = `<p class="pa-hint">${plan.groups.length ? `将归整 ${plan.groups.length} 个分组，共 ${plan.groups.reduce((n, g) => n + g.ids.length, 0)} 条成员。` : "未选择分组，不会移动条目。"}只按已有归属归整；未分组条目不会被猜测归类。</p><details><summary>查看归整后的完整顺序（${plan.order.length} 条）</summary><ol class="pa-group-preview">${plan.order.map((o, i) => `<li data-preview-id="${esc(o.identifier)}"><b>${esc(d.prompt(o.identifier)?.name || o.identifier)}</b><small>${esc(d.group(d.groupOf(o.identifier))?.name || "未分组")} · 原第 ${positions.get(o.identifier)} 条 → 第 ${i + 1} 条 · ${o.enabled === false ? "关闭" : "开启"}</small></li>`).join("")}</ol></details>`;
       const apply = body.closest(".pa-sheet")?.querySelector(".pa-btn-primary");
       if (apply) apply.disabled = plan.groups.length === 0;
     };
     body.addEventListener("change", paint);
-    const result = await sheet({ title: "归整分散分区", body, wide: true, noFocus: true, onMount: paint, actions: [{ label: "取消", value: null }, { label: "应用归整", kind: "primary", value: selected }] });
+    const result = await sheet({ title: "归整分散分组", body, wide: true, noFocus: true, onMount: paint, actions: [{ label: "取消", value: null }, { label: "应用归整", kind: "primary", value: selected }] });
     if (!result?.length) return;
     if (focusPreset() !== d.name || getDraft(d.name) !== d || JSON.stringify(d.toPreset()) !== original) return toast("预设已变化，请重新预览归整", "warning");
     const plan = planGroupGather(d, result);
     if (!plan.groups.length) return;
-    mutate(d, "归整分散分区", (x) => { findOrderList(x.preset).order = plan.order; });
-    toast(`已归整 ${plan.groups.length} 个分区，可撤销`, "success");
+    mutate(d, "归整分散分组", (x) => { findOrderList(x.preset).order = plan.order; });
+    toast(`已归整 ${plan.groups.length} 个分组，可撤销`, "success");
     render();
   }
   async function smartGroups(d) {
     const fragments = fragmentedGroups(d);
     if (fragments.length) {
       const mode = await pickBox("智能分组", [
-        { label: `归整分散的 ${fragments.length} 个分区`, sub: "按已有归属集中到各组首段，先预览再应用", value: "gather" },
-        { label: "识别未分组条目并归入分区", sub: "识别分区标记，可移入已有分区或新建", value: "new" }
+        { label: `归整分散的 ${fragments.length} 个分组`, sub: "按已有归属集中到各组首段，先预览再应用", value: "gather" },
+        { label: "识别未分组条目并归入分组", sub: "识别分组标记，可移入已有分组或新建", value: "new" }
       ]);
       if (!mode) return;
       if (mode === "gather") return repairGroups(d);
@@ -947,12 +999,12 @@ function mountOrganize(page) {
     const rowHtml = (g, i) => {
       const target = g.targetGroupId ? `group:${g.targetGroupId}` : g.needsChoice ? "choose" : "new";
       return `<div class="pa-sug-item" data-grouping-row="${i}"><label class="pa-inline-check"><input type="checkbox" data-grouping-on="${i}" ${g.needsChoice ? "" : "checked"} aria-label="采用${esc(g.name)}的归组建议"></label><div class="pa-sug-main"><b>${esc(g.name)} · ${g.ids.length} 条</b><small title="${esc(g.reason)}">${esc(g.reason)}</small>
-        <label>归入分区 <select class="pa-select" data-grouping-target="${i}"><option value="choose" ${target === "choose" ? "selected" : ""}>请选择目标</option><option value="new" ${target === "new" ? "selected" : ""}>＋ 新建分组</option>${d.groups.groups.map((group) => `<option value="group:${esc(group.id)}" ${target === `group:${group.id}` ? "selected" : ""}>${esc(group.name)}</option>`).join("")}</select></label>
+        <label>归入分组 <select class="pa-select" data-grouping-target="${i}"><option value="choose" ${target === "choose" ? "selected" : ""}>请选择目标</option><option value="new" ${target === "new" ? "selected" : ""}>＋ 新建分组</option>${d.groups.groups.map((group) => `<option value="group:${esc(group.id)}" ${target === `group:${group.id}` ? "selected" : ""}>${esc(group.name)}</option>`).join("")}</select></label>
         <input class="pa-input pa-input-s" data-grouping-name="${i}" value="${esc(g.name)}" maxlength="120" aria-label="新分组名称" ${target === "new" ? "" : "hidden"}>
         <details><summary>查看 ${g.ids.length} 条成员</summary><ul>${g.ids.map((id) => `<li>${esc(d.prompt(id)?.name || id)}</li>`).join("")}</ul></details></div></div>`;
     };
-    const body = el(`<div><p class="pa-hint">识别分区标题、明确分类前缀和组内共用变量，可移入已有分区，也可新建。先核对目标与完整顺序；移入已有分区时会收拢该分区的分散成员，应用后可撤销。</p>
-      ${scan.suggestions.length ? `<div class="pa-sug">${scan.suggestions.map(rowHtml).join("")}</div>` : '<p class="pa-hint">暂未识别出明确归属，下面仍可手动指定目标分区。</p>'}
+    const body = el(`<div><p class="pa-hint">识别分组标题、明确分类前缀和组内共用变量，可移入已有分组，也可新建。先核对目标与完整顺序；移入已有分组时会收拢该分组的分散成员，应用后可撤销。</p>
+      ${scan.suggestions.length ? `<div class="pa-sug">${scan.suggestions.map(rowHtml).join("")}</div>` : '<p class="pa-hint">暂未识别出明确归属，下面仍可手动指定目标分组。</p>'}
       ${scan.unassigned.length ? `<details data-grouping-unassigned><summary>未识别归属的 ${scan.unassigned.length} 条（可手动指定）</summary><p class="pa-hint">默认保持未分组。选择目标后会勾选该条目，应用前仍可取消。</p><div class="pa-sug">${scan.unassigned.map((g, i) => rowHtml(g, i + scan.suggestions.length)).join("")}</div></details>` : ""}
       <div data-grouping-preview></div></div>`);
     let plan = null;
@@ -972,7 +1024,7 @@ function mountOrganize(page) {
         if (invalid) throw new Error("请为已勾选的建议选择目标，并填写新分组名称");
         plan = planGroupingAssignments(d, choices);
         const names = new Map(plan.groups.groups.map((g) => [g.id, g.name]));
-        preview.innerHTML = `<p class="pa-hint">将归组 ${plan.assignedIds.length} 条，新建 ${plan.newGroupIds.length} 个分区。未勾选的条目保留原有归属。</p><details><summary>查看应用后的完整顺序（${plan.order.length} 条）</summary><ol class="pa-group-preview">${plan.order.map((o, i) => `<li data-grouping-preview-id="${esc(o.identifier)}"><b>${esc(d.prompt(o.identifier)?.name || o.identifier)}</b><small>${esc(names.get(plan.groups.prompts[o.identifier]?.groupId) || "未分组")} · 原第 ${positions.get(o.identifier)} 条 → 第 ${i + 1} 条 · ${o.enabled === false ? "关闭" : "开启"}</small></li>`).join("")}</ol></details>`;
+        preview.innerHTML = `<p class="pa-hint">将归组 ${plan.assignedIds.length} 条，新建 ${plan.newGroupIds.length} 个分组。未勾选的条目保留原有归属。</p><details><summary>查看应用后的完整顺序（${plan.order.length} 条）</summary><ol class="pa-group-preview">${plan.order.map((o, i) => `<li data-grouping-preview-id="${esc(o.identifier)}"><b>${esc(d.prompt(o.identifier)?.name || o.identifier)}</b><small>${esc(names.get(plan.groups.prompts[o.identifier]?.groupId) || "未分组")} · 原第 ${positions.get(o.identifier)} 条 → 第 ${i + 1} 条 · ${o.enabled === false ? "关闭" : "开启"}</small></li>`).join("")}</ol></details>`;
       } catch (e) { preview.textContent = e.message; }
       const apply = body.closest(".pa-sheet")?.querySelector(".pa-btn-primary");
       if (apply) apply.disabled = !plan?.assignedIds.length;
@@ -982,10 +1034,10 @@ function mountOrganize(page) {
       paint();
     });
     body.addEventListener("input", (e) => { if (e.target.matches("[data-grouping-name]")) paint(); });
-    const result = await sheet({ title: "识别并归入分区", body, wide: true, noFocus: true, onMount: paint, actions: [{ label: "取消", value: null }, { label: "应用分组", kind: "primary", value: () => plan }] });
+    const result = await sheet({ title: "识别并归入分组", body, wide: true, noFocus: true, onMount: paint, actions: [{ label: "取消", value: null }, { label: "应用分组", kind: "primary", value: () => plan }] });
     if (!result?.assignedIds.length) return;
-    if (focusPreset() !== d.name || getDraft(d.name) !== d || JSON.stringify(d.toPreset()) !== original) return toast("预设已变化，请重新识别分区", "warning");
-    mutate(d, "识别并归入分区", (x) => { findOrderList(x.preset).order = result.order; x.groups = result.groups; });
+    if (focusPreset() !== d.name || getDraft(d.name) !== d || JSON.stringify(d.toPreset()) !== original) return toast("预设已变化，请重新识别分组", "warning");
+    mutate(d, "识别并归入分组", (x) => { findOrderList(x.preset).order = result.order; x.groups = result.groups; });
     result.newGroupIds.forEach((id) => setOpen(d, id, false));
     toast(`已归组 ${result.assignedIds.length} 条，可撤销`, "success");
     render();

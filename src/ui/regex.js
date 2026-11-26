@@ -202,6 +202,7 @@ async function presetRegexDialog(sourceDraft, targetDraft, options = {}) {
     body,
     wide: true,
     noFocus: true,
+    guardDirty: true,
     actions: [{ label: "取消", value: false }, {
       label: "确认缝合正则", kind: "primary", value: true,
       validate: () => {

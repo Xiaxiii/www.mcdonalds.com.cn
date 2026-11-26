@@ -96,7 +96,7 @@ function renderIndexedList(draft, o) {
     const hl = o.highlight?.has(id) ? " pa-flash" : "";
     return `<div class="pa-row${at ? " pa-at" : ""}${sel.has(id) ? " pa-sel" : ""}${on ? "" : " pa-off"}${empty && !marker ? " pa-sep" : ""}${hl}" data-id="${esc(id)}" tabindex="0">
             <span class="pa-check" aria-hidden="true"></span>
-            <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${hits.get(id)?.body ? esc(name) : markText(name, q)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}</span>${hits.get(id)?.body ? `<small class="pa-hitline">正文：${hits.get(id).snip}</small>` : ""}${meta ? `<small class="pa-meta">${meta}</small>` : ""}</span>
+            <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name" title="${esc(name)}">${hits.get(id)?.body ? esc(name) : markText(name, q)}</span>${badge ? `<span class="pa-badges">${badge}</span>` : ""}</span>${hits.get(id)?.body ? `<small class="pa-hitline">正文：${hits.get(id).snip}</small>` : ""}${meta ? `<small class="pa-meta">${meta}</small>` : ""}</span>
             ${showTk ? `<small class="pa-tk">${marker || empty ? "" : tkFmt(tkOfEntry(draft, id))}</small>` : ""}
             <button class="pa-icon-btn pa-peek" data-act="peek" aria-label="查看或编辑" title="查看或编辑">${ICON.eye}</button>
             ${showSwitch ? `<label class="pa-switch" title="开关"><input type="checkbox" data-act="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>` : ""}
@@ -136,11 +136,13 @@ function renderIndexedList(draft, o) {
     const triState = draft.groupOff(b.groupId) ? "off" : (b.empty || onCount === b.ids.length ? "all" : "mid");
     const triVal = triState === "off" ? 0 : triState === "mid" ? 1 : 2;
     const triText = triState === "off" ? "全关" : triState === "mid" ? `自定义（${onCount}/${b.ids.length}）` : "全开";
+    // 2.12.17 有自定义的开关组合（快照，或现在部分开着）才有中间档；没有时不画中间的圆点
+    const hasMid = triState === "mid" || !!draft.hasGroupSnap?.(b.groupId) || onCount > 0 && onCount < b.ids.length;
     html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${draft.groupOff(b.groupId) ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠" aria-expanded="${!isCol}">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
                 <span class="pa-gname"${place ? "" : ' data-act="collapse" role="button" tabindex="0"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span><span class="pa-count">${onCount}/${b.ids.length}</span>${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-gsp"></span>${showTk ? `<small class="pa-tk pa-gtk">${tkFmt(tkSumOf(draft, b.ids, (i) => enabledMap.get(i)))}</small>` : ""}
-                ${showSwitch ? `<span class="pa-tri" data-act="gtoggle" data-state="${triState}" role="slider" tabindex="0" aria-label="分组总开关" aria-valuemin="0" aria-valuemax="2" aria-valuenow="${triVal}" aria-valuetext="${esc(triText)}" title="左：全关 · 中：自定义 · 右：全开（可点击或拖动）"><i class="pa-tri-dots" aria-hidden="true"><span></span><span></span><span></span></i><i class="pa-tri-thumb" aria-hidden="true"></i></span>
+                ${showSwitch ? `<span class="pa-tri${hasMid ? "" : " pa-tri-nomid"}" data-act="gtoggle" data-state="${triState}" role="slider" tabindex="0" aria-label="分组总开关" aria-valuemin="0" aria-valuemax="2" aria-valuenow="${triVal}" aria-valuetext="${esc(triText)}" title="${hasMid ? "左：全关 · 中：自定义 · 右：全开（可点击或拖动）" : "左：全关 · 右：全开（可点击或拖动）"}"><i class="pa-tri-dots" aria-hidden="true"><span></span><span></span><span></span></i><i class="pa-tri-thumb" aria-hidden="true"></i></span>
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
                 <span class="pa-handle" data-act="gdrag" role="button" tabindex="0" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>

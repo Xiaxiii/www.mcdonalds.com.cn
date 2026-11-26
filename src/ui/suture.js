@@ -7,42 +7,37 @@ function repaint(node, html) {
     repainting = false;
   }
 }
+// 2.12.17 缝后开关：三段「全关 | 按来源 | 全开」，现在是哪一种就亮哪一段；逐条改过、哪段都不是时都不亮
 function sutureEnableTools() {
   return `<div class="pa-field-row pa-enablebar" data-enable-tools role="group" aria-label="本次缝合的开启状态">
     <span data-enable-count aria-live="polite"></span>
-    <label class="pa-switch" title="向右全部开启，向左全部关闭；仍可逐条调整"><input type="checkbox" data-enable-toggle aria-label="本次缝后全部开启"><i></i></label>
-    <button type="button" class="pa-link" data-enable-source title="每条恢复成来源里的开关状态">按来源</button></div>`;
+    <div class="pa-seg pa-seg-s" role="group" aria-label="缝后开关"><button type="button" data-enable="off" aria-pressed="false">全关</button><button type="button" data-enable="source" aria-pressed="false" title="每条恢复成来源里的开关状态">按来源</button><button type="button" data-enable="on" aria-pressed="false">全开</button></div></div>`;
 }
 function bindSutureEnableTools(body, items) {
   const tools = body.querySelector("[data-enable-tools]");
-  const toggle = tools.querySelector("[data-enable-toggle]");
   const refresh = () => {
     const count = items.filter((it) => it.enabled).length;
     tools.querySelector("[data-enable-count]").textContent = `${count && count < items.length ? "部分开启" : "缝后开启"}：${count} / ${items.length}`;
-    toggle.checked = count === items.length;
-    toggle.indeterminate = count > 0 && count < items.length;
+    const now = count === items.length ? "on" : count === 0 ? "off" : items.every((it) => it.enabled === (it.srcEnabled !== false)) ? "source" : "";
+    tools.querySelectorAll("[data-enable]").forEach((b) => { const on = b.dataset.enable === now; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
   };
-  toggle.addEventListener("change", () => {
-    const on = toggle.checked;
-    for (const it of items) it.enabled = on;
+  tools.addEventListener("click", (e) => {
+    const k = e.target.closest("[data-enable]")?.dataset.enable;
+    if (!k) return;
+    for (const it of items) it.enabled = k === "on" ? true : k === "off" ? false : it.srcEnabled !== false;
     // 仅更新预览选择，不重算写法/思维链，也不改目标预设；确认缝合后才写入。
-    body.querySelectorAll(".pa-items [data-c=on]").forEach((input) => { input.checked = on; });
-    refresh();
-  });
-  body.addEventListener("change", (e) => {
-    if (e.target.matches(".pa-items [data-c=on]")) refresh();
-  });
-  const source = tools.querySelector("[data-enable-source]");
-  source.addEventListener("click", () => {
-    for (const it of items) it.enabled = it.srcEnabled !== false;
     body.querySelectorAll(".pa-items [data-c=on]").forEach((input) => {
       const it = items[Number(input.closest(".pa-item")?.dataset.i)];
       if (it) input.checked = it.enabled;
     });
     refresh();
   });
+  body.addEventListener("change", (e) => {
+    if (e.target.matches(".pa-items [data-c=on]")) refresh();
+  });
   refresh();
 }
+var sutureQueryMem = {};
 var sutureDefaultLayout = () => window.matchMedia?.("(max-width: 759px)").matches ? "switch" : "split";
 function mountSuture(page, app) {
   const st = {
@@ -182,8 +177,9 @@ function mountSuture(page, app) {
     settings().sutureSplit = applySplit((settings().sutureSplit ?? 45) + k);
     saveSettings();
   });
-  // 来源类型：预设 / 世界书 / 文件 / 粘贴。2.6.1 菜单里多一项「正则」：打开缝合正则窗口，来源类型不变
-  const SRC_TYPES = [["preset", "预设"], ["regex", "正则"], ["world", "世界书"], ["file", "文件"], ["paste", "粘贴"]];
+  // 来源类型：预设 / 世界书 / 文件 / 粘贴
+  // 2.12.17「正则」不再混在来源类型里，放到来源旁「⋯」的工具菜单
+  const SRC_TYPES = [["preset", "预设"], ["world", "世界书"], ["file", "文件"], ["paste", "粘贴"]];
   // 正则文件读入后，来源栏显示正则条数和打开按钮
   const regexSource = () => st.srcType === "file" && st.fileKind === "regex";
   function paintSrcHead() {
@@ -721,11 +717,9 @@ function mountSuture(page, app) {
     return true;
   }
   // ---- 🔍 搜索：点放大镜在栏头下方展开输入框，边打边在「从」「到」的列表里筛出来（和预设页一样）；
-  // 搜的词存进设置，关掉面板后列表仍按它筛；点输入框右侧 ✕ 或再点放大镜清除
-  const qStore = () => {
-    if (!settings().sutureQuery || typeof settings().sutureQuery !== "object") settings().sutureQuery = {};
-    return settings().sutureQuery;
-  };
+  // 2.12.17 搜的词只在面板开着时记着（切页签回来还在），关掉面板就清空，不再隔天还悄悄筛着列表
+  if (settings().sutureQuery) { delete settings().sutureQuery; saveSettings(); }
+  const qStore = () => sutureQueryMem;
   const qKey = (side) => side === "src" ? (st.srcType === "world" ? "qSrcWb" : "qSrc") : (st.dstType === "world" ? "qDstWb" : "qDst");
   const qOf = (side) => String(qStore()[qKey(side)] || "").trim();
   const qRow = (side) => page.querySelector(`.pa-qrow[data-qside="${side}"]`);
@@ -748,14 +742,13 @@ function mountSuture(page, app) {
   for (const side of ["src", "dst"]) {
     const inp = qRow(side).querySelector("input");
     onSearchInput(inp, () => setQuery(side, inp.value.trim()));
-    inp.addEventListener("change", () => saveSettings());
     inp.addEventListener("keydown", (e) => { if (e.key === "Enter" && !imeEnter(e)) { e.preventDefault(); inp.blur(); } });
     qRow(side).querySelector(".pa-qx").addEventListener("click", () => closeSearch(side));
   }
   function closeSearch(side) {
     qOpen[side] = false;
     qRow(side).querySelector("input").value = "";
-    if (qOf(side)) { setQuery(side, ""); saveSettings(); } else paintQBtns();
+    if (qOf(side)) setQuery(side, ""); else paintQBtns();
   }
   function searchBox(side) {
     if (!qRow(side).hidden) return closeSearch(side);
@@ -1062,27 +1055,25 @@ function mountSuture(page, app) {
     if (a === "aiplace") return aiPlace();
     if (a === "aiqueue") return aiQueueNext();
     if (a === "regex") return regexSuture();
-    if (a === "migrate") migrate();
+    if (a === "migrate") return migrateAsk();
     if (a === "picked") return pickedSheet();
     if (a === "srcsearch") return searchSrc();
     if (a === "dstsearch") return searchDst();
-    if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l, sub: { regex: "缝合预设中的正则", file: "预设、世界书或正则文件" }[k] || "" })) }));
+    if (a === "srctype") return setSrcType(await pickName({ title: "从哪里缝", current: st.srcType, search: false, items: SRC_TYPES.map(([k, l]) => ({ value: k, label: l, sub: { file: "预设、世界书或正则文件" }[k] || "" })) }));
     if (a === "dsttype") return setDstType(await pickName({ title: "缝到哪里", current: st.dstType, search: false, items: [{ value: "preset", label: "预设" }, { value: "world", label: "世界书" }] }));
     if (a === "srcmenu") {
       // 2.6.1 缝合正则移到来源类型「正则」；预设文件里的正则从这里缝
       let fileRegex = 0;
       try { fileRegex = st.srcType === "file" && st.fileKind === "preset" ? presetRegexList(st.fileDraft).length : 0; } catch {}
-      const v = await pickBox("更多操作", [
-        ...fileRegex ? [{ label: "缝合文件中的正则…", sub: `文件中有 ${fileRegex} 条正则`, value: "regex" }] : [],
-        { label: "搬到新版…", sub: "来源选旧版、目标选新版，将旧版中缝入的条目按原位置搬到新版", value: "migrate" },
-        { label: "合并新版…", sub: "来源选新版、目标选自己改过的旧版，逐条比对提示词、正则、酒馆助手脚本后并入旧版", value: "merge" },
-        { label: "清空已选条目", value: "clearpicked" }
+      const v = await pickBox("工具", [
+        fileRegex ? { label: "缝合文件中的正则…", sub: `文件中有 ${fileRegex} 条正则`, value: "regex" } : { label: "缝合正则…", sub: "从另一个预设挑正则缝进目标预设", value: "regexask" },
+        { label: "搬到新版…", sub: "把旧版里缝入的条目按原位置搬到新版", value: "migrate" },
+        { label: "合并新版…", sub: "逐条比对新版的提示词、正则、酒馆助手脚本后并入自己改过的旧版", value: "merge" },
+        ...st.picked.size ? [{ label: "清空已选条目", value: "clearpicked" }] : []
       ]);
       if (v === "regex") return regexSuture();
-      if (v === "migrate") {
-        if (st.srcType !== "preset" || st.dstType !== "preset") return toast("请把来源和目标都切到「预设」：来源选旧版，目标选新版");
-        return migrate();
-      }
+      if (v === "regexask") return regexSuture({ ask: true });
+      if (v === "migrate") return migrateAsk();
       if (v === "merge") return mergeNewVersion();
       if (v === "clearpicked") {
         st.picked.clear();
@@ -1102,17 +1093,48 @@ function mountSuture(page, app) {
       renderDst();
     }
   });
-  // 2.10.0 合并新版：来源（预设或预设文件）= 新版，目标预设 = 旧版
+  // 2.12.17 选旧版、新版：一个窗口两个下拉框，可一键互换。默认按来源、目标填好
+  async function pickVersions(title, oldName, newName) {
+    const names = listPresets();
+    const opt = (cur) => `<option value="">（选一个预设）</option>${names.map((n) => `<option value="${esc(n)}"${n === cur ? " selected" : ""}>${esc(n)}</option>`).join("")}`;
+    const body = el(`<div class="pa-form pa-verpick">
+        <label class="pa-field"><span>旧版</span><select class="pa-select" data-v="old">${opt(oldName)}</select></label>
+        <button type="button" class="pa-btn pa-btn-s pa-verswap" data-v="swap">⇄ 互换</button>
+        <label class="pa-field"><span>新版</span><select class="pa-select" data-v="new">${opt(newName)}</select></label>
+      </div>`);
+    body.querySelector("[data-v=swap]").addEventListener("click", () => {
+      const a = body.querySelector("[data-v=old]"), b = body.querySelector("[data-v=new]");
+      [a.value, b.value] = [b.value, a.value];
+    });
+    return sheet({ title, place: "center", body, noFocus: true, actions: [{ label: "取消", value: null }, { label: "下一步", kind: "primary", validate: (w) => {
+      const o = w.querySelector("[data-v=old]").value, n = w.querySelector("[data-v=new]").value;
+      if (!o || !n) { toast("请选好旧版和新版"); return false; }
+      if (o === n) { toast("旧版和新版是同一个预设"); return false; }
+      return true;
+    }, value: (w) => ({ old: w.querySelector("[data-v=old]").value, neu: w.querySelector("[data-v=new]").value }) }] });
+  }
+  // 搬到新版：来源、目标都是预设且不同时直接比对；否则先选旧版、新版
+  async function migrateAsk() {
+    const src = st.srcType === "preset" ? st.srcPreset : null;
+    const dst = st.dstType === "preset" ? focusPreset() : null;
+    if (src && dst && src !== dst) return migrate(src, dst);
+    const r = await pickVersions("搬到新版", src, dst);
+    if (r) return migrate(r.old, r.neu);
+  }
+  // 2.10.0 合并新版：来源（预设或预设文件）= 新版，目标预设 = 旧版。2.12.17 方向不对时可在窗口里互换，来源、目标不是预设时先选
   async function mergeNewVersion() {
-    if (st.dstType !== "preset") return toast("请将目标切换为「预设」，并选择自己改过的旧版");
     const fromFile = st.srcType === "file" && st.fileKind === "preset";
-    if (!fromFile && st.srcType !== "preset") return toast("请将来源切换为「预设」或预设文件，并选择新版");
     try {
-      const neu = fromFile ? st.fileDraft : st.srcPreset ? getDraft(st.srcPreset) : null;
-      if (!neu) return toast("请先选择新版预设");
-      const old = target();
-      if (!fromFile && neu.name === old.name) return toast("来源和目标是同一个预设。请在来源选新版，目标选旧版");
-      await presetMergeDialog(neu, old);
+      let neu = fromFile ? st.fileDraft : st.srcType === "preset" && st.srcPreset ? getDraft(st.srcPreset) : null;
+      let old = st.dstType === "preset" ? target() : null;
+      if (!neu || !old || !fromFile && neu.name === old.name) {
+        const r = await pickVersions("合并新版", old?.name || null, neu && !fromFile ? neu.name : null);
+        if (!r) return;
+        neu = getDraft(r.neu);
+        old = getDraft(r.old);
+      }
+      const run = (n, o) => presetMergeDialog(n, o, { onSwap: listPresets().includes(n.name) && listPresets().includes(o.name) ? () => run(getDraft(o.name), getDraft(n.name)) : null });
+      await run(neu, old);
     } catch (err) { toast("无法合并：" + err.message, "error"); }
   }
   // 已选条目清单：跨预设、世界书、粘贴选的都在这里，可以单独去掉
@@ -1774,11 +1796,11 @@ function mountSuture(page, app) {
     }
   }
   // ---- 1.6.0 搬到新版：来源 = 旧版，目标 = 新版。把旧版里缝进去的条目按原位置搬过去
-  async function migrate() {
-    if (st.srcType !== "preset" || !st.srcPreset) return;
-    const neu = target();
-    if (st.srcPreset === neu.name) return toast("来源和目标是同一个预设：来源选旧版，目标选新版");
-    const old = getDraft(st.srcPreset);
+  async function migrate(oldName, newName) {
+    if (!oldName || !newName) return;
+    if (oldName === newName) return toast("旧版和新版是同一个预设");
+    const neu = getDraft(newName);
+    const old = getDraft(oldName);
     const rec = new Map((old.preset.extensions?.presetAtelier?.stitched || []).map((r) => [r.id, r]));
     const norm = (x) => String(x || "").replace(/\s+/g, "");
     const newIds = new Set(neu.order.map((o) => o.identifier));
@@ -1819,10 +1841,14 @@ function mountSuture(page, app) {
       cands[Number(i)].on = e.target.checked;
       e.target.closest(".pa-crow").classList.toggle("on", e.target.checked);
     });
-    const ok = await sheet({ title: `搬到新版：找到 ${cands.length} 条`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, { label: "下一步：预览", kind: "primary", value: true }] });
+    const ok = await sheet({ title: `搬到新版：找到 ${cands.length} 条`, body, wide: true, noFocus: true, actions: [{ label: "⇄ 互换新旧", value: "swap" }, { label: "取消", value: null }, { label: "下一步：预览", kind: "primary", value: true }] });
+    if (ok === "swap") return migrate(newName, oldName);
     if (!ok) return;
     const pick = cands.filter((c) => c.on);
     if (!pick.length) return toast("没有勾选条目");
+    // 预览写进「到」那一栏的预设：选的新版不是它时，先把目标换成新版
+    if (st.dstType !== "preset") setDstType("preset");
+    if (focusPreset() !== neu.name) { st.marker = null; setFocusPreset(neu.name); }
     await review({
       title: `搬 ${pick.length} 条到「${neu.name}」`,
       // 开关沿用旧版里的状态（旧版保留了几种文风只开一种，搬过去也只开那一种）
@@ -1844,6 +1870,12 @@ function mountSuture(page, app) {
     dstName: () => st.dstType === "world" ? st.dstWorld : null,
     // 没手动选过布局时，屏宽跨过 760px 跟着换
     relayout: paintLayout,
+    // 关面板时清空搜索词，下次打开列表不再按旧词筛
+    clearQuery() {
+      for (const k of Object.keys(sutureQueryMem)) delete sutureQueryMem[k];
+      qOpen.src = qOpen.dst = false;
+      st.srcBody = st.dstBody = false;
+    },
     render() {
       paintLayout();
       dstPicker.refresh();

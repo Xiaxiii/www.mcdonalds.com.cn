@@ -23,12 +23,12 @@ const load = async (name, data) => {
 };
 const toasts = () => page.evaluate(() => window.__toasts.splice(0));
 
-// 0) 类型菜单里有「正则」
+// 0) 2.12.17 类型菜单只放来源类型；「缝合正则」在来源旁「⋯」的工具菜单里
 await page.click('[data-st="srctype"]');
 await page.waitForSelector(".pa-npick-item");
-assert.deepEqual(await page.locator(".pa-npick-item").evaluateAll((x) => x.map((b) => b.dataset.v)), ["preset", "regex", "world", "file", "paste"]);
+assert.deepEqual(await page.locator(".pa-npick-item").evaluateAll((x) => x.map((b) => b.dataset.v)), ["preset", "world", "file", "paste"]);
 await page.keyboard.press("Escape"); await page.waitForTimeout(250);
-ok("来源类型菜单：预设、正则、世界书、文件、粘贴");
+ok("来源类型菜单：预设、世界书、文件、粘贴");
 
 await chooseSrcType(page, "file");
 assert.match(await page.locator(".pa-src-pick .pa-file span").textContent(), /选择文件/);
@@ -61,14 +61,14 @@ await load("随便.json", { hello: "world" });
 assert.match((await toasts()).join("|"), /无法识别/);
 ok("认不出的文件给出提示");
 
-// 5) 预设来源下点类型菜单「正则」：来源类型不变
+// 5) 预设来源下点工具菜单「缝合正则…」：来源类型不变
 await chooseSrcType(page, "preset");
-await page.click('[data-st="srctype"]');
-await page.waitForSelector(".pa-npick-item");
-await page.click('.pa-npick-item[data-v="regex"]'); await page.waitForTimeout(400);
+await page.click('[data-st="srcmenu"]'); await page.waitForTimeout(250);
+await page.locator(".pa-sheet-mask:not(.pa-out) .pa-pick-item", { hasText: "缝合正则" }).click(); await page.waitForTimeout(400);
+if (await page.locator(".pa-sheet-mask:not(.pa-out)").count()) { await page.keyboard.press("Escape"); await page.waitForTimeout(300); }
 assert.match(await page.locator('[data-st="srctype"] span').textContent(), /预设/, "来源类型仍是预设");
 assert.ok(await page.locator(".pa-src-list .pa-row").count() > 0, "来源栏仍是预设条目");
-ok("类型菜单里的「正则」不改来源类型");
+ok("工具菜单里的「缝合正则」不改来源类型");
 
 assert.deepEqual(errs, []);
 await browser.close();

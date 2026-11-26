@@ -32,9 +32,17 @@ function replyForm(name, { onSaved } = {}) {
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
   // 2.8.0 一页排完：检查（按钮、粘贴框、结果）在上，标签和自动处理在下，语义审查和检测范围折叠
+  // 2.12.17 顶部分「最近回复 | 粘贴文字」：默认查最近回复，不显示粘贴框；结构检查和 AI 审查并排
+  const aiOff = semanticAvailable ? "" : "disabled";
   const body = el(`<div class="pa-form pa-replyform">
-    <div class="pa-toolbar pa-rcheck"><button class="pa-btn pa-btn-primary" data-r="latest">检查最近回复</button><button class="pa-btn" data-r="paste">检查下方文字</button><button class="pa-btn" data-r="diagnose">按范本诊断</button></div>
-    <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复，点「检查下方文字」；粘贴格式正确的回复，点「按范本诊断」（只在本页检测，不保存）"></textarea>
+    <div class="pa-seg pa-seg-s pa-rmode" role="tablist" aria-label="检查哪段文字"><button type="button" role="tab" data-r="mode" data-m="latest" class="on" aria-selected="true">最近回复</button><button type="button" role="tab" data-r="mode" data-m="paste" aria-selected="false">粘贴文字</button></div>
+    <div class="pa-toolbar pa-rcheck" data-rm="latest"><button class="pa-btn pa-btn-primary" data-r="latest">结构检查</button><button class="pa-btn" data-r="ai-latest" ${aiOff}>AI 审查</button></div>
+    <div class="pa-rpaste" data-rm="paste" hidden>
+      <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复检查格式；粘贴格式正确的回复，点「按范本诊断」（只在本页检测，不保存）"></textarea>
+      <div class="pa-toolbar pa-rcheck"><button class="pa-btn pa-btn-primary" data-r="paste">检查文字</button><button class="pa-btn" data-r="ai-paste" ${aiOff}>AI 审查</button><button class="pa-btn" data-r="diagnose">按范本诊断</button></div>
+    </div>
+    <button class="pa-btn pa-btn-s" data-r="ai-cancel" hidden>取消审查</button>
+    <div data-r="semantic-result" aria-live="polite"></div>
     <div data-r="result" aria-live="polite"></div>
     <div data-r="lastremind"></div>
     <h3 class="pa-h">标签 <small class="pa-dim" data-r="stamp">按预设自动保存，须与预设的输出格式一致</small></h3>
@@ -61,8 +69,7 @@ function replyForm(name, { onSaved } = {}) {
       <p class="pa-hint">把这一条回复发给模型，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用，不改动正文。</p>
       <p class="pa-hint pa-aux-use">用：<span data-r="auxname">${esc(auxLabel(auxTarget("review")))}</span><button class="pa-link" data-r="aux" type="button">更改</button></p>
       ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>'}
-      <div class="pa-toolbar"><button class="pa-btn" data-r="ai-latest" ${semanticAvailable ? "" : "disabled"}>审查最近回复</button><button class="pa-btn" data-r="ai-paste" ${semanticAvailable ? "" : "disabled"}>审查粘贴文字</button><button class="pa-btn" data-r="ai-cancel" hidden>取消审查</button><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
-      <div data-r="semantic-result" aria-live="polite"></div>
+      <div class="pa-toolbar"><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
     </details>
     <details class="pa-card pa-rscope"><summary>检测范围</summary><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、思考标签前多了文字没被酒馆解析、疑似推理标题。</li>
@@ -165,7 +172,7 @@ function replyForm(name, { onSaved } = {}) {
     const can = Object.keys(diag.patch).length > 0;
     const sk = diag.skeleton.length ? `<p class="pa-p">范本的标签顺序：${diag.skeleton.map((t) => `&lt;${esc(t)}&gt;`).join("、")}</p><div class="pa-toolbar"><button class="pa-btn" data-r="sample-save">记为范本</button></div>` : "";
     if (!diag.advice.length) {
-      result.innerHTML = `<div class="pa-card"><p class="pa-p"><b>按现在的设置，这份范本没有问题。</b></p><p class="pa-hint">回复仍被提醒或修正时，原因在那条回复本身：点「检查最近回复」看具体问题。</p>${sk}</div>`;
+      result.innerHTML = `<div class="pa-card"><p class="pa-p"><b>按现在的设置，这份范本没有问题。</b></p><p class="pa-hint">回复仍被提醒或修正时，原因在那条回复本身：切到「最近回复」点「结构检查」看具体问题。</p>${sk}</div>`;
       return;
     }
     const left = can ? diag.after.issues : [];
@@ -215,7 +222,7 @@ function replyForm(name, { onSaved } = {}) {
     const auto = latest && replyAutoFixFor(latest.index);
     const note = (auto ? `<div class="pa-card"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
     const skipped = unused.length ? `<p class="pa-hint">${esc(unusedText(unused))}</p>` : "";
-    result.innerHTML = note + skipped + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p>${report.issues.length ? "" : whyBtn("clean")}</div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : whyNote("clean", "这不代表正文语义、所有变量或其他输出格式已验证。")}`;
+    result.innerHTML = note + skipped + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p></div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : ""}`;
   };
   body.addEventListener("click", async (e) => {
     const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"], [data-r="undo-auto"], [data-r="diagnose"], [data-r="diag-apply"], [data-r="sample-save"], [data-r="sample-clear"]');
@@ -273,6 +280,13 @@ function replyForm(name, { onSaved } = {}) {
   const showSemantic = (report) => {
     semanticResult.innerHTML = `<p class="pa-p">${report.verdict === "suspected" ? "模型标记了疑似内部分析，请人工确认" : "模型未标记疑似内部分析"}（模型自报置信度 ${Math.round(report.confidence * 100)}%）</p>${report.findings.map((f) => `<div class="pa-card"><pre class="pa-pre">${esc(f.excerpt)}</pre><p>${esc(f.reason)}</p></div>`).join("")}<p class="pa-hint">未改写聊天。</p>`;
   };
+  body.addEventListener("click", (e) => {
+    const m = e.target.closest('[data-r="mode"]')?.dataset.m;
+    if (!m) return;
+    body.querySelectorAll('[data-r="mode"]').forEach((b) => { const on = b.dataset.m === m; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
+    body.querySelectorAll("[data-rm]").forEach((x) => { x.hidden = x.dataset.rm !== m; });
+    if (m === "paste") body.querySelector('[data-r="sample"]').focus({ preventScroll: true });
+  });
   body.addEventListener("click", async (e) => {
     if (e.target.closest('[data-r="ai-cancel"]')) { reviewCancel?.abort(); return; }
     if (e.target.closest('[data-r="ai-result"]')) {
@@ -321,7 +335,7 @@ function mountReply(page, { go } = {}) {
   page.innerHTML = `<div class="pa-toolbar"><div class="pa-picker-slot"></div></div>
     <div class="pa-scroll pa-replypage"><div class="pa-replybox"></div></div>`;
   const box = page.querySelector(".pa-replybox");
-  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
+  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n), { use: true });
   let form = null, shown = null, savedSig = "";
   const sigOf = (name) => JSON.stringify(replyGuardConfig(name) || {});
   // 同一预设、设置未在别处改动时保留表单里尚未保存的输入

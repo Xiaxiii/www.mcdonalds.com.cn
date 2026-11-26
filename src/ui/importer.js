@@ -1,33 +1,62 @@
-// 2.12.8 直接导入预设、世界书、正则文件，不用去酒馆原来的位置导入。入口在条目页右上角「⋯」。
-// 弹窗里每一项本身就是选文件的按钮（label 包着 file input）：iPad、iPhone 的浏览器只认手指直接点到的选文件
-var IMPORT_KINDS = [
-  ["preset", "预设", "聊天补全预设 .json"],
-  ["world", "世界书", "世界书或角色卡 .json"],
-  ["regex", "正则", "正则或带正则的预设 .json"]
-];
+// 2.12.8 直接导入预设、世界书、正则文件，不用去酒馆原来的位置导入。入口在条目页右上角「⋯」，世界书页、正则页的「＋」。
+var IMPORT_LABEL = { preset: "预设", world: "世界书", regex: "正则" };
+// 2.12.17 按文件内容认是哪种：有提示词条目的是预设，有 entries（含角色卡内嵌的 character_book）的是世界书，有 findRegex 的是正则。
+// 只有正则、没有提示词条目的预设文件按正则处理（和缝合页读文件一致）
+function importKindOf(data) {
+  if (Array.isArray(data?.prompts) && (data.prompts.length || !data.extensions?.regex_scripts?.length)) return "preset";
+  const book = data?.entries ?? data?.character_book?.entries ?? data?.data?.character_book?.entries;
+  if (book && typeof book === "object") return "world";
+  try { regexScriptsOf(data); return "regex"; } catch {}
+  return null;
+}
+// 读一个导入的文件：kind 省略时按内容认
+async function importFile(file, kind = null) {
+  const name = file.name.replace(/\.(json|txt)$/i, "").trim();
+  let data;
+  try { data = JSON.parse((await file.text()).replace(/^\uFEFF/, "")); } catch { return toast("导入失败：文件不是 JSON", "error"); }
+  const k = kind || importKindOf(data);
+  if (!k) return toast("导入失败：认不出是哪种文件。支持聊天补全预设、世界书（含角色卡）、正则", "error");
+  try {
+    if (k === "preset") await importPreset(name || "预设", data);
+    else if (k === "world") await importWorldFile(name || "世界书", data);
+    else await importRegexFile(name || "正则", data);
+  } catch (err) {
+    toast(`导入${IMPORT_LABEL[k]}失败：${err.message}`, "error");
+  }
+}
+// 弹窗里一个选文件的按钮（label 包着 file input）：iPad、iPhone 的浏览器只认手指直接点到的选文件
 async function importSheet() {
-  const body = el(`<div class="pa-pick pa-import">${IMPORT_KINDS.map(([k, l, sub]) => `<label class="pa-pick-item pa-file" role="button" tabindex="0"><span class="pa-pick-label">${l}</span><small>${esc(sub)}</small><input type="file" accept=".json,application/json,text/plain" data-imp="${k}" hidden></label>`).join("")}</div>`);
+  const body = el(`<div class="pa-pick pa-import"><label class="pa-pick-item pa-file" role="button" tabindex="0"><span class="pa-pick-label">选择文件</span><small>预设、世界书（含角色卡）、正则，自动识别</small><input type="file" accept=".json,application/json,text/plain" data-imp="auto" hidden></label></div>`);
   let got = null;
   await sheet({ title: "导入", body, place: "center", actions: [{ label: "取消", value: null }], onMount: (w) => {
     body.addEventListener("change", (e) => {
       const inp = e.target.closest("input[type=file]");
       if (!inp?.files?.[0]) return;
-      got = { kind: inp.dataset.imp, file: inp.files[0] };
+      got = inp.files[0];
       w._close(null);
     });
   } });
-  if (!got) return;
-  const label = IMPORT_KINDS.find(([k]) => k === got.kind)[1];
-  try {
-    const name = got.file.name.replace(/\.(json|txt)$/i, "").trim() || label;
-    let data;
-    try { data = JSON.parse((await got.file.text()).replace(/^﻿/, "")); } catch { throw new Error("文件不是 JSON"); }
-    if (got.kind === "preset") await importPreset(name, data);
-    else if (got.kind === "world") await importWorldFile(name, data);
-    else await importRegexFile(name, data);
-  } catch (err) {
-    toast(`导入${label}失败：${err.message}`, "error");
-  }
+  if (got) await importFile(got);
+}
+// 2.12.17 页面上的「＋」：几个选项，最后一项「导入…文件」本身是选文件的按钮。返回 { value } 或 { file }，取消返回 null
+async function addMenu(title, items, fileLabel, anchor = null) {
+  const body = el(`<div class="pa-pick pa-import">${items.map((it, i) => { const L = menuIcon(it.label); return `<button type="button" class="pa-pick-item${L.icon ? " pa-has-mi" : ""}" data-v="${i}"><span class="pa-pick-label">${esc(L.text)}</span>${it.sub ? `<small>${esc(it.sub)}</small>` : ""}${L.icon}</button>`; }).join("")}<label class="pa-pick-item pa-file" role="button" tabindex="0"><span class="pa-pick-label">${esc(fileLabel)}</span><input type="file" accept=".json,application/json,text/plain" hidden></label></div>`);
+  let got = null;
+  await sheet({ title, body, place: anchor ? "pop" : "center", anchor, actions: anchor ? [] : [{ label: "取消", value: null }], onMount: (w) => {
+    body.addEventListener("click", (e) => {
+      const b = e.target.closest("[data-v]");
+      if (!b) return;
+      got = { value: items[Number(b.dataset.v)].value };
+      w._close(null);
+    });
+    body.addEventListener("change", (e) => {
+      const f = e.target.files?.[0];
+      if (!f) return;
+      got = { file: f };
+      w._close(null);
+    });
+  } });
+  return got;
 }
 // 同名时：覆盖、另存为新名字、取消
 function freeName(name, taken) {
@@ -93,6 +122,8 @@ async function importWorldFile(name, data) {
   if (typeof wi.updateWorldInfoList === "function") await wi.updateWorldInfoList();
   else if (Array.isArray(wi.world_names) && !wi.world_names.includes(pick.name)) wi.world_names.push(pick.name);
   toast(`已导入世界书「${pick.name}」，${Object.keys(book.entries).length} 条`, "success");
+  pages.books?.afterImport?.(pick.name);
+  return pick.name;
 }
 // 正则：导到全局，或导进当前预设（走「缝合正则」的窗口，重名、重复、分组都在那里处理）
 function regexScriptsOf(data) {

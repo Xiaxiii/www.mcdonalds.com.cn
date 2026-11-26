@@ -73,7 +73,8 @@ async function selectFour(page) {
 async function count(page, n) {
   assert.equal(await page.locator('[data-enable-count]').innerText(), `${n > 0 && n < 4 ? '部分开启' : '缝后开启'}：${n} / 4`);
   assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), n);
-  assert.deepEqual(await page.locator('[data-enable-toggle]').evaluate(x => [x.checked, x.indeterminate]), [n === 4, n > 0 && n < 4]);
+  // 2.12.17 三段「全关 | 按来源 | 全开」：全开、全关时对应那段亮着
+  assert.deepEqual([await page.locator('[data-enable=on]').getAttribute('aria-pressed'), await page.locator('[data-enable=off]').getAttribute('aria-pressed')], [String(n === 4), String(n === 0)]);
 }
 try {
   for (const scenario of ['all-off', 'all-on', 'one-on']) {
@@ -84,17 +85,17 @@ try {
     await page.waitForSelector('.pa-review .pa-item');
     await count(page, 2);
     equal(await page.locator('.pa-review [data-c=on]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, true, false], '缝后开关默认与来源条目一致');
-    // 部分开启时点总开关先全开，再点全关
-    await page.locator('[data-enable-toggle]').check();
+    // 部分开启时点「全开」，再点「全关」
+    await page.click('[data-enable=on]');
     await count(page, 4);
-    await page.locator('[data-enable-toggle]').uncheck();
+    await page.click('[data-enable=off]');
     await count(page, 0);
-    await page.click('[data-enable-source]');
+    await page.click('[data-enable=source]');
     await count(page, 2);
-    await page.locator('[data-enable-toggle]').check();
-    await page.locator('[data-enable-toggle]').uncheck();
+    await page.click('[data-enable=on]');
+    await page.click('[data-enable=off]');
     await count(page, 0);
-    if (scenario === 'all-on') { await page.locator('[data-enable-toggle]').check(); await count(page, 4); }
+    if (scenario === 'all-on') { await page.click('[data-enable=on]'); await count(page, 4); }
     if (scenario === 'one-on') { await page.locator('.pa-review [data-c=on]').nth(2).check(); await count(page, 1); }
     equal(await saved(page), target, `${scenario}：未确认只改变预览开关`);
     await page.locator('.pa-sheet-actions .pa-btn-primary').click();
@@ -134,13 +135,14 @@ try {
     await page.click('[data-st=go]');
     await page.waitForSelector('.pa-review .pa-item');
     await count(page, 2);
-    await page.locator('[data-enable-toggle]').check(); await count(page, 4);
-    await page.locator('[data-enable-toggle]').uncheck(); await count(page, 0);
-    await page.locator('[data-enable-toggle]').check(); await count(page, 4);
-    await page.locator('[data-enable-toggle]').uncheck(); await count(page, 0);
+    await page.click('[data-enable=on]'); await count(page, 4);
+    await page.click('[data-enable=off]'); await count(page, 0);
+    await page.click('[data-enable=on]'); await count(page, 4);
+    await page.click('[data-enable=off]'); await count(page, 0);
     await page.locator('.pa-review [data-c=on]').nth(1).check(); await count(page, 1);
-    await page.locator('[data-enable-toggle]').focus();
+    await page.locator('[data-enable=on]').focus();
     await page.keyboard.press('Space'); await count(page, 4);
+    await page.locator('[data-enable=off]').focus();
     await page.keyboard.press('Space'); await count(page, 0);
     equal(await page.evaluate(() => window.__wiStore['示例世界书']), before, '世界书预览开关也不提前保存');
     await page.locator('.pa-sheet-actions .pa-btn-primary').click();

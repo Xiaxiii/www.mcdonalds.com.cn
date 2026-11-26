@@ -49,34 +49,37 @@ await other.locator(".pa-sghead").click(); await page.waitForTimeout(150);
 assert.match(await page.locator(".pa-sgroup", { hasText: "未分角色" }).innerText(), /旧方案/);
 ok("按角色卡分组，点箭头展开");
 
-// 3) ✏️ 改归属角色
-await page.locator(".pa-srow", { hasText: "旧方案" }).locator("[data-a=edit]").click(); await page.waitForTimeout(200);
-await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTimeout(200);
-await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300);
+// 3) ✏️ 编辑方案：一个窗口里改归属角色，保存一次就关（2.12.17 不再是一项项弹的菜单）
+const top = ".pa-sheet-mask:not(.pa-out)";
+const editOpen = async (name) => { await page.locator(".pa-srow", { hasText: name }).locator("[data-a=edit]").click(); await page.waitForTimeout(250); };
+const editSave = async () => { await page.locator(`${top} .pa-sheet-actions .pa-btn-primary`).click(); await page.waitForTimeout(300); };
+await editOpen("旧方案");
+assert.match(await page.locator(`${top} .pa-sheet-head`).innerText(), /编辑方案/);
+assert.ok(await page.locator(`${top} [data-f=persona]`).isVisible() && await page.locator(`${top} [data-f=api]`).isVisible() && await page.locator(`${top} [data-f=char]`).isVisible(), "名称、归属、人设、API 在同一个窗口");
+await page.selectOption(`${top} [data-f=char]`, "lin.png");
+await editSave();
 st = await S();
 assert.equal(st.schemes.find((x) => x.id === "old").charKey, "lin.png");
+assert.equal(await page.locator(top).count(), 0, "保存后窗口关掉");
 assert.ok((await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent))).includes("林栖"));
-await closeSheet(); await page.waitForTimeout(300);
 { const g = page.locator(".pa-sgroup", { hasText: "林栖" }); if (!(await g.evaluate((x) => x.classList.contains("open")))) { await g.locator(".pa-sghead").click(); await page.waitForTimeout(150); } }
-ok("✏️ 里改归属角色");
+ok("✏️ 编辑方案：一个窗口里改归属角色，保存后关掉");
 
-// 3b) ✏️ 做完一项回到菜单；改归属里「取消归属」按钮；方案行显示 API 站点名
-await page.locator(".pa-srow", { hasText: "旧方案" }).locator("[data-a=edit]").click(); await page.waitForTimeout(200);
-await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTimeout(200);
-await page.click(".pa-npick-extra"); await page.waitForTimeout(300);
+// 3b) 取消归属；方案行显示 API 站点名
+await editOpen("旧方案");
+await page.selectOption(`${top} [data-f=char]`, "");
+await editSave();
 assert.equal((await S()).schemes.find((x) => x.id === "old").charKey, "", "取消归属");
-assert.ok(await page.locator(".pa-pick-item >> text=改归属角色").isVisible(), "做完回到 ✏️ 菜单");
-await page.click(".pa-pick-item >> text=改归属角色"); await page.waitForTimeout(200);
-await page.click(".pa-npick-item >> text=林栖"); await page.waitForTimeout(300);
-await closeSheet(); await page.waitForTimeout(300);
-assert.equal(await page.locator(".pa-pick-item").count(), 0, "点 ✕ 才关掉");
+await editOpen("旧方案");
+await page.selectOption(`${top} [data-f=char]`, "lin.png");
+await editSave();
 await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings.mcdonalds; st.sites = [{ id: "s1", name: "tree", source: "custom", url: "https://t/v1" }]; st.schemes.find((x) => x.id === "old").siteId = "s1"; });
 await page.click("[data-s=view]"); await page.waitForTimeout(200);
 await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
 const lin = page.locator(".pa-sgroup", { hasText: "林栖" });
 if (!(await lin.evaluate((x) => x.classList.contains("open")))) { await lin.locator(".pa-sghead").click(); await page.waitForTimeout(150); }
 assert.equal(await page.locator(".pa-srow", { hasText: "旧方案" }).locator(".pa-srow-api").innerText(), "API：tree");
-ok("✏️ 做完一项回到菜单；取消归属；方案行显示 API 站点名");
+ok("取消归属；方案行显示 API 站点名");
 
 // 4) 同一个聊天里再次收到聊天切换事件：不再自动套用（手动换的预设不会被换回去）
 const before = await page.evaluate(() => window.__mock.live.preset_settings_openai);
@@ -104,9 +107,9 @@ assert.ok(!/API/.test(await page.locator(".pa-srow small").first().innerText()),
 await page.click("[data-s=pickon]"); await page.waitForTimeout(150);
 assert.equal(await page.locator("[data-s=delpicked]").isDisabled(), true);
 await page.locator(".pa-srow", { hasText: "沈砚·正剧" }).click(); await page.waitForTimeout(150);
-assert.match(await page.locator(".pa-scheme-pick").innerText(), /已选 1 个/);
+assert.match(await page.locator(".pa-scheme-delbar").innerText(), /已选 1 个/);
 await page.locator(".pa-sgroup", { hasText: "林栖" }).locator("[data-a=pickgroup]").check(); await page.waitForTimeout(150);
-assert.match(await page.locator(".pa-scheme-pick").innerText(), /已选 2 个/);
+assert.match(await page.locator(".pa-scheme-delbar").innerText(), /已选 2 个/);
 await page.click("[data-s=delpicked]"); await page.waitForTimeout(200);
 await page.click(".pa-sheet-actions .pa-btn-danger, .pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(400);
 st = await S();
@@ -139,23 +142,26 @@ await closeSheet(); await page.waitForTimeout(300);
 ok("保存方案时 API 默认不记录，可选当前连接，下次沿用");
 
 await page.evaluate(() => { window.__mock.live.custom_model = "other-model"; });
-await page.locator(".pa-srow", { hasText: "带API" }).locator("[data-a=edit]").click(); await page.waitForTimeout(200);
-await page.click(".pa-pick-item >> text=用现在的状态覆盖"); await page.waitForTimeout(200);
-assert.equal(await page.locator(".pa-sheet [data-f=api]").isChecked(), false, "默认不换 API");
-assert.equal(await page.locator(".pa-sheet [data-f=persona]").isChecked(), false, "方案没记人设时默认不换人设");
-await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
-assert.equal((await S()).schemes.find((x) => x.name === "带API").conn.model, "claude-x");
+await editOpen("带API");
+assert.equal(await page.locator(`${top} [data-f=refresh]`).isChecked(), false, "默认不刷新开关");
+await editSave();
+assert.equal((await S()).schemes.find((x) => x.name === "带API").conn.model, "claude-x", "只保存不改 API");
 assert.equal((await S()).schemes.find((x) => x.name === "带API").persona, null);
-await page.locator(".pa-pick-item").filter({ hasText: /^人设/ }).click(); await page.waitForTimeout(200);
-await page.selectOption(".pa-sheet [data-f=persona]", "u.png");
-await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
+await editOpen("带API");
+await page.selectOption(`${top} [data-f=persona]`, "u.png");
+await editSave();
 assert.equal((await S()).schemes.find((x) => x.name === "带API").personaName, "我", "✏️ 里改人设");
-await page.click(".pa-pick-item >> text=API 和模型"); await page.waitForTimeout(200);
-await page.selectOption(".pa-sheet [data-f=api]", "__none");
-await page.locator(".pa-sheet-actions .pa-btn-primary").last().click(); await page.waitForTimeout(300);
+await editOpen("带API");
+await page.selectOption(`${top} [data-f=api]`, "__none");
+await editSave();
 assert.equal((await S()).schemes.find((x) => x.name === "带API").conn, null);
+// 删除方案：确认框点「取消」时编辑窗还在
+await editOpen("带API");
+await page.locator(`${top} .pa-sheet-actions .pa-btn`, { hasText: "删除方案" }).click(); await page.waitForTimeout(250);
+await page.locator(`${top} .pa-sheet-actions .pa-btn`, { hasText: "取消" }).last().click(); await page.waitForTimeout(250);
+assert.match(await page.locator(`${top} .pa-sheet-head`).last().innerText(), /编辑方案/, "取消删除后编辑窗还在");
 await closeSheet(); await page.waitForTimeout(300);
-ok("覆盖时人设、API 默认保留；✏️ 里改人设；「API 和模型」可改回不记录");
+ok("编辑方案：只保存不动 API；改人设；API 可改回不记录；删除可取消");
 
 assert.deepEqual(errs, []);
 console.log("方案检查全部通过");

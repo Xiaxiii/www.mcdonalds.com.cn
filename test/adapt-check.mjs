@@ -26,7 +26,14 @@ const scan = (page, where) => page.evaluate((where) => {
   for (let i = 0; i < els.length; i++) for (let j = i + 1; j < els.length; j++) {
     const a = els[i], b = els[j];
     if (a.contains(b) || b.contains(a) || a.type === "range" || b.type === "range") continue;
-    const p = a.getBoundingClientRect(), q = b.getBoundingClientRect();
+    // 2.12.17 滚动框里的按钮按看得见的部分算：滚到框外（被底栏所在的区域截掉）的不算压住
+    const clip = (e) => {
+      const r = e.getBoundingClientRect(), box = e.closest(".pa-scroll");
+      if (!box || box.contains(a) && box.contains(b)) return r;
+      const c = box.getBoundingClientRect();
+      return { left: Math.max(r.left, c.left), right: Math.min(r.right, c.right), top: Math.max(r.top, c.top), bottom: Math.min(r.bottom, c.bottom) };
+    };
+    const p = clip(a), q = clip(b);
     const x = Math.min(p.right, q.right) - Math.max(p.left, q.left), y = Math.min(p.bottom, q.bottom) - Math.max(p.top, q.top);
     if (x > 2 && y > 2) out.push(`压住：${name(a)} 和 ${name(b)}`);
   }
@@ -64,7 +71,7 @@ for (const [label, w, h, mobile, fs] of sizes) {
     await esc();
   }
   await go("世界书", () => page.evaluate(() => window.__mcdonalds.open("books")));
-  await go("世界书·打开", () => page.locator('.pa-bk-row[data-book="示例世界书"] .pa-peek').click());
+  await go("世界书·打开", () => page.locator('.pa-bk-row[data-book="示例世界书"] .pa-name').click());
   await go("正则", () => page.evaluate(() => window.__mcdonalds.open("rx")));
   await go("文字大小", () => page.evaluate(() => window.__mcdonalds.open("more", "look")));
   if (errs.length) problems.push(`${label}：页面报错 ${errs[0]}`);

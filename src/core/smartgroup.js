@@ -231,7 +231,7 @@ function groupingSuggestions(draft) {
     const ids = order.slice(sec.openIdx, sec.closeIdx + 1);
     const occupied = ids.some((id) => draft.groupOf(id) || used.has(id));
     if (occupied && !known.has(groupTitleKey(sec.name))) continue;
-    offer(sec.name, ids, sec.comment ? "正文 START/END 分区" : "正文跨条目标签分区");
+    offer(sec.name, ids, sec.comment ? "正文 START/END 分组" : "正文跨条目标签分组");
   }
   const signatures = new Map();
   const signature = (p) => {
@@ -257,7 +257,7 @@ function groupingSuggestions(draft) {
       const bracket = /^\s*[【\[（(]([^】\]）)\n]{1,50})[】\]）)]/.exec(label);
       const prefix = /^\s*(.{1,50}?)\s*[|｜:：·—–-]\s*\S/.exec(label);
       for (const name of [label, bracket?.[1], prefix?.[1]].filter(Boolean)) {
-        for (const gid of known.get(groupTitleKey(name)) || []) targets.set(gid, "条目名称含明确分区名称");
+        for (const gid of known.get(groupTitleKey(name)) || []) targets.set(gid, "条目名称含明确分组名称");
       }
       const sig = signature(p), owners = sig && signatures.get(sig.key);
       if (owners?.size === 1) {
@@ -295,7 +295,7 @@ function planGroupingAssignments(draft, assignments) {
     if (!a.ids.length || a.ids.some((id) => !position.has(id) || !next.prompt(id) || next.isMarker(id) || draft.groupOf(id) || used.has(id))) throw new Error("条目不存在、已有归属或被重复分配，请重新识别");
     const ids = next.sortByOrder(a.ids);
     if (a.targetGroupId) {
-      if (!next.group(a.targetGroupId)) throw new Error("目标分区已不存在，请重新识别");
+      if (!next.group(a.targetGroupId)) throw new Error("目标分组已不存在，请重新识别");
       next.gatherGroup(a.targetGroupId);
       const members = next.order.filter((o) => next.groupOf(o.identifier) === a.targetGroupId);
       const last = members[members.length - 1]?.identifier, p = last && next.prompt(last);

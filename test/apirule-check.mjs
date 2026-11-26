@@ -54,7 +54,8 @@ await page.waitForTimeout(1200);
 assert.equal((await live()).url, "https://mine/v1", "换预设 API 不变");
 ok("换预设：API 不变");
 
-// 4) 2.4.0：选项一行，只有方框管勾选；点这一行其他地方展开规则
+// 4) 2.4.0：选项一行，只有开关管勾选；点这一行其他地方展开规则。2.12.16 移到「设置」页
+await page.evaluate(() => window.__mcdonalds.open("more", "look")); await page.waitForTimeout(300);
 const card = page.locator(".pa-optgroup[data-w=chattoast]");
 const box = card.locator("input[data-o=chattoast]");
 assert.equal(await card.locator("input[type=checkbox]").count(), 1);

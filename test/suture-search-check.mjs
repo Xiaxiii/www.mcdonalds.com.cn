@@ -36,15 +36,15 @@ await rows.first().click(); await page.waitForTimeout(200);
 assert.match(await page.locator(".pa-picked-n").innerText(), /已选 1 条/, "筛出来的条目直接点选");
 assert.equal(await page.inputValue(srcQ), kw, "点选后搜的词还在");
 await page.locator(srcQ).blur(); await page.waitForTimeout(200);
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureQuery.qSrc), kw);
+assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureQuery), undefined, "搜的词不写进设置");
 await page.screenshot({ path: S + "ss-1-src.png" });
-ok("来源：列表上方直接搜，点了就选，搜的词记着");
+ok("来源：列表上方直接搜，点了就选");
 
-// 重开面板：词还在，搜索框展开
+// 2.12.17 切页签回来：词还在，搜索框展开（面板开着时记在内存里）
 await page.evaluate(() => window.__mcdonalds.open("organize")); await page.evaluate(() => window.__mcdonalds.open("suture")); await page.waitForTimeout(300);
 assert.equal(await page.locator(srcQ).isVisible(), true);
 assert.equal(await page.inputValue(srcQ), kw);
-ok("重开后搜索框和词都在");
+ok("切页签回来，搜索框和词都在");
 
 // 目标：手机上默认「从 | 到」切换，先切到「到」；同样筛出来，点一条定缝合位置
 assert.equal(await page.locator(".pa-swbar").isVisible(), true, "390 宽默认切换布局");
@@ -63,11 +63,20 @@ await page.click('[data-sw="src"]'); await page.waitForTimeout(200);
 await page.click(".pa-qrow[data-qside=src] .pa-qx"); await page.waitForTimeout(300);
 assert.equal(await page.locator(srcQ).isVisible(), false);
 assert.equal(await page.locator(".pa-src-list .pa-row").count(), before, "清除后恢复原样");
-assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.sutureQuery.qSrc), "");
+assert.equal(await page.inputValue(srcQ), "");
 await page.click('[data-sw="dst"]'); await page.waitForTimeout(200);
 await page.click("[data-st=dstsearch]"); await page.waitForTimeout(300);
 assert.equal(await page.locator(dstQ).isVisible(), false, "再点放大镜收起");
 ok("✕ 或再点放大镜：清除并收起");
+
+// 关掉面板再打开：搜的词清空，列表不再按旧词筛
+await page.click('[data-sw="src"]'); await page.waitForTimeout(150);
+await page.click("[data-st=srcsearch]"); await page.fill(srcQ, kw); await page.waitForTimeout(400);
+await page.click('.pa-top [data-g="close"]'); await page.waitForTimeout(400);
+await page.evaluate(() => window.__mcdonalds.open("suture")); await page.waitForTimeout(400);
+assert.equal(await page.locator(srcQ).isVisible(), false, "重开面板后搜索框收起");
+assert.equal(await page.locator(".pa-src-list .pa-row").count(), before, "重开面板后列表不按旧词筛");
+ok("关掉面板再打开：搜的词清空");
 
 assert.deepEqual(errs, []);
 console.log("缝合搜索检查通过");

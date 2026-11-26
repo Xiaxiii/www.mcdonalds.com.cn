@@ -450,6 +450,7 @@ async function editReasoning(name, init, live) {
     title: `推理格式：${name}`,
     body,
     noFocus: true,
+    guardDirty: true,
     actions: [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: (w) => {
       const out = { ...init };
       w.querySelectorAll("[data-k]").forEach((x) => {
@@ -795,22 +796,23 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const balAll = balShown() && sites().some((x) => balSupported(x.source));
     const allBusy = !!BAL.all;
     const balAllBtn = balAll ? `<button class="pa-head-ico pa-balall${allBusy ? " pa-pig-busy" : ""}" data-a="balall" type="button" aria-label="${allBusy ? "正在查询全部站点的余额" : "查询全部站点的余额"}" title="查询全部站点的余额"${allBusy ? " disabled" : ""}>${ICON.piggy}</button>` : "";
+    // 2.12.17 标题右边：查余额、＋、⋯（导入、导出、排序与删除）。导入导出不再藏在铅笔里
     const headBtns = sitesEditing
-      ? `${fileIn("pa-swpill", "导入")}<button class="pa-swpill" data-a="exportsites" type="button" title="把站点和密钥存成 JSON 文件">导出</button><button class="pa-swpill pa-done-pill" data-a="sitesdone" type="button">完成</button>`
-      : `${balAllBtn}${n ? `<button class="pa-head-ico" data-a="sitesedit" type="button" aria-label="编辑站点：删除、导入、导出" title="编辑：删除、导入、导出">${ICON.pencil}</button>` : ""}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
+      ? `<button class="pa-swpill pa-done-pill" data-a="sitesdone" type="button">完成</button>`
+      : `${balAllBtn}<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button><button class="pa-head-ico" data-a="sitesmenu" type="button" aria-label="站点：导入、导出、排序与删除" title="导入、导出、排序与删除">${ICON.more}</button>`;
     sitesBox.innerHTML = `
         <div class="pa-row-head"><h3 class="pa-h">站点${n ? whyBtn("sites") : ""}</h3><div class="pa-head-btns">${headBtns}</div></div>
-        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。导出的文件可在重装、换设备后导入。" : `点站点名修改详情、填余额。${balAll ? "点小猪查询全部站点的余额。" : ""}点铅笔可删除站点、导入或导出站点文件。`)}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
+        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。" : `点站点名修改详情、填余额。${balAll ? "点小猪查询全部站点的余额。" : ""}点 ⋯ 导入、导出站点文件，或排序、删除站点。导出的文件可在重装、换设备后导入。`)}${sites().map(siteRow).join("")}` : `<p class="pa-empty">暂无站点。可点 ＋ 添加、${fileIn("pa-link", "从文件导入")}，或保存上方的当前连接。</p>`}`;
     optsBox.innerHTML = `
         ${optCard("chattoast", `<input type="checkbox" data-o="chattoast" aria-label="换角色或聊天时，提示当前预设和模型" ${s.chatToast !== false ? "checked" : ""}>`, "换角色或聊天时，提示当前预设和模型", 0,
           info("换角色或聊天", "弹出当前预设和模型，3 秒后消失") + info("换预设", "API 不变") + info("切换方案", "预设、条目开关、人设一起换；方案记了 API 的也换"))}
         ${optCard("reasoning", `<input type="checkbox" data-o="reasoningfollow" aria-label="切换预设时，同时切换推理格式" ${follow ? "checked" : ""}>`, "切换预设时，同时切换推理格式", rows.length, reasoningBody)}`;
   }
-  // 2.4.0 选项行：只有方框管勾选，点这一行其他地方展开
+  // 2.4.0 选项行：点这一行展开说明。2.12.16 左边箭头加标题展开，右边独立的开关（和「自动备份」一致）
   function optCard(key, check, label, count, body) {
     const on = foldGet("opts", key);
     return `<section class="pa-sgroup pa-optgroup${on ? " open" : ""}" data-w="${key}">
-        <header class="pa-sghead pa-opthead" data-a="optfold" tabindex="0" aria-expanded="${on}"><label class="pa-optcheck">${check}</label><span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<span class="pa-sgcaret">${on ? "▾" : "▸"}</span></header>
+        <header class="pa-sghead pa-opthead" data-a="optfold" role="button" tabindex="0" aria-expanded="${on}"><span class="pa-sgcaret" aria-hidden="true">${on ? "▾" : "▸"}</span><span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<label class="pa-switch pa-optcheck">${check}<i></i></label></header>
         ${on ? `<div class="pa-sgbody">${body}</div>` : ""}</section>`;
   }
   // 跟随开着时，当前预设的记录就是酒馆现在的设置（离开时会照它记下），所以显示实时值，不给删除
@@ -985,7 +987,6 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const r = await sheet({
       title: isNew ? "添加站点" : `编辑「${s.name}」`,
       body,
-      wide: true,
       noFocus: !isNew,
       guardDirty: (w) => JSON.stringify([read(w), ks.map((k) => [k.id, k.name, typed.get(k.id) || ""])]),
       onMount: (w) => {
@@ -1298,6 +1299,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return false;
     }
   }
+  const n0 = () => sites().length;
   async function exportSites(btn) {
     const list = sites();
     if (!list.length) return toast("还没有站点");
@@ -1678,6 +1680,13 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         toast("拉取失败：" + err.message, "error");
       }
       return render();
+    }
+    if (a === "sitesmenu") {
+      const r = await addMenu("站点", [...n0() ? [{ label: "导出站点…", sub: "存成 JSON 文件", value: "export" }, { label: "排序与删除", value: "edit" }] : []], "导入站点…", btn);
+      if (r?.file) return importSites(r.file);
+      if (r?.value === "export") return exportSites(btn);
+      if (r?.value === "edit") { sitesEditing = true; return render(); }
+      return;
     }
     if (a === "sitesedit" || a === "sitesdone") {
       sitesEditing = a === "sitesedit";

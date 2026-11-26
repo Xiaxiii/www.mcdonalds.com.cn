@@ -113,11 +113,14 @@ function regexEditForm(rule) {
   return { body, read, validate };
 }
 // 2.12.16 onDelete 在窗口关闭前问「删除正则」并删掉：在确认框点「取消」时窗口和填写的内容都还在
-async function regexEditSheet(rule, { onDelete } = {}) {
+// 2.12.17 onCopy：「复制」把表单里现在的内容另存一条（放在这条后面），返回 "copy"
+async function regexEditSheet(rule, { onDelete, onCopy, title } = {}) {
   const { body, read, validate } = regexEditForm(rule);
   return sheet({
-    title: rule.scriptName || "编辑正则", body, wide: true, noFocus: true, guardDirty: true,
-    actions: [...onDelete ? [{ label: "删除", kind: "danger-soft", value: "delete", validate: async () => !!await onDelete() }] : [], { label: "取消", value: null }, { label: "保存", kind: "primary", value: read, validate }],
+    title: title || rule.scriptName || "编辑正则", body, wide: true, noFocus: true, guardDirty: true,
+    actions: [...onDelete ? [{ label: "删除", kind: "danger-soft", value: "delete", validate: async () => !!await onDelete() }] : [],
+      ...onCopy ? [{ label: "复制", value: "copy", validate: async () => await validate() && !!await onCopy(read()) }] : [],
+      { label: "取消", value: null }, { label: "保存", kind: "primary", value: read, validate }],
     onMount: (w) => {
       const sh = w.querySelector(".pa-sheet");
       sh.classList.add("pa-sheet-rxedit");
@@ -126,10 +129,11 @@ async function regexEditSheet(rule, { onDelete } = {}) {
   });
 }
 function mountRegexPage(page) {
-  const st = { query: "", delMode: false, delSel: new Set(), delOpenedSearch: false };
+  const st = { query: "", delMode: false, delSel: new Set() };
   page.innerHTML = `
     <div class="pa-toolbar">
       <div class="pa-picker-slot"></div>
+      <button class="pa-icon-btn" data-r="add" aria-label="新建或导入正则" title="新建或导入正则">${ICON.plus}</button>
       <button class="pa-icon-btn" data-r="search" aria-label="搜索正则" title="搜索正则">${ICON.search}</button>
       <button class="pa-icon-btn pa-del" data-r="delmany" aria-label="删除正则" aria-pressed="false" title="多选删除正则">${ICON.trash}</button>
       <div class="pa-findrow pa-qrow" style="${BOX_STYLE}" hidden><input class="pa-input pa-find" style="${FIELD_STYLE}" type="text" inputmode="search" enterkeyhint="search" autocorrect="off" autocapitalize="off" autocomplete="off" spellcheck="false" placeholder="搜正则名称或查找内容" aria-label="搜索正则"><button type="button" class="pa-icon-btn pa-qx" data-r="searchclose" aria-label="关闭搜索"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
@@ -167,7 +171,7 @@ function mountRegexPage(page) {
     Object.assign(pane, { kind, i, rule: r, form, start: JSON.stringify(form.read()) });
     paneEl.innerHTML = `<div class="pa-editpane-head"><b></b><button class="pa-icon-btn" data-ep="x" aria-label="关闭编辑栏" title="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
       <div class="pa-editpane-body"></div>
-      <div class="pa-editpane-foot"><button class="pa-btn pa-btn-danger-soft pa-ep-del" data-ep="del">删除</button><button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
+      <div class="pa-editpane-foot"><button class="pa-btn pa-btn-danger-soft pa-ep-del" data-ep="del">删除</button><button class="pa-btn" data-ep="copy" title="把现在填的内容另存一条，放在这条后面">复制</button><button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
     paneEl.querySelector(".pa-editpane-head b").textContent = presetRegexRuleName(r);
     paneEl.querySelector(".pa-editpane-body").append(form.body);
     paneEl.hidden = false;
@@ -184,6 +188,12 @@ function mountRegexPage(page) {
     const { kind, i, rule } = pane;
     if (a === "del") {
       if (await remove(kind, i, rule)) closePane();
+      return;
+    }
+    if (a === "copy") {
+      if (!await pane.form.validate()) return;
+      const at = await duplicate(kind, i, pane.form.read());
+      if (at != null) { const cur = ruleOf(kind, at); if (cur) openPane(kind, at, cur); }
       return;
     }
     if (a === "save") {
@@ -234,9 +244,8 @@ function mountRegexPage(page) {
       const picked = st.delMode && st.delSel.has(r);
       return `<div class="pa-row pa-rx-row${on ? "" : " pa-off"}${!st.delMode && pane.kind === g.kind && pane.i === i ? " pa-editing" : ""}${picked ? " pa-sel" : ""}" data-kind="${g.kind}" data-i="${i}" tabindex="0">
           ${st.delMode ? '<span class="pa-check" aria-hidden="true"></span>' : ""}
-          <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
-          ${st.delMode ? "" : `<button class="pa-icon-btn pa-peek" data-r="peek" aria-label="查看或编辑「${esc(name)}」" title="查看或编辑">${ICON.eye}</button>
-          <label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>`}
+          <span class="pa-namebox"><span class="pa-nameline"><span class="pa-name" title="${esc(name)}">${markText(name, q)}</span></span><small class="pa-meta"><span>${esc(presetRegexRuleScope(r))}</span>${where.length ? `<span>${esc(where.join("、"))}</span>` : ""}</small></span>
+          ${st.delMode ? "" : `<label class="pa-switch"><input type="checkbox" data-r="toggle" aria-label="开启「${esc(name)}」" ${on ? "checked" : ""}><i></i></label>`}
         </div>`;
     };
     const onCount = (g, idx) => idx.filter((i) => g.rules[i] && !g.rules[i].disabled).length;
@@ -307,19 +316,10 @@ function mountRegexPage(page) {
       const total = groups().reduce((sum, g) => sum + g.rules.filter((r) => r && typeof r === "object").length, 0);
       if (!total) return toast("没有可删的正则");
     }
-    const qrow = page.querySelector(".pa-findrow");
+    // 2.12.17 进多选删除不再自动展开搜索框
     st.delMode = !!on;
     st.delSel.clear();
-    if (st.delMode) {
-      closePane();
-      st.delOpenedSearch = qrow.hidden;
-      if (qrow.hidden) qrow.hidden = false;
-    } else if (st.delOpenedSearch) {
-      st.delOpenedSearch = false;
-      qrow.hidden = true;
-      search.value = "";
-      st.query = "";
-    }
+    if (st.delMode) closePane();
     render();
   }
   function ruleOf(kind, i) {
@@ -366,12 +366,63 @@ function mountRegexPage(page) {
     render();
     return true;
   }
+  // 2.12.17 写入一条新正则（新建、复制）：放在 at，返回它的位置；没写成返回 null
+  async function insertRule(kind, rule, at) {
+    try {
+      if (kind === "preset") {
+        const d = getDraft(focusPreset());
+        mutate(d, "新建正则", (x) => {
+          const ext = x.preset.extensions ||= {};
+          const list = Array.isArray(ext.regex_scripts) ? ext.regex_scripts : (ext.regex_scripts = []);
+          list.splice(at ?? list.length, 0, rule);
+        });
+        if (d.name === currentPresetName()) noteRegexDisplay(rule);
+        at ??= presetRegexList(d).length - 1;
+      } else if (kind === "char") {
+        const ci = currentChar();
+        if (!ci) throw new Error("没有打开角色");
+        await insertCharRegex(ci, rule, at);
+        at ??= charRegexList(ci).length - 1;
+      } else {
+        insertGlobalRegex(rule, at);
+        at ??= globalRegexList().length - 1;
+      }
+    } catch (e) {
+      toast("保存失败：" + e.message, "error");
+      return null;
+    }
+    render();
+    return at;
+  }
+  // 复制一条：用表单里现在的内容（没保存的修改也带上），放在原来那条后面
+  async function duplicate(kind, i, cur) {
+    const copy = { ...structuredClone(cur), id: uid(), scriptName: `${presetRegexRuleName(cur)}（副本）` };
+    const at = await insertRule(kind, copy, i + 1);
+    if (at != null) toast(`已复制为「${copy.scriptName}」`, "success");
+    return at;
+  }
+  const RX_BLANK = () => ({ id: uid(), scriptName: "", findRegex: "", replaceString: "", trimStrings: [], placement: [2], disabled: false, markdownOnly: false, promptOnly: false, runOnEdit: true, substituteRegex: 0, minDepth: null, maxDepth: null });
+  async function createRule() {
+    const where = [];
+    try { where.push({ label: `预设「${getDraft(focusPreset()).name}」`, sub: "随预设走，可在页头撤销", value: "preset" }); } catch {}
+    const ci = currentChar();
+    if (ci) where.push({ label: `角色卡「${ci.name}」`, sub: "只对这个角色生效", value: "char" });
+    where.push({ label: "全局", sub: "所有角色、预设", value: "global" });
+    const kind = await pickBox("新正则存到哪里", where, { anchor: null });
+    if (!kind) return;
+    const next = await regexEditSheet(RX_BLANK(), { title: "新建正则" });
+    if (!next || typeof next !== "object") return;
+    const at = await insertRule(kind, next);
+    if (at == null) return;
+    toast(`已新建「${presetRegexRuleName(next)}」`, "success");
+    if (kind === "char" && !charRegexAllowed(ci)) toast("酒馆还没允许这张角色卡的正则，在列表里点「允许」后生效", "warning");
+  }
   async function peek(kind, i) {
     const r = ruleOf(kind, i);
     if (!r) return;
     if (wide()) return openPane(kind, i, r);
-    const next = await regexEditSheet(r, { onDelete: () => remove(kind, i, r) });
-    if (!next || next === "delete") return;
+    const next = await regexEditSheet(r, { onDelete: () => remove(kind, i, r), onCopy: async (cur) => await duplicate(kind, i, cur) != null });
+    if (!next || next === "delete" || next === "copy") return;
     return applyEdit(kind, i, r, next);
   }
   // 写回改好的正则。成功返回 true
@@ -449,7 +500,9 @@ function mountRegexPage(page) {
       if (r && typeof r === "object" && st.delSel.has(r)) pick.push({ kind: g.kind, rule: r });
     }
     if (!pick.length) return;
-    if (!await confirmBox("删除正则", `删除选中的 ${pick.length} 条正则？预设里的正则删除后可在页头撤销，角色卡和全局的不能撤销。`, "删除", true)) return;
+    const nPreset = pick.filter((x) => x.kind === "preset").length, nOther = pick.length - nPreset;
+    const how = [nPreset ? `预设正则 ${nPreset} 条，删除后可在页头撤销` : "", nOther ? `角色卡、全局正则 ${nOther} 条，删除后不能撤销` : ""].filter(Boolean).join("；");
+    if (!await confirmBox("删除正则", `删除选中的 ${pick.length} 条正则？${how}。`, "删除", true)) return;
     let n = 0;
     const fail = [];
     for (const kind of ["preset", "char", "global"]) {
@@ -481,9 +534,15 @@ function mountRegexPage(page) {
     if (fail.length) toast("没删完：" + fail.join("；"), "error");
     setDelMode(false);
   }
-  page.querySelector(".pa-toolbar").addEventListener("click", (e) => {
+  page.querySelector(".pa-toolbar").addEventListener("click", async (e) => {
     const b = e.target.closest("[data-r]")?.dataset.r;
     if (b === "delmany") return void setDelMode(!st.delMode);
+    if (b === "add") {
+      const r = await addMenu("正则", [{ label: "＋ 新建正则", value: "new" }], "导入正则文件…", e.target.closest("button"));
+      if (r?.value === "new") return createRule();
+      if (r?.file) { await importFile(r.file, "regex"); render(); }
+      return;
+    }
     if (b !== "search" && b !== "searchclose") return;
     const r = page.querySelector(".pa-findrow");
     r.hidden = b === "searchclose" || !r.hidden;

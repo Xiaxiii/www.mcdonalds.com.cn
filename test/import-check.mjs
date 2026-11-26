@@ -40,18 +40,18 @@ async function openImport() {
 const pickInSheet = async (text) => { await page.locator(`${top} .pa-pick-item`).filter({ hasText: text }).click(); await page.waitForTimeout(300); };
 const toasts = () => page.evaluate(() => window.__toasts);
 
-// 弹窗：三项，每一项本身就是选文件的按钮
+// 2.12.17 弹窗：一个选文件的按钮，按内容认出是预设、世界书还是正则
 await openImport();
-const items = await page.$$eval(`${top} .pa-import .pa-pick-item`, (ls) => ls.map((l) => ({ tag: l.tagName, text: l.querySelector(".pa-pick-label").textContent, file: !!l.querySelector("input[type=file]") })));
-assert.deepStrictEqual(items.map((x) => x.text), ["预设", "世界书", "正则"]);
-assert.ok(items.every((x) => x.tag === "LABEL" && x.file), "每一项都是包着文件框的 label：手机上点到就直接选文件");
+const items = await page.$$eval(`${top} .pa-import .pa-pick-item`, (ls) => ls.map((l) => ({ tag: l.tagName, file: !!l.querySelector("input[type=file]") })));
+assert.strictEqual(items.length, 1, "只有一个选文件的按钮");
+assert.ok(items[0].tag === "LABEL" && items[0].file, "按钮是包着文件框的 label：手机上点到就直接选文件");
 await page.screenshot({ path: S + "import-1-sheet.png" });
-console.log("✓ 「⋯ → 导入…」：预设、世界书、正则三项，点哪项就选哪种文件");
+console.log("✓ 「⋯ → 导入…」：一个选文件的按钮，不用先选种类");
 
 // 预设：新名字
 const P = (id, name, content) => ({ identifier: id, name, content, role: "system", system_prompt: false, marker: false, injection_position: 0, injection_depth: 4, injection_order: 100 });
 const preset = { prompts: [P("a", "开头", "你好"), P("b", "收尾", "再见")], prompt_order: [{ character_id: 100001, order: [{ identifier: "a", enabled: true }, { identifier: "b", enabled: true }] }], temperature: 1 };
-await page.setInputFiles(`${top} input[data-imp=preset]`, json("导入测试.json", preset));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("导入测试.json", preset));
 await page.waitForTimeout(600);
 assert.strictEqual(savedPresets.at(-1)?.name, "导入测试");
 assert.ok(await page.evaluate(() => window.__mock.names.includes("导入测试") || Object.keys(window.SillyTavern.getContext().getPresetManager().getPresetList().preset_names).includes("导入测试")), "加进预设列表");
@@ -61,7 +61,7 @@ console.log("✓ 导入预设：存成新预设，条目页切过去");
 
 // 预设：同名，另存为「名字 (2)」
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=preset]`, json("导入测试.json", preset));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("导入测试.json", preset));
 await page.waitForSelector(`${top} .pa-pick-item`);
 assert.match(await page.textContent(`${top} .pa-sheet-head`), /已有叫「导入测试」的预设/);
 await pickInSheet("另存为");
@@ -71,7 +71,7 @@ console.log("✓ 同名预设可另存为「名字 (2)」");
 // 预设：同名覆盖，是一次可撤销的修改
 const covered = { ...preset, prompts: [P("a", "开头", "覆盖后的正文"), P("c", "新条目", "新的")], prompt_order: [{ character_id: 100001, order: [{ identifier: "a", enabled: true }, { identifier: "c", enabled: true }] }] };
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=preset]`, json("导入测试.json", covered));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("导入测试.json", covered));
 await page.waitForSelector(`${top} .pa-pick-item`);
 await pickInSheet("覆盖");
 await page.waitForTimeout(400);
@@ -82,12 +82,12 @@ console.log("✓ 同名预设覆盖：当作一次修改，页头可撤销");
 
 // 世界书：酒馆格式照存；角色卡格式换成酒馆写法
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=world]`, json("新世界书.json", { entries: { 0: { uid: 0, key: ["甲"], comment: "条目甲", content: "甲的设定", constant: false, disable: false, position: 0, order: 100 } } }));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("新世界书.json", { entries: { 0: { uid: 0, key: ["甲"], comment: "条目甲", content: "甲的设定", constant: false, disable: false, position: 0, order: 100 } } }));
 await page.waitForTimeout(500);
 let wb = await page.evaluate(async () => { const wi = await import("/test/site/scripts/world-info.js"); return { names: [...wi.world_names], book: await wi.loadWorldInfo("新世界书") }; });
 assert.ok(wb.names.includes("新世界书") && wb.book.entries[0].content === "甲的设定");
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=world]`, json("角色卡的书.json", { name: "x", character_book: { entries: [{ keys: ["乙"], content: "乙的设定", enabled: false, insertion_order: 30, comment: "条目乙", extensions: { position: 1, depth: 2 } }] } }));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("角色卡的书.json", { name: "x", character_book: { entries: [{ keys: ["乙"], content: "乙的设定", enabled: false, insertion_order: 30, comment: "条目乙", extensions: { position: 1, depth: 2 } }] } }));
 await page.waitForTimeout(500);
 wb = await page.evaluate(async () => { const wi = await import("/test/site/scripts/world-info.js"); return (await wi.loadWorldInfo("角色卡的书")).entries; });
 const e0 = Object.values(wb)[0];
@@ -97,7 +97,7 @@ console.log("✓ 导入世界书：酒馆格式照存，角色卡格式换成酒
 // 正则：导到全局，重复的跳过
 const rx = [{ id: "r1", scriptName: "去空行", findRegex: "/\\n{3,}/g", replaceString: "\\n\\n", placement: [2], disabled: false, markdownOnly: true, promptOnly: false }, { scriptName: "去星号", findRegex: "/\\*/g", replaceString: "", placement: [2] }];
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=regex]`, json("两条正则.json", rx));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("两条正则.json", rx));
 await page.waitForSelector(`${top} .pa-pick-item`);
 assert.match(await page.textContent(`${top} .pa-sheet-head`), /2 条正则导入到哪里/);
 await pickInSheet("全局");
@@ -105,7 +105,7 @@ let g = await page.evaluate(() => window.SillyTavern.getContext().extensionSetti
 assert.ok(g.some((r) => r[0] === "去空行") && g.some((r) => r[0] === "去星号" && r[1] === "id"), "两条都进了全局，没有 id 的补上：" + JSON.stringify(g));
 const n1 = g.length;
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=regex]`, json("两条正则.json", rx));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("两条正则.json", rx));
 await page.waitForSelector(`${top} .pa-pick-item`);
 await pickInSheet("全局");
 g = await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.regex.length);
@@ -114,7 +114,7 @@ console.log("✓ 导入正则到全局，重复的跳过");
 
 // 正则：导进当前预设，走缝合正则的窗口
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=regex]`, json("两条正则.json", rx));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("两条正则.json", rx));
 await page.waitForSelector(`${top} .pa-pick-item`);
 await pickInSheet("预设「导入测试」");
 await page.waitForTimeout(400);
@@ -122,14 +122,14 @@ assert.ok(await page.locator(`${top} .pa-sheet-head`).count() > 0, "打开了缝
 await page.screenshot({ path: S + "import-2-regex-preset.png" });
 console.log("✓ 导入正则到当前预设：打开缝合正则窗口");
 
-// 不是对应类型的文件：说清楚
+// 认不出的文件：说清楚
 await page.keyboard.press("Escape");
 await page.waitForTimeout(300);
 await openImport();
-await page.setInputFiles(`${top} input[data-imp=preset]`, json("不是预设.json", { hello: 1 }));
+await page.setInputFiles(`${top} input[data-imp=auto]`, json("不是预设.json", { hello: 1 }));
 await page.waitForTimeout(400);
-assert.ok((await toasts()).some((t) => t.includes("导入预设失败：不是聊天补全预设")), "类型不对时说明原因");
-console.log("✓ 文件类型不对时说明原因");
+assert.ok((await toasts()).some((t) => t.includes("认不出是哪种文件")), "认不出时说明原因");
+console.log("✓ 认不出的文件说明原因");
 
 assert.deepStrictEqual(errs, []);
 console.log("导入检查通过");

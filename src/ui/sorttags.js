@@ -20,25 +20,28 @@ async function recommendTagCategories(d, ids, categories) {
   return out;
 }
 
+// 2.12.17 直接进排序窗口，不先问「手动 / AI」；窗口顶部「AI 推荐顺序」按钮（会用掉一次请求）
 async function sortTagsDialog(d, ids) {
   if (ids.length < 2) return toast("至少选择两条");
-  const mode = await pickBox("排序方式", [
-    { label: "手动排序", sub: "调整类别先后，类别内按编号排列", value: "manual" },
-    { label: "AI 推荐", sub: "用当前连接生成一次顺序（会用掉一次请求），只发送类别和少量条目名，生成后可调整", value: "ai" }
-  ]);
-  if (!mode) return;
   let categories = [...new Set(ids.map((id) => tagKey(d, id).category))];
   const original = JSON.stringify(d.toPreset());
-  if (mode === "ai") {
-    toast("正在生成推荐顺序…");
+  const body = el(`<div><p class="pa-hint">按条目登记的变量名（如 文风1、文风2）分成几类，调整类别先后；同一类里按编号排。只调整选中的条目，其余条目不动。</p>
+    <div class="pa-toolbar pa-tag-ai"><button class="pa-btn pa-btn-s" data-ai type="button" title="用当前连接生成一次顺序，只发送类别和少量条目名">AI 推荐顺序</button></div>
+    <div class="pa-tag-order"></div><details><summary>预览结果</summary><div class="pa-tag-preview"></div></details></div>`);
+  body.querySelector("[data-ai]").addEventListener("click", async (e) => {
+    const b = e.currentTarget;
+    b.disabled = true;
+    b.textContent = "正在生成…";
     try {
       categories = await recommendTagCategories(d, ids, categories);
-    } catch (e) {
-      toast("AI 推荐失败：" + e.message + "。已改为手动排序", "warning");
+      paint();
+      toast("已按 AI 推荐排好，可再调整", "success");
+    } catch (err) {
+      toast("AI 推荐失败：" + err.message, "warning");
     }
-  }
-  const body = el(`<div><p class="pa-hint">按条目登记的变量名（如 文风1、文风2）分成几类，调整类别先后；同一类里按编号排。只调整选中的条目，其余条目不动。</p>
-    <div class="pa-tag-order"></div><details><summary>预览结果</summary><div class="pa-tag-preview"></div></details></div>`);
+    b.disabled = false;
+    b.textContent = "AI 推荐顺序";
+  });
   function paint() {
     body.querySelector(".pa-tag-order").innerHTML = categories.map((x, i) => `<div class="pa-card pa-row-head"><span>${i + 1}. ${esc(x)}</span><span>
       <button class="pa-btn" data-rank="${i}" data-dir="-1" aria-label="上移" ${i === 0 ? "disabled" : ""}>${ICON.arrowUp}</button>
@@ -55,7 +58,7 @@ async function sortTagsDialog(d, ids) {
     paint();
   });
   paint();
-  const ok = await sheet({ title: "按变量名排序", place: "center", body, wide: true, noFocus: true, actions: [{ label: "取消", value: false }, { label: "应用", kind: "primary", value: true }] });
+  const ok = await sheet({ title: "按变量名排序", place: "center", body, noFocus: true, actions: [{ label: "取消", value: false }, { label: "应用", kind: "primary", value: true }] });
   if (!ok) return;
   if (JSON.stringify(d.toPreset()) !== original) return toast("预设已变化，请重新排序", "warning");
   const sorted = sortTagIds(d, ids, categories);

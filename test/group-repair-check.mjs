@@ -14,7 +14,7 @@ const waitOrder = (page, ids) => page.waitForFunction(({ name, ids }) => {
   const p = window.__mock.presets[window.__mock.names.indexOf(name)];
   return JSON.stringify(p.prompt_order.find(o => o.character_id === 100001).order.map(o => o.identifier)) === JSON.stringify(ids);
 }, { name, ids });
-const dialog = page => page.getByRole('dialog', { name: '归整分散分区', exact: true });
+const dialog = page => page.getByRole('dialog', { name: '归整分散分组', exact: true });
 async function cancel(page) {
   await dialog(page).locator('.pa-sheet-actions button').filter({ hasText: '取消' }).click();
   await dialog(page).waitFor({ state: 'hidden' });
@@ -38,7 +38,7 @@ try {
       window.__mcdonalds.open('organize');
     }, { name, preset: fixture() });
     await choose(page, '.pa-picker-slot .pa-namebtn', name);
-    assert.match(await page.locator('.pa-group-repair').innerText(), /2 个分区/);
+    assert.match(await page.locator('.pa-group-repair').innerText(), /2 个分组/);
     assert.equal(await page.locator('.pa-group[data-gid="a"]').count(), 4);
 
     // 打开预览和取消均不得修改预设。
@@ -61,7 +61,7 @@ try {
     assert.deepEqual(await previewIds(page), partialIds);
     await dialog(page).locator('.pa-btn-primary').click();
     await waitOrder(page, partialIds);
-    assert.match(await page.locator('.pa-group-repair').innerText(), /1 个分区/);
+    assert.match(await page.locator('.pa-group-repair').innerText(), /1 个分组/);
     await page.click('[data-g=undo]'); await waitOrder(page, originalIds);
 
     // 批量移动不改开关、组归属或正文，且一次撤销恢复原来的四段。

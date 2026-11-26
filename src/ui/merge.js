@@ -29,7 +29,8 @@ function mergeDiffHtml(diff, fold) {
   }
   return out.join("") || '<span class="pa-mdl pa-mdl-gap">正文为空</span>';
 }
-async function presetMergeDialog(nextDraft, baseDraft) {
+// 2.12.17 onSwap：窗口里「⇄ 互换」把旧版、新版对调重新比对，不用回到缝合页把来源和目标调过来
+async function presetMergeDialog(nextDraft, baseDraft, { onSwap = null } = {}) {
   let plan;
   try { plan = mergePlan(baseDraft, nextDraft); }
   catch (error) { toast("无法比对：" + error.message, "error"); return false; }
@@ -187,8 +188,10 @@ async function presetMergeDialog(nextDraft, baseDraft) {
     body,
     wide: true,
     noFocus: true,
+    guardDirty: true,
     cls: "pa-sheet-merge",
     actions: [
+      ...onSwap ? [{ label: "⇄ 互换新旧", value: "swap" }] : [],
       { label: "取消", value: false },
       { label: "导出文件", value: false, validate: exportFile },
       { label: "并入旧版", kind: "primary", value: true, validate: () => {
@@ -198,6 +201,7 @@ async function presetMergeDialog(nextDraft, baseDraft) {
     ],
     onMount: (mounted) => { wrap = mounted; paintHead(); }
   });
+  if (accepted === "swap") return onSwap();
   if (!accepted) return false;
   try {
     let stats;

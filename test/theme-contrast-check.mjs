@@ -123,19 +123,11 @@ try {
       const off = await enabled.evaluate(e => ({ border: getComputedStyle(e).borderColor, image: getComputedStyle(e).backgroundImage }));
       assert.ok(ratio(rgb(off.border), theme.bg) >= 3, theme.name + ': 未选边框可分辨');
       assert.equal(off.image, 'none');
-      const total = page.locator('.pa-sheet [data-enable-toggle]');
-      assert.equal(await total.evaluate(e => e.indeterminate), true, '总开关表示部分开启');
-      await page.waitForFunction(() => {
-        const track = document.querySelector('.pa-sheet [data-enable-toggle]')?.nextElementSibling;
-        return track && getComputedStyle(track, '::after').transform === 'matrix(1, 0, 0, 1, 8, 0)';
-      });
-      const mixed = await total.evaluate(e => {
-        const track = e.nextElementSibling;
-        return { border: getComputedStyle(track).borderColor, style: getComputedStyle(track).borderStyle, knob: getComputedStyle(track, '::after').backgroundColor };
-      });
-      assert.equal(mixed.style, 'dashed');
-      assert.ok(ratio(rgb(mixed.border), theme.bg) >= 3, theme.name + ': 混合状态边框清晰');
-      assert.ok(ratio(rgb(mixed.knob), theme.bg) >= 3, theme.name + ': 居中滑块清晰');
+      // 2.12.17 缝后开关是「全关 | 按来源 | 全开」三段：逐条改过后哪段都不亮，三段的字都看得清
+      const segs = page.locator('.pa-sheet [data-enable]');
+      assert.equal(await segs.count(), 3, '缝后开关是三段');
+      assert.equal(await page.locator('.pa-sheet [data-enable="on"][aria-pressed="true"], .pa-sheet [data-enable="off"][aria-pressed="true"]').count(), 0, '部分开启时全开、全关都不亮');
+      for (const c of await segs.evaluateAll(xs => xs.map(x => getComputedStyle(x).color))) assert.ok(ratio(rgb(c), theme.bg) >= 3, theme.name + ': 三段的字清晰');
       await enabled.check();
       assert.equal(await enabled.isChecked(), true, '外观保护不影响开关操作');
       if (theme.name === '浅色' || theme.name === '深色') await page.screenshot({ path: new URL(`./shots/theme-contrast-${mobile ? 'phone' : 'desktop'}-${theme.name === '浅色' ? 'light' : 'dark'}.png`, import.meta.url).pathname });

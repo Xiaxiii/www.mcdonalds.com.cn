@@ -350,6 +350,30 @@ function deleteGlobalRegex(i) {
   syncNativeRegexRow("#saved_regex_scripts", rule, { remove: true });
   noteRegexDisplay(rule);
 }
+// 2.12.17 新建、复制正则：插到 at（省略时放最后）
+function insertGlobalRegex(rule, at) {
+  const all = ctx().extensionSettings;
+  if (!Array.isArray(all.regex)) all.regex = [];
+  all.regex.splice(at ?? all.regex.length, 0, rule);
+  ctx().saveSettingsDebounced();
+  noteRegexDisplay(rule);
+}
+async function insertCharRegex(ci, rule, at) {
+  const ext = ci?.ch?.data?.extensions;
+  if (!ext) throw new Error("读不到这张角色卡");
+  const had = Array.isArray(ext.regex_scripts);
+  const list = had ? ext.regex_scripts : [];
+  const i = at ?? list.length;
+  list.splice(i, 0, rule);
+  try {
+    await writeCharRegex(ci, list);
+    if (!had) ext.regex_scripts = list;
+  } catch (e) {
+    list.splice(i, 1);
+    throw e;
+  }
+  noteRegexDisplay(rule);
+}
 async function writeCharRegex(ci, list) {
   const write = ctx().writeExtensionField;
   if (typeof write !== "function") throw new Error("酒馆版本较旧，不能在这里改角色卡的正则");

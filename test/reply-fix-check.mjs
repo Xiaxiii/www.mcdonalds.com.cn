@@ -119,6 +119,7 @@ try {
   assert.equal(restored.mes, '夜客，我在柜台后面听。 <ECoT>\n[听]\n夜客点出围裙。\n</ECoT>\n<content>正文。</content>');
   assert.equal(restored.extra.reasoning, '');
   ok('推理前缀前多了一句时指出原因，修正移进思考区，撤销还原');
+  await page.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await page.fill('[data-r=sample]', '我需要先检查用户要求，再安排剧情，然后写出符合人设的对话内容。\n<content>故事。</content>');
   await page.click('[data-r=paste]');
   assert.match(await result.innerText(), /爆思维链/);

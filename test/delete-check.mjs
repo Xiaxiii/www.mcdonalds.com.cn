@@ -36,7 +36,7 @@ const nextTo = (a, b) => page.evaluate(([a, b]) => { const x = document.querySel
 const pickRows = () => page.$$eval(`${top} .pa-dm-row`, (xs) => xs.map((x) => (x.querySelector("input").disabled ? "×" : x.querySelector("input").checked ? "✓" : "·") + x.querySelector(".pa-dm-name").textContent));
 const tick = (name) => page.locator(`${top} .pa-dm-row`, { hasText: name }).locator("input").check();
 
-// 正则：原地多选删除模式（留在列表页、原地浮现搜索与全选，退出收起）
+// 正则：原地多选删除模式（留在列表页、底部出现全选、删除栏，不自动展开搜索）
 await page.evaluate(() => window.__mcdonalds.open("rx"));
 await page.waitForTimeout(400);
 assert.strictEqual(await page.locator(".pa-rx-row .pa-del").count(), 0, "行上不再有垃圾桶");
@@ -45,7 +45,7 @@ await page.screenshot({ path: S + "delete-1-rx.png" });
 await page.click("[data-page=rx] [data-r=delmany]");
 await page.waitForSelector("[data-page=rx] .pa-rx-delbar:not([hidden])");
 assert.strictEqual(await page.locator(".pa-sheet-mask:not(.pa-out)").count(), 0, "正则多选删除不再弹出底部抽屉");
-assert.ok(await page.locator("[data-page=rx] .pa-findrow").isVisible(), "原地浮现搜索框");
+assert.ok(await page.locator("[data-page=rx] .pa-findrow").isHidden(), "进多选删除不自动展开搜索框（列表不往下跳）");
 assert.ok(await page.locator("[data-page=rx] [data-rd=confirm]").isDisabled(), "没勾时删除不能点");
 await page.locator(".pa-rx-row", { hasText: "去掉多余空行" }).click();
 assert.strictEqual((await page.textContent("[data-page=rx] [data-rd=confirm]")).trim(), "删除 1 条");
@@ -59,7 +59,7 @@ console.log("✓ 正则：原地多选删除");
 await page.evaluate(() => window.__mcdonalds.open("books"));
 await page.waitForTimeout(400);
 assert.ok(await nextTo("[data-page=books] .pa-bk-bar [data-b=search]", "[data-page=books] .pa-bk-bar [data-b=delmany]") < 12, "列表的垃圾桶紧挨搜索");
-await page.locator('.pa-bk-row[data-book="示例世界书"] .pa-peek').click();
+await page.locator('.pa-bk-row[data-book="示例世界书"] .pa-name').click();
 await page.waitForTimeout(400);
 assert.strictEqual(await page.locator(".pa-bk-dhead .pa-del, .pa-bk-dhead .pa-bk-rename").count(), 0, "详情页顶栏不再外露铅笔和垃圾桶");
 assert.strictEqual(await page.locator('.pa-bk-dhead [data-e="bookmenu"]').count(), 1, "详情页顶栏提供 ⋯ 菜单");

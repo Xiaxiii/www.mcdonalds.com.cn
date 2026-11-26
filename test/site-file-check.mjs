@@ -22,7 +22,10 @@ try {
   });
   await page.waitForTimeout(400);
   const importFile = async (name, text) => {
-    if (await page.locator("[data-a=sitesedit]").count()) { await page.click("[data-a=sitesedit]"); await page.waitForTimeout(150); } await page.setInputFiles("[data-import-sites]", { name, mimeType: "application/json", buffer: Buffer.from(text) });
+    // 2.12.17 有站点时从 ⋯ 菜单导入；没有站点时列表里有「从文件导入」
+    const file = { name, mimeType: "application/json", buffer: Buffer.from(text) };
+    if (await page.locator("[data-import-sites]").count()) await page.setInputFiles("[data-import-sites]", file);
+    else { await page.click("[data-a=sitesmenu]"); await page.waitForTimeout(200); await page.setInputFiles(".pa-sheet-mask:not(.pa-out) input[type=file]", file); }
     await page.waitForTimeout(300);
   };
 
@@ -41,7 +44,9 @@ try {
   const mcdBal = (secretId, url = "https://a.example.com/v1") => page.evaluate(([sid, u]) => JSON.parse(localStorage.getItem(`mcdonalds:balance:default-user:custom\u0001${u}\u0001${sid}`) || "[]"), [secretId, url]);
 
   // 1) 别处的写法：数组、baseUrl / apiKey、api_url + keys
-  assert.equal(await page.locator('[data-a="exportsites"]').count(), 0, "没有站点时不显示导出");
+  await page.click("[data-a=sitesmenu]"); await page.waitForTimeout(200);
+  assert.equal(await page.locator(".pa-sheet-mask:not(.pa-out) .pa-pick-item", { hasText: "导出站点" }).count(), 0, "没有站点时不显示导出");
+  await page.keyboard.press("Escape"); await page.waitForTimeout(200);
   await importFile("my-apis.json", JSON.stringify([
     { name: "A站", baseUrl: "https://a.example.com/v1", apiKey: "sk-aaaa1111", model: "m1", models: ["m1", "m2"], remark: "月卡" },
     { title: "B站", api_url: "https://b.example.com/v1/", keys: [{ name: "按次", key: "sk-bbbb0001" }, { name: "按量", key: "sk-bbbb0002" }] },
@@ -64,7 +69,7 @@ try {
   ok("导入别处写法的文件：预览后新增两个站点，密钥存进密钥库");
 
   // 2) 导出（含密钥）
-  if (await page.locator("[data-a=sitesedit]").count()) { await page.click("[data-a=sitesedit]"); await page.waitForTimeout(150); } await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
+  await page.click("[data-a=sitesmenu]"); await page.waitForTimeout(200); await page.click(".pa-sheet-mask:not(.pa-out) .pa-pick-item >> text=导出站点"); await page.waitForTimeout(200);
   const [dl] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=含密钥")]);
   assert.match(dl.suggestedFilename(), /^api-sites-\d{8}-\d{4}\.json$/);
   const text = fs.readFileSync(await dl.path(), "utf8");
@@ -120,7 +125,7 @@ try {
   assert.deepEqual([t.url, t.model, t.models, t.keyMask, !!t.secretId], ["https://tree.example.ai/v1", "[AWS-A]Claude-opus-4-6", ["[AWS-A-S]Claude-opus-4-6", "[AWS-A]Claude-opus-4-6"], "sk-…1111", true]);
   assert.deepEqual(t.modelCats.map((c) => [c.name, c.models]), [["Claude", ["[AWS-A-S]Claude-opus-4-6", "[AWS-A]Claude-opus-4-6"]], ["常用", ["[AWS-A]Claude-opus-4-6"]]]);
   ok("别的扩展的分组格式：网址、密钥、模型（去掉站点前缀和占位）、当前模型、分类都导进来");
-  if (await page.locator("[data-a=sitesedit]").count()) { await page.click("[data-a=sitesedit]"); await page.waitForTimeout(150); } await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
+  await page.click("[data-a=sitesmenu]"); await page.waitForTimeout(200); await page.click(".pa-sheet-mask:not(.pa-out) .pa-pick-item >> text=导出站点"); await page.waitForTimeout(200);
   const [dl2] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=不含密钥")]);
   const f2 = JSON.parse(fs.readFileSync(await dl2.path(), "utf8"));
   const tree = f2.sites.find((x) => x.name === "🌲");
@@ -132,7 +137,7 @@ try {
   await page.evaluate(() => { for (const k of Object.keys(localStorage)) if (k.startsWith("mcdonalds:keycopy:")) localStorage.removeItem(k); });
   await page.route("**/api/secrets/find", (r) => r.fulfill({ status: 403, body: "Forbidden" }));
   await toasts();
-  if (await page.locator("[data-a=sitesedit]").count()) { await page.click("[data-a=sitesedit]"); await page.waitForTimeout(150); } await page.click('[data-a="exportsites"]'); await page.waitForTimeout(200);
+  await page.click("[data-a=sitesmenu]"); await page.waitForTimeout(200); await page.click(".pa-sheet-mask:not(.pa-out) .pa-pick-item >> text=导出站点"); await page.waitForTimeout(200);
   const [dl3] = await Promise.all([page.waitForEvent("download"), page.click(".pa-pick-item >> text=含密钥")]);
   assert.ok(JSON.parse(fs.readFileSync(await dl3.path(), "utf8")).sites.every((x) => x.keys.every((k) => !k.key)));
   assert.match((await toasts()).join("|"), /warning:.*密钥未写入：酒馆不允许读回已保存的密钥。在酒馆 config\.yaml 中将 allowKeysExposure 改为 true/);

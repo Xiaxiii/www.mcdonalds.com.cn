@@ -36,8 +36,11 @@ assert.equal(await groups(page), "+沈砚 -林栖", "没动过时当前角色那
 // 合上当前组、展开另一组；点开第一个选项
 await page.locator(".pa-sgroup", { hasText: "沈砚" }).locator(".pa-sghead").click(); await page.waitForTimeout(150);
 await page.locator(".pa-sgroup", { hasText: "林栖" }).locator(".pa-sghead").click(); await page.waitForTimeout(150);
+const g1 = await groups(page);
+// 2.12.17 两个选项在设置页
+await page.evaluate(() => window.__mcdonalds.open("more", "look")); await page.waitForTimeout(200);
 await page.locator(".pa-opthead").first().locator(".pa-optlabel").click(); await page.waitForTimeout(150);
-const g1 = await groups(page), o1 = await opts(page);
+const o1 = await opts(page);
 assert.equal(g1, "-沈砚 +林栖");
 assert.match(o1, /^true/);
 const s1 = await saved(page);
@@ -46,8 +49,9 @@ await page.close();
 // 重新打开（带着保存的设置）：与最后一次相同，当前角色那组不会自动展开
 page = await openPage(s1);
 assert.equal(await groups(page), g1, "方案分组保持最后一次");
+await page.evaluate(() => window.__mcdonalds.open("more", "look")); await page.waitForTimeout(200);
 assert.equal(await opts(page), o1, "选项保持最后一次");
-ok("方案页：分组、选项记住最后一次的展开、收起");
+ok("方案页分组、设置页选项记住最后一次的展开、收起");
 await page.close();
 assert.deepEqual(errs, []);
 await browser.close();

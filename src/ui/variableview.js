@@ -4,12 +4,17 @@ function variableForm(d) {
   let snapshot = null;
   const body = el(`<div class="pa-form">
     <div class="pa-toolbar pa-rcheck"><button class="pa-btn" data-vf="refresh">刷新顺序检查</button><button class="pa-btn" data-vf="snapshot">读取当前变量状态</button>${tip(`按「${esc(d.name)}」的预设列表顺序检查先读后写、清空后读取和未读即覆盖。酒馆可能重排提示词；脚本、条件、深度插入、对象/数组键和其他扩展变量需另行核对。`)}</div>
+    <p class="pa-hint pa-vf-why" hidden>读取变量状态只对酒馆正在用的预设有效。点上方「切换」改用这个预设后再读。</p>
     <div class="pa-rcheck"><label class="pa-field-row"><input type="checkbox" data-vf="watch" ${settings().variableWatch ? "checked" : ""}>记录生成前后变量变化</label>${tip("状态只包含变量名、是否为空及类型，不保存正文。生成前后对比仅保留在本页内存中，默认关闭；不是每一次宏调用的执行追踪。")}</div>
     <div data-vf="result" aria-live="polite"></div></div>`);
   const result = body.querySelector('[data-vf="result"]');
   let fixes = [];
   function render() { d.withReadIndex(renderIndexed); }
   function renderIndexed() {
+    // 2.12.17 不是酒馆正在用的预设时，「读取当前变量状态」先变灰并写明原因，不等点了再报错
+    const notCur = d.name !== currentPresetName();
+    body.querySelector('[data-vf="snapshot"]').disabled = notCur;
+    body.querySelector(".pa-vf-why").hidden = !notCur;
     const report = memoByDraft(d, "varflow", () => auditVariableFlow(d)), nm = (id) => esc(d.prompt(id)?.name || id);
     let html = `<p class="pa-p">发现 ${report.issues.length} 项顺序风险，${report.unknown.length} 个条目需运行时核对。</p>`;
     // 2.12.8 每一步写明哪条条目做了什么（条目名可能自己带箭头，名字加「」）；清空后读取写一句改法，
@@ -72,7 +77,7 @@ function variableForm(d) {
 function mountVariables(page) {
   page.innerHTML = '<div class="pa-toolbar"><div class="pa-picker-slot"></div></div><div class="pa-scroll pa-varpage"></div>';
   const box = page.querySelector(".pa-varpage");
-  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
+  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n), { use: true });
   let form = null, shownDraft = null;
   function render() {
     const name = focusPreset();

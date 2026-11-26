@@ -5,7 +5,7 @@ import { choose } from './choose.mjs';
 const browser = await chromium.launch({ executablePath: process.env.PW_CHROME || undefined });
 const errors = [];
 const title = '未分组识别合成测试';
-const dialog = page => page.getByRole('dialog', { name: '识别并归入分区', exact: true });
+const dialog = page => page.getByRole('dialog', { name: '识别并归入分组', exact: true });
 async function start(mobile, preset = fixture()) {
   const page = await browser.newPage({ viewport: mobile ? { width: 390, height: 844 } : { width: 1100, height: 900 }, hasTouch: mobile, isMobile: mobile });
   page.on('pageerror', e => errors.push(e.message));
@@ -86,7 +86,7 @@ try {
     await smart(page, mobile);
     await page.evaluate(() => document.querySelector('.pa-row[data-id="unknown"] [data-act=toggle]').click());
     await sheet.locator('.pa-btn-primary').click();
-    await page.waitForFunction(() => window.__groupingToasts.includes('预设已变化，请重新识别分区'));
+    await page.waitForFunction(() => window.__groupingToasts.includes('预设已变化，请重新识别分组'));
     assert.equal((await saved(page)).extensions.baibaiToolkit.presetPromptGroups.prompts.panel, undefined);
     console.log(`✓ ${mobile ? '手机' : '桌面'}：截图结构识别、已有分区匹配、人工指定、完整预览、保存、撤销与过期保护`);
     await page.close();

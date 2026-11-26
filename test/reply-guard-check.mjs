@@ -65,9 +65,11 @@ try {
   await tab(page, 'check');
   await page.click('[data-r=latest]');
   assert.match(await page.locator('[data-r=result]').innerText(), /缺少完整的 <content>/);
+  await page.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await page.fill('[data-r=sample]', '<content>正文<think>内部分析</think></content>');
   await page.click('[data-r=paste]');
   assert.match(await page.locator('[data-r=result]').innerText(), /正文内部出现/);
+  await page.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await page.fill('[data-r=sample]', '<think><content>正文</content></think>');
   await page.click('[data-r=paste]');
   assert.match(await page.locator('[data-r=result]').innerText(), /吞入思考区/);
@@ -81,6 +83,7 @@ try {
   await page.fill('[data-r=required]', '摘要，状态、摘要');
   await page.fill('[data-r=thinking]', '分析区');
   await tab(page, 'check');
+  await page.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await page.fill('[data-r=sample]', '<分析区>内部文字</分析区><正文>故事正文</正文><摘要>概述</摘要><状态>晴</状态>');
   await page.click('[data-r=paste]');
   assert.match(await page.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
@@ -93,6 +96,7 @@ try {
   await tab(page, 'auto');
   await page.check('[data-r=enabled]');
   await tab(page, 'check');
+  await page.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await page.fill('[data-r=sample]', '仅供手检的未保存样本');
   await close(page, true);
   assert.deepEqual((await settings(page))[active], { bodyTag: '正文', requiredTags: ['摘要', '状态'], thinkingTag: '分析区', enabled: true });
@@ -165,6 +169,7 @@ try {
   await fallback.evaluate(() => { window.SillyTavern.getContext().chat = [{ is_user: false, mes: '开场白' }, { is_system: true, mes: '系统' }, { is_user: true, mes: '用户' }]; });
   await fallback.click('[data-r=latest]');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /没有可检查的 AI 回复/);
+  await fallback.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await fallback.fill('[data-r=sample]', '<content>手检正常</content>');
   await fallback.click('[data-r=paste]');
   assert.match(await fallback.locator('[data-r=result]').innerText(), /未发现配置范围内的格式问题/);
@@ -182,6 +187,7 @@ try {
   assert.equal(layout.overflow, false);
   assert.ok(layout.fields.every((field) => field.left >= -1 && field.right <= layout.width + 1));
   assert.equal(await mobile.locator('[data-r=latest]').isVisible(), true, '移动端可使用最近回复检测');
+  await mobile.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   assert.equal(await mobile.locator('[data-r=paste]').isVisible(), true, '移动端可使用粘贴检测');
   await mobile.fill('[data-r=sample]', '<content>移动端正文</content>');
   await mobile.click('[data-r=paste]');

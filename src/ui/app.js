@@ -117,7 +117,9 @@ function buildRoot() {
     show: (k) => show(k)
   };
   const pageEl = (k) => rootEl2.querySelector(`[data-page="${k}"]`);
-  const plan = mountPlan(pageEl("schemes"), pageEl("conn"));
+  const look = mountLook(pageEl("look"), { goBackup: () => { show("clean"); pages.clean?.showKind?.("local"); } });
+  const plan = mountPlan(pageEl("schemes"), pageEl("conn"), look.optsSlot);
+  look.setOptsRender(plan.opts);
   pages = {
     organize: mountOrganize(pageEl("organize"), app),
     books: mountBooks(pageEl("books")),
@@ -131,7 +133,7 @@ function buildRoot() {
     suture: mountSuture(pageEl("suture"), app),
     clean: mountCleanup(pageEl("clean")),
     health: mountHealth(pageEl("health"), { goClean: () => show("clean") }),
-    look: mountLook(pageEl("look"))
+    look
   };
   applyTheme(rootEl2);
   // 键盘：在条目行、分组头、当作按钮用的行（站点名、导入文件等）上按回车或空格，等于点一下
@@ -492,6 +494,7 @@ async function close({ fromBack = false } = {}) {
     }
   }
   endDraftBatches();
+  pages.suture?.clearQuery?.();
   rootEl2.hidden = true;
   document.documentElement.classList.remove("mcd-open");
   document.getElementById("mcd-ball")?.removeAttribute("hidden");

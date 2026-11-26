@@ -63,6 +63,7 @@ try {
   ok('宽屏编辑栏：改过后 Esc、✕ 先确认');
   // 其他输入框里 Esc：先移走光标，再按一次才关面板
   await page.evaluate(() => window.__mcdonalds.open('reply')); await page.waitForTimeout(300);
+  await page.locator('#mcd-root [data-page=reply] [data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await page.locator('#mcd-root [data-page=reply] [data-r=sample]').click();
   await page.keyboard.press('Escape'); await page.waitForTimeout(200);
   assert.equal(await hidden(page), false, '输入框里第一次 Esc 不关面板');

@@ -22,7 +22,7 @@ try {
   assert.equal(await arrow(), 0, '没有模型列表时不显示 ▾');
   assert.equal(await page.locator('.pa-live [data-a=testmodel]').getAttribute('aria-label'), '发送测试消息');
   assert.equal(await page.locator('.pa-plan-sites .pa-optgroup').count(), 0, '站点那块只放站点');
-  assert.equal(await page.locator('.pa-plan-opts .pa-optgroup').count(), 2, '两个选项在方案下面');
+  assert.equal(await page.locator('[data-page=look] .pa-plan-opts .pa-optgroup').count(), 2, '两个选项在设置页');
   ok('模型旁有拉取和测试，没拉取时模型框没有 ▾');
 
   await page.click('[data-a=livefetch]');
@@ -42,13 +42,13 @@ try {
   await page.waitForTimeout(100);
   assert.deepEqual(await page.locator('.pa-ksec b').allTextContents(), ['Gemini'], '搜索时只留有结果的系列');
   assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.modelView), 'cat');
-  await page.locator('.pa-sheet-x').last().click();
+  await page.locator('.pa-sheet-x').last().click(); await page.waitForTimeout(200);
   // 2.6.8 段落的展开、收起记住最后一次：重新打开时 Gemini 仍展开
   await page.waitForTimeout(250);
   await page.click('[data-a=livemodel]');
   await page.locator('.pa-ksec').first().waitFor();
   assert.deepEqual(await page.locator('.pa-ksec').evaluateAll((x) => x.map((y) => y.getAttribute('aria-expanded'))), ['true', 'true'], '重新打开后段落保持最后一次的状态');
-  await page.locator('.pa-sheet-x').last().click();
+  await page.locator('.pa-sheet-x').last().click(); await page.waitForTimeout(200);
   ok('拉取后出现 ▾，点开是全部模型');
 
   // 2.5.0 自建分类：多选 → 搜索 → 全选搜索结果 → 新建分类；加入已有分类；编辑模型；改名；删除

@@ -289,7 +289,7 @@ function mountCot(page, app) {
         <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复</button></div>
         <div class="pa-scroll pa-cot"></div>`;
   const box = page.querySelector(".pa-cot");
-  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n));
+  const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n), { use: true });
   // 2.7.7 变量检查只在「检查 → 变量」页，正文格式只在「检查 → 回复」页
   page.querySelector('[data-repair-all]').addEventListener('click', async () => {
     try { await repairAllVariables(getDraft(focusPreset()), manualFor(focusPreset())); }
@@ -419,7 +419,7 @@ function mountCot(page, app) {
         const act = c2.level === "none" ? `<button class="pa-btn pa-btn-soft pa-hookbtn" data-hook="${esc(id)}">接入思维链</button>`
           : c2.level === "mention" ? `<button class="pa-link" data-varhook="${esc(id)}" data-cot="${esc(c2.cot)}">用变量接入</button>`
           : c2.level === "var" ? `<button class="pa-link pa-unhookbtn" data-unhook="${esc(id)}">取消接入</button>` : "";
-        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${act}</div>`;
+        html += `<div class="pa-cov"><span class="pa-lv ${cls}">${label}</span><span class="pa-cov-name" title="${nm(id)}">${nm(id)}</span>${via ? `<small>${via}</small>` : ""}${act}</div>`;
       }
       html += "</div>";
     }

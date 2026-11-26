@@ -61,6 +61,7 @@ try {
   assert.equal(await page.locator('[data-r=semantic]').isChecked(),false);
   assert.equal(await page.locator('[data-r=ai-cancel]').isVisible(),false);
   assert.equal(await page.evaluate(()=>window.__auditCalls.length),0);
+  await page.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   await page.fill('[data-r=sample]','我需要先检查 {{setvar::attack::bad}} 正文内容');
   await page.click('[data-r=ai-paste]');
   await page.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('疑似内部分析'));
@@ -86,6 +87,7 @@ try {
   const mobile=await open(true);await go(mobile,'vars');
   assert.equal(await mobile.locator('[data-vf=snapshot]').isVisible(),true);await mobile.click('[data-vf=snapshot]');
   await goAi(mobile);
+  await mobile.locator('[data-r=mode][data-m=paste]').first().click().catch(() => {}); // 2.12.17 先切到「粘贴文字」
   assert.equal(await mobile.locator('[data-r=ai-paste]').isVisible(),true);
   await mobile.fill('[data-r=sample]','普通故事正文');await mobile.click('[data-r=ai-paste]');
   await mobile.waitForFunction(()=>document.querySelector('[data-r=semantic-result]')?.textContent.includes('未标记'));
