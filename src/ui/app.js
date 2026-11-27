@@ -325,6 +325,7 @@ function show(key, sub) {
     const sig = subs.map(([sk]) => sk).join(",");
     if (subnav.dataset.sig !== sig) {
       subnav.dataset.sig = sig;
+      subnav.classList.add("subnav-inked");
       subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("") + '<i class="subnav-ink" aria-hidden="true"></i>';
       subnav._inkPlaced = false;
     } else {

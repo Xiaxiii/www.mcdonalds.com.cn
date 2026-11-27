@@ -167,7 +167,8 @@ function triHtml(state, onN, total, name) {
 }
 function paintTri(tri, state, onN, total) {
   if (!tri) return;
-  const name = tri.closest(".pa-group")?.querySelector(":scope > .pa-ghead .pa-gname")?.textContent || "分组";
+  const gn = tri.closest(".pa-group")?.querySelector(":scope > .pa-ghead .pa-gname");
+  const name = (gn ? [...gn.childNodes].filter((c) => !(c.nodeType === 1 && c.classList.contains("pa-split"))).map((c) => c.textContent).join("").trim() : "") || "分组";
   const t = triLabel(name, state, onN, total);
   tri.dataset.state = state;
   tri.setAttribute("aria-label", t.aria);

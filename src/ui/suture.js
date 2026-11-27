@@ -20,6 +20,7 @@ function bindSutureEnableTools(body, items) {
     const count = items.filter((it) => it.enabled).length;
     const now = count === items.length ? "on" : count === 0 ? "off" : items.every((it) => it.enabled === (it.srcEnabled !== false)) ? "source" : "";
     const edited = !now || now !== "source" && items.some((it) => it.enabled !== (it.srcEnabled !== false)) && count > 0 && count < items.length;
+    body.querySelectorAll(".pa-items .pa-item").forEach((art) => { const inp = art.querySelector("[data-c=on]"); if (inp) art.classList.toggle("pa-item-off", !inp.checked); });
     tools.querySelector("[data-enable-count]").textContent = `缝后开启 ${count}/${items.length}${edited ? " · 已单改" : ""}`;
     tools.querySelectorAll("[data-enable]").forEach((b) => { const on = b.dataset.enable === now; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
     const seg = tools.querySelector(".pa-seg");
@@ -43,18 +44,21 @@ function bindSutureEnableTools(body, items) {
   refresh();
 }
 // 2.12.20 条目头：左边旋转箭头 + 名称 + 一行安静状态，右边缝后开关；点头部在下面呼吸展开详情
+// 2.12.22 展开按钮和开关并排放在头部里，不再把开关套进可点的头部（读屏、键盘各自能找到）
 function sutureItemHead(i, open, name, sub, warnN, enabled) {
-  return `<header class="pa-item-head" data-c="toggle" role="button" tabindex="0" aria-expanded="${!!open}" aria-controls="pa-item-acc-${i}">${CARET_SVG}<span class="pa-item-t"><span class="pa-item-name">${esc(name)}</span><span class="pa-item-meta"><small class="pa-item-sub">${sub}</small>${warnN ? `<span class="pa-chip pa-chip-warn">提醒 ${warnN}</span>` : ""}</span></span><label class="pa-switch pa-item-on" title="缝后开启。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" aria-label="缝后开启「${esc(name)}」" ${enabled ? "checked" : ""}><i></i></label></header>`;
+  return `<header class="pa-item-head"><button type="button" class="pa-item-tog" data-c="toggle" aria-expanded="${!!open}" aria-controls="pa-item-acc-${i}">${CARET_SVG}<span class="pa-item-t"><span class="pa-item-name">${esc(name)}</span><span class="pa-item-meta"><small class="pa-item-sub">${sub}</small>${warnN ? `<span class="pa-chip pa-chip-warn">提醒 ${warnN}</span>` : ""}</span></span></button><label class="pa-switch pa-item-on" title="缝后开启。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" aria-label="缝后开启「${esc(name)}」" ${enabled ? "checked" : ""}><i></i></label></header>`;
 }
 function bindItemAcc(box, items, onOpen) {
   box.addEventListener("click", (e) => {
-    const head = e.target.closest(".pa-item-head[data-c=toggle]");
-    if (!head || e.target.closest("input, .pa-item-on")) return;
+    if (e.target.closest("input, .pa-item-on")) return;
+    const head = e.target.closest(".pa-item-head");
+    const tog = head?.querySelector(":scope > .pa-item-tog");
+    if (!tog) return;
     const art = head.closest(".pa-item");
     const it = items[Number(art.dataset.i)];
     it.open = !it.open;
     art.classList.toggle("open", it.open);
-    accSet(art.querySelector(":scope > .pa-acc"), it.open, head);
+    accSet(art.querySelector(":scope > .pa-acc"), it.open, tog);
     onOpen?.(art, it);
   });
 }
@@ -1378,7 +1382,7 @@ function mountSuture(page, app) {
       const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入多选一" }[mode];
       const hookSub = it.hook.status !== "hook" ? "" : it.hookOn ? " · 接入思维链" : it.hook.on ? " · 推荐接思维链" : " · 可接思维链";
       // 默认收起，只显示一行状态；点开在下面呼吸展开详情
-      return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
+      return `<article class="pa-item${it.open ? " open" : ""}${it.enabled ? "" : " pa-item-off"}" data-i="${i}">
                 ${sutureItemHead(i, it.open, nameOf(it), esc(modeLabel + hookSub), warns.length, it.enabled)}
                 ${accBox(`<div class="pa-item-body">
                 ${warns.length ? `<div class="pa-item-warns">${warns.map((w) => `<p class="pa-warn">${esc(w)}</p>`).join("")}</div>` : ""}
@@ -1559,7 +1563,10 @@ function mountSuture(page, app) {
       kind: "primary",
       validate: () => {
         if (grpSel?.value === "new" && !grpName.value.trim()) {
+          const det = grpName.closest(".pa-acc[data-acc]");
+          if (det && !det.classList.contains("open")) accSet(det, true, body.querySelector("[data-g=more]"));
           grpName.focus();
+          requestAnimationFrame(() => grpName.focus());
           toast("请填写新分组名称");
           return false;
         }
@@ -1711,7 +1718,7 @@ function mountSuture(page, app) {
             <pre class="pa-snip">${snip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? `<ul class="pa-notes">${plan.changes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
       const w = it.wb;
       const wsub = `${mode === "raw" ? "原样" : "按目标写法"} · ${w.constant ? "常驻" : "关键词"} · ${posName(w.position)}${Number(w.position) === 4 ? ` ${w.depth}` : ""}`;
-      return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
+      return `<article class="pa-item${it.open ? " open" : ""}${it.enabled ? "" : " pa-item-off"}" data-i="${i}">
         ${sutureItemHead(i, it.open, it.name ?? it.src.name, esc(wsub), warns.length, it.enabled)}
         ${accBox(`<div class="pa-item-body">
           ${warns.length ? `<div class="pa-item-warns">${warns.map((x) => `<p class="pa-warn">${esc(x)}</p>`).join("")}</div>` : ""}

@@ -242,7 +242,7 @@ function applyTheme(root) {
   const warnColor = readableThemeColor(requestedWarn, surfaces, 4.5);
   for (const [key, value] of Object.entries({
     text, thread: accent,
-    dim: readableThemeColor(themeMix(text, base, .68), surfaces, 4.5),
+    dim: readableThemeColor(color("dim", themeMix(text, base, .68)), surfaces, 4.5),
     em: readableThemeColor(color("em", text), surfaces, 4.5),
     "control-border": readableThemeColor(themeMix(text, base, .6), surfaces, 3),
     warn: warnColor,

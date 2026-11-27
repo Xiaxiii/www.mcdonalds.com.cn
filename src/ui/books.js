@@ -903,7 +903,16 @@ function mountBooks(page) {
       if (st.open === n) openPane(uid);
     }
   });
-  if (typeof matchMedia === "function") matchMedia("(min-width: 1000px)").addEventListener?.("change", (m) => { if (!m.matches && !paneDirty()) closePane(); });
+  // 2.12.22 窗口变窄：没改动就收起编辑栏；有未保存的修改时编辑栏盖住世界书区域继续显示（样式见 .pa-bk.pa-edit-open），不藏起来。
+  // 页面卸下后摘掉监听，反复进出世界书页不会越挂越多
+  if (typeof matchMedia === "function") {
+    const mq = matchMedia("(min-width: 1000px)");
+    const onMq = (m) => {
+      if (!page.isConnected) return mq.removeEventListener?.("change", onMq);
+      if (!m.matches && !paneDirty()) closePane();
+    };
+    mq.addEventListener?.("change", onMq);
+  }
   async function editEntry(uid) {
     const n = st.open;
     const e = st.entries?.find((x) => String(x.uid) === String(uid));

@@ -397,7 +397,7 @@ function setModelBtn(b, m, key = "") {
 }
 // arrow：有模型列表可选时才显示 ▾（2.4.1 当前连接拉取到列表后才出现）
 // key：多密钥站点当前分组的名称，跟在模型名后面
-const modelBtn = (cur, attr, arrow = true, key = "") => `<button class="pa-model-btn" ${attr} title="${esc([cur, key].filter(Boolean).join(" · "))}">${cur ? modelLabel(cur) : '<span class="pa-mlabel"><span class="pa-mn">选择模型</span></span>'}${key ? `<em class="pa-chip pa-chip-cot pa-model-key">${esc(key)}</em>` : ""}${arrow ? "<i>▾</i>" : ""}</button>`;
+const modelBtn = (cur, attr, arrow = true, key = "") => `<button class="pa-model-btn" ${attr} title="${esc([cur, key].filter(Boolean).join(" · "))}">${cur ? modelLabel(cur) : '<span class="pa-mlabel"><span class="pa-mn">选择模型</span></span>'}${key ? `<em class="pa-chip pa-chip-cot pa-model-key">${esc(key)}</em>` : ""}${arrow ? `<i class="pa-drop-caret" aria-hidden="true">${DOWN_SVG}</i>` : ""}</button>`;
 // 2.3.3 推理格式记录：列表里看每个预设记住的设置，点「修改」手动改
 var REASONING_FLAGS = [["auto_parse", "自动解析"], ["add_to_prompts", "添加到提示词"], ["auto_expand", "自动展开"], ["show_hidden", "显示隐藏内容"]];
 const showBreaks = (s) => String(s ?? "").replace(/\r?\n/g, "↵");
@@ -683,7 +683,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     return `<div class="pa-bal pa-live-kv" aria-label="余额">
         <span class="pa-kv-k">余额</span>
         <div class="pa-kv-v pa-bal-top"><span class="pa-bal-main">${total ? `<b class="pa-bal-total pa-num" title="${esc(when)}">${esc(total)}</b>${manual}` : `<span class="pa-bal-time">${esc(when)}</span>`}${sub ? `<small class="pa-bal-used pa-num" title="${esc(when)}">${esc(sub)}</small>` : ""}</span>
-          <button class="pa-icon-btn pa-bal-q" data-a="balq" type="button" aria-label="查询余额" title="查询余额（${esc(when)}）"${b.busy ? " disabled" : ""}>${icoMorph(ICON.refresh, b.busy ? "busy" : "idle")}</button></div>
+          <button class="pa-icon-btn pa-bal-q has-morph" data-a="balq" type="button" aria-label="查询余额" title="查询余额（${esc(when)}）"${b.busy ? " disabled" : ""}>${icoMorph(ICON.refresh, b.busy ? "busy" : "idle")}</button></div>
         ${b.err ? `<p class="pa-live-res bad pa-kv-full">${RES_BAD}${esc(b.err)}</p>` : ""}
         <span class="pa-kv-k">自动</span>
         <div class="pa-kv-v pa-bal-acts"><span class="pa-bal-autot">每轮对话后查询${links ? `<span class="pa-bal-links">${links}</span>` : ""}</span><label class="pa-switch pa-bal-auto" title="每轮生成后自动查询余额"><input type="checkbox" data-o="balauto" aria-label="每轮生成后自动查询余额" ${settings().balanceAuto ? "checked" : ""}><i></i></label></div>
@@ -701,7 +701,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   }
   // 2.12.19 原地补丁：切换站点、分组、模型时只改变了的字和类名，卡片节点不重建（底色、展开状态、过渡都在）
   // 换进来的状态胶囊（使用中 ⇄ 切换）轻轻放大入场
-  const chipEnter = (n) => { if (n.matches?.(".pa-swpill, .pa-chip, .pa-site-del, .pa-site-grip")) replay(n, "chip-enter", 260); };
+  const chipEnter = (n) => { if (n.matches?.(".pa-swpill, .pa-chip, .pa-site-del")) replay(n, "chip-enter", 260); };
   // 切换后顶部卡片：内容轻浮入场 + 一次柔绿边线回响
   let pendingSwap = false;
   // 测试、拉取进行中（三态图标：闪电 / 转圈 / 勾）
@@ -752,8 +752,8 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
         <article class="pa-card pa-site pa-site-on pa-live live-card" data-morph-keep${active ? ` data-id="${esc(active.id)}"` : ""}>
           <div class="live-swap-body">
             <header>${dot}<b class="pa-live-name" title="${esc(src?.label || live.source || "")}">${esc(active ? active.name : shortLabel(live.source))}</b>${active ? "" : '<button class="pa-chip pa-chip-dim pa-chip-btn" data-a="capture" title="保存为站点">保存为站点</button>'}<span class="pa-live-resslot">${res ? `<span class="pa-live-res ${res.ok ? "ok" : "bad"}"${res.raw ? ` title="${esc(res.raw)}" data-a="testraw" role="button" tabindex="0"` : ` title="${esc(res.text)}"`}>${res.ok ? RES_OK : RES_BAD}${esc(res.text)}</span>` : ""}</span><span class="pa-live-ic">
-              ${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表"${fetchSt === "busy" ? " disabled" : ""}>${icoMorph(ICON.refresh, fetchSt)}</button>` : ""}
-              <button class="pa-icon-btn pa-live-test" data-a="testmodel" type="button" aria-label="发送测试消息" title="发一句 Hi 测试，看选中的模型能不能用"${testSt === "busy" ? " disabled" : ""}>${icoMorph(ICON.bolt, testSt)}</button>
+              ${live.source === "custom" ? `<button class="pa-icon-btn pa-live-fetch has-morph" data-a="livefetch" type="button" aria-label="拉取模型列表" title="拉取模型列表"${fetchSt === "busy" ? " disabled" : ""}>${icoMorph(ICON.refresh, fetchSt)}</button>` : ""}
+              <button class="pa-icon-btn pa-live-test has-morph" data-a="testmodel" type="button" aria-label="发送测试消息" title="发一句 Hi 测试，看选中的模型能不能用"${testSt === "busy" ? " disabled" : ""}>${icoMorph(ICON.bolt, testSt)}</button>
               ${active ? `<button class="pa-icon-btn pa-live-edit" data-a="edit" type="button" aria-label="编辑站点" title="编辑站点（网址、密钥、备注、删除）">${ICON.pencil}</button>` : ""}</span></header>
             ${sub && sub !== src?.label ? `<p class="pa-live-url pa-mono" title="${esc(sub)}">${esc(sub)}</p>` : ""}
             <div class="pa-live-model model-box">${modelBtn(live.model, 'data-a="livemodel"', liveModelList(live).length > 0 || !!ak && siteMulti(active), ak ? keyName(active, ak) : "")}</div>
@@ -832,7 +832,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
     const wst = allBusy ? "busy" : wallet.st === "ok" ? "ok" : "idle";
     const left = BAL.all?.size || 0;
     const wlabel = allBusy ? `${Math.max(0, wallet.total - left)}/${Math.max(wallet.total, left)}` : wallet.st === "ok" || wallet.st === "closing" ? "已更新" : "";
-    const balAllBtn = balAll ? `<button class="pa-head-ico pa-balall wallet-btn${wst !== "idle" ? " is-open" : ""}" data-a="balall" type="button" aria-label="${allBusy ? "正在查询全部站点的余额" : "查询全部站点的余额"}" title="查询全部站点的余额"${allBusy ? " disabled" : ""}>${icoMorph(ICON.wallet, wst)}<span class="wallet-lbl-slot"><span class="wallet-lbl pa-num">${wlabel}</span></span></button>` : "";
+    const balAllBtn = balAll ? `<button class="pa-head-ico pa-balall wallet-btn has-morph${wst !== "idle" ? " is-open" : ""}" data-a="balall" type="button" aria-label="${allBusy ? "正在查询全部站点的余额" : "查询全部站点的余额"}" title="查询全部站点的余额"${allBusy ? " disabled" : ""}>${icoMorph(ICON.wallet, wst)}<span class="wallet-lbl-slot"><span class="wallet-lbl pa-num">${wlabel}</span></span></button>` : "";
     const addBtn = `<button class="pa-head-ico pa-head-add" data-a="new" type="button" aria-label="添加站点" title="添加站点">${ICON.plus}</button>`;
     const headBtns = sitesEditing
       ? `${addBtn}<button class="pa-swpill pa-done-pill" data-a="sitesdone" type="button">完成</button>`
