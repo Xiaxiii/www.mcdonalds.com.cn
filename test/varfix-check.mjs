@@ -24,8 +24,10 @@ await page.waitForTimeout(300);
 await page.click("[data-page=vars] .pa-picker-slot .pa-namebtn");
 await page.evaluate(() => [...document.querySelectorAll(".pa-npick-item")].find((x) => x.dataset.v === "变量测试").click());
 await page.waitForTimeout(400);
-const trail = await page.$eval("[data-page=vars] .pa-var-trail", (x) => x.textContent);
-assert.strictEqual(trail, "「超级破甲」赋值 → 「set-不要关」清空 → 「← 常规CoT」读取");
+// 2.12.20 圆点连线竖轨：每一步一行，冲突的两步（被清空、读取为空）实心警示圆点
+const trail = await page.$$eval("[data-page=vars] .pa-var-trail > li", (xs) => xs.map((x) => [x.textContent, x.classList.contains("is-hit")]));
+assert.deepStrictEqual(trail, [["「超级破甲」赋值", false], ["「set-不要关」被清空", true], ["「← 常规CoT」读取为空", true]]);
+assert.strictEqual(await page.locator("[data-page=vars] [data-vf=refresh]").count(), 0, "不再有「刷新顺序检查」");
 const fix = await page.$eval("[data-page=vars] .pa-var-fix", (x) => x.firstChild.textContent);
 assert.strictEqual(fix, "改法：把「超级破甲」挪到「预设头部」组后面，或在「set-不要关」里去掉对「超级破甲」的清空");
 assert.deepStrictEqual(await page.$$eval("[data-vf=fix]", (b) => b.map((x) => x.textContent)), ["挪到「预设头部」组后面", "去掉「set-不要关」里的清空"]);

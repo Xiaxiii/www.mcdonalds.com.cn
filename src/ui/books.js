@@ -11,7 +11,8 @@ function wbEntryName(e) {
 }
 // 编辑世界书条目：名称、触发、关键词、插入位置、深度、顺序、正文。返回改了的字段（没改返回 {}），取消返回 null，删掉了返回 "delete"
 // 2.12.16 onDelete 在窗口关闭前确认并删除，返回 true 才关窗；确认框点「取消」时窗口和填写的内容都还在
-async function wbEntrySheet(e, { title = "编辑条目", hint = "", onDelete = null } = {}) {
+// 2.12.20 表单单独拿出来：手机上放进弹窗，宽屏（≥ 1000px）放进右边的编辑栏
+function wbEntryForm(e, hint = "") {
   const pos = Number(e.position ?? 0);
   const keys = wbKeysText(e).join(", ");
   const body = el(`<div class="pa-form">
@@ -33,7 +34,7 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", onDelete = n
   const ta = body.querySelector("[data-w=content]");
   const fit = () => {
     if (!ta.isConnected) return;
-    const box = ta.closest(".pa-sheet-body");
+    const box = ta.closest(".pa-sheet-body, .pa-editpane-body");
     const top = box?.scrollTop;
     // 2.12.16 量内容高度时先不撑满（样式里正文框会撑满剩下的高度），量完再放开
     ta.style.flexGrow = "0";
@@ -64,7 +65,7 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", onDelete = n
     body.querySelectorAll("[data-show=depth]").forEach((x) => { x.hidden = ev.target.value !== "4"; });
   });
   body.querySelector("[data-w=expand]").addEventListener("click", (ev) => {
-    const sh = body.closest(".pa-sheet");
+    const sh = body.closest(".pa-sheet, .pa-editpane");
     const on = !sh.classList.contains("pa-sheet-max");
     sh.classList.toggle("pa-sheet-max", on);
     ev.currentTarget.innerHTML = on ? ICON.collapse : ICON.expand;
@@ -94,6 +95,10 @@ async function wbEntrySheet(e, { title = "编辑条目", hint = "", onDelete = n
     if (order !== Number(e.order ?? 100)) out.order = order;
     return out;
   };
+  return { body, read, fit };
+}
+async function wbEntrySheet(e, { title = "编辑条目", hint = "", onDelete = null } = {}) {
+  const { body, read } = wbEntryForm(e, hint);
   const acts = [{ label: "取消", value: null }, { label: "保存", kind: "primary", value: read }];
   if (onDelete) acts.unshift({ label: "删除", kind: "danger-soft", value: "delete", validate: async () => !!await onDelete() });
   return sheet({
@@ -143,10 +148,13 @@ function mountBooks(page) {
       </div>
       ${splitterHtml("拖动调整世界书列表和条目的宽度")}
       <section class="pa-bk-detail" aria-label="世界书条目" hidden></section>
+      <aside class="pa-editpane pa-bk-pane" aria-label="编辑世界书条目" hidden></aside>
     </div>`;
   const list = page.querySelector(".pa-bk-list");
   const bkDelBar = page.querySelector(".pa-bk-delbar");
   const detail = page.querySelector(".pa-bk-detail");
+  const paneEl = page.querySelector(".pa-bk-pane");
+  const bkBox = page.querySelector(".pa-bk");
   paneSplit(page.querySelector(".pa-bk"), page.querySelector(".pa-bk > .pa-vsplit"), "books");
   const search = page.querySelector(".pa-find");
   const charBtn = page.querySelector("[data-b=char]");
@@ -479,6 +487,7 @@ function mountBooks(page) {
   // ---------- 条目
   function closeBook() {
     if (!st.open) return;
+    closePane();
     st.open = null;
     st.entries = null;
     st.entryDelMode = false;
@@ -497,6 +506,8 @@ function mountBooks(page) {
   async function openBook(n, { focus = true } = {}) {
     if (!wide()) st.listTop = list.scrollTop;
     if (st.open !== n) {
+      if (!await leavePane()) return;
+      closePane();
       st.equery = "";
       st.backedUp.delete(n);
       st.entryDelMode = false;
@@ -604,6 +615,7 @@ function mountBooks(page) {
     }).join("") : '<p class="pa-empty">没有匹配的条目</p>');
     sc.scrollTop = top;
     paintEntryDelBar();
+    markPane();
   }
   function visibleEntryUids() {
     return [...detail.querySelectorAll(".pa-wbe-row")].map((r) => r.dataset.uid);
@@ -813,10 +825,90 @@ function mountBooks(page) {
     if (st.open === n) await loadEntries(n);
     render();
   }
+  // ---------- 2.12.20 宽屏编辑栏：与「预设 → 条目」「正则」一样在右边改，不再弹窗盖住书目和条目
+  const pane = { uid: null, n: null, form: null, start: "", entry: null };
+  const paneDirty = () => !!pane.form && JSON.stringify(pane.form.read()) !== "{}";
+  async function leavePane() {
+    if (!paneDirty()) return true;
+    return confirmBox("放弃未保存的修改", `「${wbEntryName(pane.entry)}」的修改尚未保存。`, "放弃修改", true, "继续编辑");
+  }
+  function closePane() {
+    Object.assign(pane, { uid: null, n: null, form: null, entry: null });
+    paneEl.hidden = true;
+    paneEl.classList.remove("pa-sheet-max");
+    paneEl.replaceChildren();
+    bkBox.classList.remove("pa-edit-open");
+    markPane();
+  }
+  function markPane() {
+    detail.querySelectorAll(".pa-wbe-row").forEach((x) => x.classList.toggle("pa-editing", pane.uid != null && x.dataset.uid === String(pane.uid)));
+  }
+  async function openPane(uid) {
+    const e = st.entries?.find((x) => String(x.uid) === String(uid));
+    if (!e) return;
+    if (String(pane.uid) !== String(uid) && !await leavePane()) return;
+    const form = wbEntryForm(e);
+    Object.assign(pane, { uid: e.uid, n: st.open, form, entry: e });
+    paneEl.innerHTML = `<div class="pa-editpane-head"><b></b><button class="pa-icon-btn" data-ep="x" aria-label="关闭编辑栏" title="关闭"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12M18 6 6 18"/></svg></button></div>
+      <div class="pa-editpane-body"></div>
+      <div class="pa-editpane-foot"><button class="pa-btn pa-btn-danger-soft pa-ep-del" data-ep="del">删除</button><button class="pa-btn" data-ep="copy" title="把现在填的内容另存一条，放在这条后面">复制</button><button class="pa-btn" data-ep="close">取消</button><button class="pa-btn pa-btn-primary" data-ep="save">保存</button></div>`;
+    paneEl.querySelector(".pa-editpane-head b").textContent = wbEntryName(e);
+    paneEl.querySelector(".pa-editpane-body").append(form.body);
+    paneEl.hidden = false;
+    bkBox.classList.add("pa-edit-open");
+    markPane();
+    requestAnimationFrame(() => requestAnimationFrame(form.fit));
+  }
+  paneEl.addEventListener("click", async (ev) => {
+    const a = ev.target.closest("[data-ep]")?.dataset.ep;
+    if (!a || !pane.form) return;
+    const { uid, n, entry } = pane;
+    if (a === "x" || a === "close") {
+      if (!await leavePane()) return;
+      return closePane();
+    }
+    if (a === "del") {
+      if (await deleteSingleEntry(uid)) closePane();
+      return;
+    }
+    if (a === "copy") {
+      if (!await backupOnce(n)) return;
+      const copy = { ...structuredClone(entry), ...pane.form.read() };
+      delete copy.uid;
+      copy.comment = `${wbEntryName(copy)}（副本）`;
+      let uids = null;
+      try {
+        uids = await writeWorldEntries(n, [copy], entry.uid);
+        toast(`已复制「${wbEntryName(entry)}」`, "success");
+      } catch (err) {
+        return toast("复制失败：" + err.message, "error");
+      }
+      pane.form = null;
+      await afterWrite(n);
+      if (uids?.length) openPane(uids[0]);
+      return;
+    }
+    if (a === "save") {
+      const r = pane.form.read();
+      if (!Object.keys(r).length) return toast("没有修改");
+      if (!await backupOnce(n)) return;
+      try {
+        await updateWorldEntry(n, uid, r);
+        toast("已保存", "success");
+      } catch (err) {
+        return toast("保存失败：" + err.message, "error");
+      }
+      pane.form = null;
+      await afterWrite(n);
+      if (st.open === n) openPane(uid);
+    }
+  });
+  if (typeof matchMedia === "function") matchMedia("(min-width: 1000px)").addEventListener?.("change", (m) => { if (!m.matches && !paneDirty()) closePane(); });
   async function editEntry(uid) {
     const n = st.open;
     const e = st.entries?.find((x) => String(x.uid) === String(uid));
     if (!e) return;
+    if (wide()) return openPane(uid);
     const r = await wbEntrySheet(e, { title: wbEntryName(e), onDelete: () => deleteSingleEntry(uid) });
     if (!r || r === "delete" || !Object.keys(r).length) return;
     if (!await backupOnce(n)) return;

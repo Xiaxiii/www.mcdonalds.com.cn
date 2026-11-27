@@ -71,7 +71,8 @@ async function selectFour(page) {
   assert.match(await page.locator('.pa-picked-n').innerText(), /已选 4 条/);
 }
 async function count(page, n) {
-  assert.equal(await page.locator('[data-enable-count]').innerText(), `${n > 0 && n < 4 ? '部分开启' : '缝后开启'}：${n} / 4`);
+  // 2.12.20 左边「缝后开启 n/N」，逐条改得与来源不同时后面写「· 已单改」
+  assert.match(await page.locator('[data-enable-count]').innerText(), new RegExp(`^缝后开启 ${n}/4( · 已单改)?$`));
   assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), n);
   // 2.12.17 三段「全关 | 按来源 | 全开」：全开、全关时对应那段亮着
   assert.deepEqual([await page.locator('[data-enable=on]').getAttribute('aria-pressed'), await page.locator('[data-enable=off]').getAttribute('aria-pressed')], [String(n === 4), String(n === 0)]);

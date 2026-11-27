@@ -99,10 +99,10 @@ try {
   assert.ok(!(await live()).includes("一步新建（副本）"), "编辑窗里删除");
   ok("条目：新建直接打开编辑窗；编辑窗里复制、删除");
 
-  // 三段分组开关：全开且没有快照时不画中间圆点
-  const tri = await page.evaluate(() => [...document.querySelectorAll("[data-page=organize] .pa-tri")].map((t) => ({ state: t.dataset.state, nomid: t.classList.contains("pa-tri-nomid") })));
-  assert.ok(tri.length && tri.every((t) => t.state !== "all" || t.nomid), "全开、没有自定义快照的分组没有中间档");
-  ok("三段分组开关：没有中间档时只画两端");
+  // 2.12.20 分组开关：全开且没有快照时只在全开、全关两档间切换
+  const tri = await page.evaluate(() => [...document.querySelectorAll("[data-page=organize] .pa-tri")].map((t) => ({ state: t.dataset.state, dots: !!t.querySelector(".pa-tri-dots") })));
+  assert.ok(tri.length && tri.every((t) => !t.dots), "没有旧的三点滑块");
+  ok("分组开关：进度环胶囊");
 
   // 变量页：不是正在用的预设时，读取变量状态先变灰
   await page.evaluate(() => {

@@ -31,47 +31,51 @@ function replyForm(name, { onSaved } = {}) {
   const available = replyGuardAvailable();
   const semanticAvailable = semanticReviewAvailable();
   let reviewCancel = null;
-  // 2.8.0 一页排完：检查（按钮、粘贴框、结果）在上，标签和自动处理在下，语义审查和检测范围折叠
-  // 2.12.17 顶部分「最近回复 | 粘贴文字」：默认查最近回复，不显示粘贴框；结构检查和 AI 审查并排
+  // 2.12.20 两栏：左「单次检查卡」（最近回复 | 粘贴，检查、AI 审查、结果和修正），右「守卫规则表」（匹配标签、发现问题时、更多规则）；窄于 900px 时上下排
   const aiOff = semanticAvailable ? "" : "disabled";
-  const body = el(`<div class="pa-form pa-replyform">
-    <div class="pa-seg pa-seg-s pa-rmode" role="tablist" aria-label="检查哪段文字"><button type="button" role="tab" data-r="mode" data-m="latest" class="on" aria-selected="true">最近回复</button><button type="button" role="tab" data-r="mode" data-m="paste" aria-selected="false">粘贴文字</button></div>
-    <div class="pa-toolbar pa-rcheck" data-rm="latest"><button class="pa-btn pa-btn-primary" data-r="latest">结构检查</button><button class="pa-btn" data-r="ai-latest" ${aiOff}>AI 审查</button></div>
-    <div class="pa-rpaste" data-rm="paste" hidden>
-      <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复检查格式；粘贴格式正确的回复，点「按范本诊断」（只在本页检测，不保存）"></textarea>
-      <div class="pa-toolbar pa-rcheck"><button class="pa-btn pa-btn-primary" data-r="paste">检查文字</button><button class="pa-btn" data-r="ai-paste" ${aiOff}>AI 审查</button><button class="pa-btn" data-r="diagnose">按范本诊断</button></div>
+  const moreId = accId("rmore");
+  const sw = (key, on, dis = false, label = "") => `<label class="pa-switch"><input type="checkbox" data-r="${key}" aria-label="${esc(label)}" ${on ? "checked" : ""} ${dis ? "disabled" : ""}><i></i></label>`;
+  const srow = (key, title, sub, on, dis = false, extra = "") => `<div class="pa-rt-row"><span class="pa-rt-t"><b>${title}</b>${sub ? `<small>${sub}</small>` : ""}</span>${extra}${sw(key, on, dis, title)}</div>`;
+  const body = el(`<div class="pa-form pa-replyform pa-replygrid">
+  <section class="pa-rcol pa-rcol-check">
+    <div class="pa-card pa-rcard">
+      <header class="pa-rcard-head"><b class="pa-rcard-t" data-r="target"></b><div class="pa-seg pa-seg-s pa-rmode" role="tablist" aria-label="检查哪段文字"><button type="button" role="tab" data-r="mode" data-m="latest" class="on" aria-selected="true">最近回复</button><button type="button" role="tab" data-r="mode" data-m="paste" aria-selected="false">粘贴</button></div></header>
+      <div class="pa-rcheck pa-racts" data-rm="latest"><button class="pa-btn pa-btn-primary" data-r="latest">检查格式</button><button class="pa-btn" data-r="ai-latest" ${aiOff}>AI 语义审查</button><button class="pa-link pa-raux" data-r="aux" type="button" title="语义审查用的 API，点这里更改"><span data-r="auxname">${esc(auxLabel(auxTarget("review")))}</span> ›</button></div>
+      <div class="pa-rpaste" data-rm="paste" hidden>
+        <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复检查格式；粘贴格式正确的回复，点「按范本校准」（只在本页检测，不保存）"></textarea>
+        <div class="pa-rcheck pa-racts"><button class="pa-btn pa-btn-primary" data-r="paste">检查格式</button><button class="pa-btn" data-r="diagnose">按范本校准</button><button class="pa-btn" data-r="ai-paste" ${aiOff}>AI 审查</button></div>
+      </div>
+      <button class="pa-btn pa-btn-s" data-r="ai-cancel" hidden>取消审查</button>
+      <div class="pa-rout" data-r="semantic-result" aria-live="polite"></div>
+      <div class="pa-rout" data-r="result" aria-live="polite"></div>
     </div>
-    <button class="pa-btn pa-btn-s" data-r="ai-cancel" hidden>取消审查</button>
-    <div data-r="semantic-result" aria-live="polite"></div>
-    <div data-r="result" aria-live="polite"></div>
+    ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。格式检查仍可使用。</p>'}
     <div data-r="lastremind"></div>
-    <h3 class="pa-h">标签 <small class="pa-dim" data-r="stamp">按预设自动保存，须与预设的输出格式一致</small></h3>
-    <div class="pa-rtags">
-    <label class="pa-field"><span>正文标签${fresh && guess?.bodyTag ? whyBtn("body") : ""}</span><input class="pa-input" data-r="body" value="${esc(bodyDefault)}" placeholder="content" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></label>
-    <label class="pa-field pa-rtag-req"><span>必需标签${guess?.suggest.length ? whyBtn("required") : ""}</span><input class="pa-input" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，填卡里的原标签名，几张卡的可一起填" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small><small class="pa-hint" data-r="unused" hidden></small></label>
-    <label class="pa-field"><span>自定义思考标签${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}</span><input class="pa-input" data-r="thinking" value="${esc(thinkingDefault)}" placeholder="已识别 think、thinking" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></label>
+  </section>
+  <section class="pa-rcol pa-rcol-rules">
+    <div class="pa-rt-head"><h3 class="pa-h">匹配标签</h3><small class="pa-dim" data-r="stamp">按预设自动保存</small></div>
+    <div class="pa-card pa-rtable pa-rtags">
+    <div class="pa-rt-row pa-rt-in"><label class="pa-rt-t" for="pa-r-body"><b>正文标签</b></label>${fresh && guess?.bodyTag ? whyBtn("body") : ""}<input class="pa-input pa-rt-v" id="pa-r-body" data-r="body" value="${esc(bodyDefault)}" placeholder="content" maxlength="40" aria-describedby="pa-err-body"><small class="pa-field-err" id="pa-err-body" data-err="body" hidden></small></div>
+    <div class="pa-rt-row pa-rt-in"><label class="pa-rt-t" for="pa-r-thinking"><b>自定义思考标签</b></label>${!saved.thinkingTag && thinkingDefault ? whyBtn("thinking") : ""}<input class="pa-input pa-rt-v" id="pa-r-thinking" data-r="thinking" value="${esc(thinkingDefault)}" placeholder="think、thinking" maxlength="40" aria-describedby="pa-err-thinking"><small class="pa-field-err" id="pa-err-thinking" data-err="thinking" hidden></small></div>
+    <div class="pa-rt-row pa-rt-in pa-rtag-req"><label class="pa-rt-t" for="pa-r-required"><b>必需标签</b></label>${guess?.suggest.length ? whyBtn("required") : ""}<input class="pa-input pa-rt-v" id="pa-r-required" data-r="required" value="${esc((saved.requiredTags || []).join("、"))}" placeholder="可选，卡里的原标签名" aria-describedby="pa-err-required"><small class="pa-field-err" id="pa-err-required" data-err="required" hidden></small><small class="pa-hint" data-r="unused" hidden></small></div>
     </div>
     ${fresh && guess ? guess.bodyTag ? whyNote("body", `已按预设填入 &lt;${esc(guess.bodyTag)}&gt;（条目中出现 ${guess.count} 处），有误可改。`) : '<p class="pa-warn">预设开启的条目中没有正文标签。预设不要求标签包裹正文时，不要开启提醒，否则会让 AI 输出多余标签。</p>' : ""}
     ${guess?.suggest.length ? whyNote("required", `显示正则依赖 ${guess.suggest.map((t) => `&lt;${esc(t)}&gt;`).join("、")} 美化。如需检查是否掉落，可填入这里。`) : ""}
     ${!saved.thinkingTag && thinkingDefault ? whyNote("thinking", `已按酒馆推理前缀填入 &lt;${esc(thinkingDefault)}&gt;。`) : ""}
-    <h3 class="pa-h">发现问题时</h3>
-    <div class="pa-rautoset">
-    <label class="pa-field-row"><input type="checkbox" data-r="enabled" ${saved.enabled ? "checked" : ""} ${available ? "" : "disabled"}>下一轮提醒 AI</label>
-    <label class="pa-field-row"><input type="checkbox" data-r="autofix" ${saved.autoFix ? "checked" : ""}>自动修正回复问题</label>
-<label class="pa-field-row"><input type="checkbox" data-r="outside" ${saved.allowOutside ? "checked" : ""}>正文标签外允许有文字</label>
-    <div class="pa-whyrow pa-whyrow-check"><label class="pa-field-row"><input type="checkbox" data-r="bysample" ${saved.skeleton?.length && saved.remindBySample !== false ? "checked" : ""} ${saved.skeleton?.length ? "" : "disabled"}>提醒时照范本的标签顺序写</label>${whyBtn("bysample")}</div>
-    ${whyNote("bysample", "先粘贴一份格式正确的回复，点「按范本诊断」，再点「记为范本」。只保存标签名和顺序。")}
-    <p class="pa-hint pa-rsample" data-r="sampleinfo" hidden></p>
-    <label class="pa-field-row"><input type="checkbox" data-r="semantic" ${saved.semanticAfterReply ? "checked" : ""} ${semanticAvailable ? "" : "disabled"}>生成完成后自动 AI 语义审查（每次多一次请求）</label>
+    <div class="pa-rt-head"><h3 class="pa-h">发现格式问题时</h3></div>
+    <div class="pa-card pa-rtable pa-rautoset">
+    ${srow("autofix", "自动修正回复标签", "只移动文字、补写标签，不增删文字", saved.autoFix)}
+    ${srow("enabled", "下一轮临时提醒 AI", available ? "只在该预设使用中、上一条有问题时提醒" : "当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用", saved.enabled, !available)}
+    ${srow("semantic", "生成后自动语义审查", "每次多一次请求", saved.semanticAfterReply, !semanticAvailable)}
     </div>
-    ${available ? "" : '<p class="pa-warn">当前酒馆缺少生成前事件或临时提示接口，手动检测可用，自动提醒不可用。</p>'}
-    <details class="pa-card pa-rai"><summary>AI 语义审查</summary>
-      <p class="pa-hint">把这一条回复发给模型，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用，不改动正文。</p>
-      <p class="pa-hint pa-aux-use">用：<span data-r="auxname">${esc(auxLabel(auxTarget("review")))}</span><button class="pa-link" data-r="aux" type="button">更改</button></p>
-      ${semanticAvailable ? "" : '<p class="pa-warn">当前酒馆或连接不支持独立聊天补全请求，请升级酒馆并选择聊天补全连接。结构检查仍可使用。</p>'}
-      <div class="pa-toolbar"><button class="pa-link" data-r="ai-result">查看最近结果</button></div>
-    </details>
-    <details class="pa-card pa-rscope"><summary>检测范围</summary><ul class="pa-notes">
+    <div class="pa-card pa-rtable pa-rmore">
+    <button type="button" class="pa-rt-row pa-rmore-head" data-r="more" aria-expanded="false" aria-controls="${moreId}"><span class="pa-rt-t"><b>更多规则与检测范围</b></span>${CARET_SVG}</button>
+    ${accBox(`
+      ${srow("outside", "正文标签外允许有文字", "", saved.allowOutside)}
+      <div class="pa-rt-row pa-whyrow-check">${`<span class="pa-rt-t"><b>提醒时照范本的标签顺序写</b><small class="pa-rsample" data-r="sampleinfo" hidden></small></span>`}${whyBtn("bysample")}${sw("bysample", saved.skeleton?.length && saved.remindBySample !== false, !saved.skeleton?.length, "提醒时照范本的标签顺序写")}</div>
+      ${whyNote("bysample", "先粘贴一份格式正确的回复，点「按范本校准」，再点「记为范本」。只保存标签名和顺序。")}
+      <div class="pa-rt-row pa-rai"><span class="pa-rt-t"><b>AI 语义审查</b><small>把这一条回复发给模型，检查是否夹带任务规划、自我指令等内部分析。每次增加一次请求和费用，不改动正文。</small></span><button class="pa-btn pa-btn-s" data-r="ai-result" type="button">最近结果</button></div>
+      <div class="pa-rt-row pa-rscope"><ul class="pa-notes">
       <li>检查掉标签、重复或未闭合、正文裹进思考区、状态栏等留在思考区、正文夹入思考标签、正文外大段文字（爆思维链）、思考标签前多了文字没被酒馆解析、疑似推理标题。</li>
       <li>开启提醒后，仅在该预设使用中且上一条回复有问题时，向下一轮加入临时提醒。续写不提醒。提醒只点名正文标签和上面填的必需标签（思考没被解析时还点名推理前缀），不提其他标签。</li>
       <li>代码块和注释中的标签示例不计。可见回复没有正文标签时，在本地查看思考区的标签位置，不展示、不发送。</li>
@@ -81,8 +85,23 @@ function replyForm(name, { onSaved } = {}) {
       <li>必需标签整个没出现、回复里却多了预设和角色卡都没用到的块（如把 &lt;status&gt; 写成 &lt;状态&gt;）时，当作写错了名字：提醒只写正确的标签名，不写出错误的名字；只多一个这样的块时，修正会把它改名；自动修正只在块里的子标签和预设里写的对得上时才改。</li>
       <li>必需标签外面多套了一层预设、角色卡、世界书和正则都没用到的标签（如 &lt;状态&gt;&lt;status&gt;…&lt;/status&gt;&lt;/状态&gt;），且外层里没有别的文字时，提醒直接输出必需标签，修正去掉外层标签。</li>
       <li>正文被吞进思考区时，紧挨着的状态栏、小剧场等完整标签块一起搬出来；正文前的块照前几条回复判断。</li>
-      <li>按范本诊断：粘贴一份格式正确的回复，凡是被判出的问题都算设置与范本不符，逐条给出改法，可一键写回设置。范本只在本页使用；点「记为范本」只保存标签名和顺序，不保存正文。</li></ul></details>
+      <li>按范本校准：粘贴一份格式正确的回复，凡是被判出的问题都算设置与范本不符，逐条给出改法，可一键写回设置。范本只在本页使用；点「记为范本」只保存标签名和顺序，不保存正文。</li></ul></div>`, false, moreId)}
+    </div>
+  </section>
   </div>`);
+  // 当前检测对象：最近回复写楼层，粘贴写「粘贴样本检测」
+  const targetEl = body.querySelector('[data-r="target"]');
+  const paintTarget = () => {
+    if (body.querySelector('[data-r="mode"][data-m="paste"]').classList.contains("on")) { targetEl.textContent = "粘贴样本检测"; return; }
+    let latest = null;
+    try { latest = latestReplyForCheck(ctx().chat); } catch {}
+    targetEl.textContent = latest ? `聊天第 ${latest.index + 1} 楼回复` : "最近回复";
+  };
+  paintTarget();
+  body.querySelector('[data-r="more"]').addEventListener("click", (e) => {
+    const acc = body.querySelector(`#${moreId}`);
+    accSet(acc, !acc.classList.contains("open"), e.currentTarget);
+  });
   bindWhy(body);
   // 2.9.0 范本的标签顺序（只有标签名）：随设置一起保存
   let skeleton = Array.isArray(saved.skeleton) ? [...saved.skeleton] : [];
@@ -159,7 +178,7 @@ function replyForm(name, { onSaved } = {}) {
     const r = replyLastReminder;
     if (!r || r.preset !== name) { lastBox.innerHTML = ""; return; }
     const d = new Date(r.at), two = (n) => String(n).padStart(2, "0");
-    lastBox.innerHTML = `<details class="pa-card pa-rlast"><summary>最近一次提醒：${two(d.getHours())}:${two(d.getMinutes())}，因聊天第 ${r.index + 1} 条消息</summary><ul class="pa-notes">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p class="pa-hint">发给 AI 的原文：</p><pre class="pa-pre">${esc(r.text)}</pre><p class="pa-hint">这条回复本身没有问题时，把它粘贴到上面，点「按范本诊断」。</p></details>`;
+    lastBox.innerHTML = `<details class="pa-card pa-rlast"><summary>最近一次提醒：${two(d.getHours())}:${two(d.getMinutes())}，因聊天第 ${r.index + 1} 条消息</summary><ul class="pa-notes">${r.reasons.map((x) => `<li>${esc(x)}</li>`).join("")}</ul><p class="pa-hint">发给 AI 的原文：</p><pre class="pa-pre">${esc(r.text)}</pre><p class="pa-hint">这条回复本身没有问题时，把它粘贴到上面，点「按范本校准」。</p></details>`;
   };
   paintLast();
   let diag = null;
@@ -172,7 +191,7 @@ function replyForm(name, { onSaved } = {}) {
     const can = Object.keys(diag.patch).length > 0;
     const sk = diag.skeleton.length ? `<p class="pa-p">范本的标签顺序：${diag.skeleton.map((t) => `&lt;${esc(t)}&gt;`).join("、")}</p><div class="pa-toolbar"><button class="pa-btn" data-r="sample-save">记为范本</button></div>` : "";
     if (!diag.advice.length) {
-      result.innerHTML = `<div class="pa-card"><p class="pa-p"><b>按现在的设置，这份范本没有问题。</b></p><p class="pa-hint">回复仍被提醒或修正时，原因在那条回复本身：切到「最近回复」点「结构检查」看具体问题。</p>${sk}</div>`;
+      result.innerHTML = `<div class="pa-card"><p class="pa-p"><b>按现在的设置，这份范本没有问题。</b></p><p class="pa-hint">回复仍被提醒或修正时，原因在那条回复本身：切到「最近回复」点「检查格式」看具体问题。</p>${sk}</div>`;
       return;
     }
     const left = can ? diag.after.issues : [];
@@ -198,6 +217,7 @@ function replyForm(name, { onSaved } = {}) {
   const checkNow = (mode) => {
     const { rules: config, unused } = replyRulesInUse(read(), name);
     showUnused();
+    paintTarget();
     let text = body.querySelector('[data-r="sample"]').value, source = "粘贴的文字", reasoning = "", latest = null;
     if (mode === "latest") {
       latest = latestReplyForCheck(ctx().chat);
@@ -215,14 +235,19 @@ function replyForm(name, { onSaved } = {}) {
     const plan = report.issues.length ? planReplyFix(text, config, { reasoning, layout, knownTags, parseTag }) : null;
     pending = plan && latest ? { index: latest.index, plan, snapshot: replyMessageSnapshot(latest.index) } : null;
     const left = plan ? plan.after.issues : [];
-    const fix = plan ? `<div class="pa-card"><div class="pa-whyrow"><b>可修正的标签</b>${whyBtn("fixhow")}</div>${whyNote("fixhow", "只移动文字、补写标签，不增删文字。")}<ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
+    const fixId = accId("rfix");
+    const fixDetail = plan ? `<b class="pa-sub">可修正的标签</b><ul class="pa-notes">${plan.steps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
       ${left.length ? `<p class="pa-warn">修正后仍有 ${left.length} 个问题需人工处理：${esc(left.map((i) => i.text).join("；"))}</p>` : ""}
-      <details><summary>修正后原文预览</summary><pre class="pa-pre">${esc(plan.text)}</pre></details>
-      ${pending ? '<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="fix">修正这条回复</button></div>' : '<p class="pa-hint">粘贴的文字不写回聊天，可复制上面的预览。</p>'}</div>` : "";
+      <b class="pa-sub">修正后原文预览</b><pre class="pa-pre">${esc(plan.text)}</pre>
+      ${pending ? "" : '<p class="pa-hint">粘贴的文字不写回聊天，可复制上面的预览。</p>'}` : "";
     const auto = latest && replyAutoFixFor(latest.index);
     const note = (auto ? `<div class="pa-card"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
     const skipped = unused.length ? `<p class="pa-hint">${esc(unusedText(unused))}</p>` : "";
-    result.innerHTML = note + skipped + `<div class="pa-whyrow"><p class="pa-p">${esc(source)}：${report.issues.length ? `发现 ${report.issues.length} 个格式风险` : "未发现配置范围内的格式问题"}</p></div>${report.issues.length ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>${fix}<details class="pa-card"><summary>下一轮提醒预览</summary><pre class="pa-pre">${esc(reminder)}</pre></details>` : ""}`;
+    const n = report.issues.length;
+    const detail = n ? `${fixDetail}<b class="pa-sub">下一轮提醒预览</b><pre class="pa-pre">${esc(reminder)}</pre>` : "";
+    result.innerHTML = note + skipped + `<div class="pa-rres">
+      <div class="pa-rres-head"><i class="pa-rdot${n ? " is-warn" : ""}" aria-hidden="true"></i><div class="pa-rres-t"><p class="pa-p"><b>${esc(source)}：${n ? `发现 ${n} 个格式风险` : "未发现配置范围内的格式问题"}</b></p>${n ? `<ul class="pa-notes">${report.issues.map((i) => `<li>${esc(i.text)}${i.excerpt ? `<pre class="pa-pre">${esc(i.excerpt)}${i.excerpt.length >= 80 ? "…" : ""}</pre>` : ""}</li>`).join("")}</ul>` : ""}</div></div>
+      ${n ? `<div class="pa-rres-acts"><button type="button" class="pa-link pa-rres-more" data-r="fixinfo" aria-expanded="false" aria-controls="${fixId}">查看修正说明${CARET_SVG}</button>${pending ? '<button class="pa-btn pa-btn-primary pa-btn-s" data-r="fix">修正这楼</button>' : ""}</div>${accBox(`<div class="pa-rres-det">${detail}</div>`, false, fixId)}` : ""}</div>`;
   };
   body.addEventListener("click", async (e) => {
     const button = e.target.closest('[data-r="latest"], [data-r="paste"], [data-r="fix"], [data-r="undo-fix"], [data-r="undo-auto"], [data-r="diagnose"], [data-r="diag-apply"], [data-r="sample-save"], [data-r="sample-clear"]');
@@ -281,10 +306,13 @@ function replyForm(name, { onSaved } = {}) {
     semanticResult.innerHTML = `<p class="pa-p">${report.verdict === "suspected" ? "模型标记了疑似内部分析，请人工确认" : "模型未标记疑似内部分析"}（模型自报置信度 ${Math.round(report.confidence * 100)}%）</p>${report.findings.map((f) => `<div class="pa-card"><pre class="pa-pre">${esc(f.excerpt)}</pre><p>${esc(f.reason)}</p></div>`).join("")}<p class="pa-hint">未改写聊天。</p>`;
   };
   body.addEventListener("click", (e) => {
+    const info = e.target.closest('[data-r="fixinfo"]');
+    if (info) { const acc = body.querySelector(`#${info.getAttribute("aria-controls")}`); accSet(acc, !acc.classList.contains("open"), info); return; }
     const m = e.target.closest('[data-r="mode"]')?.dataset.m;
     if (!m) return;
     body.querySelectorAll('[data-r="mode"]').forEach((b) => { const on = b.dataset.m === m; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
     body.querySelectorAll("[data-rm]").forEach((x) => { x.hidden = x.dataset.rm !== m; });
+    paintTarget();
     if (m === "paste") body.querySelector('[data-r="sample"]').focus({ preventScroll: true });
   });
   body.addEventListener("click", async (e) => {

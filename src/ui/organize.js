@@ -238,6 +238,7 @@ function mountOrganize(page) {
       st.listSig = sig;
       list.innerHTML = dupBanner + repairBanner + renderList(d, { mode: "organize", place: placing, inside: st.mode !== "newgroup", selected: st.mode === "newgroup" ? void 0 : st.selected, collapsed: st.collapsed, query: st.query, searchBody: st.searchBody, highlight: st.highlight, tk });
       list.scrollTop = top;
+      readyTris(list);
     }
     list.classList.toggle("pa-tk-on", tk);
     paintTkTotal(d);
@@ -449,85 +450,14 @@ function mountOrganize(page) {
     const label = target === "off" ? "分组全关" : target === "all" ? "分组全开" : "分组恢复自定义";
     mutate(d, label, (x) => x.setGroupTriState(gid, target));
   }
-  // 2.12.17 没有中间档（全开、没有自定义快照）时只有两档：中点以左算全关，以右算全开，不再吸到中间又弹回
-  function triZoneAt(tri, clientX) {
-    const r = tri.getBoundingClientRect();
-    const ratio = r.width > 0 ? (clientX - r.left) / r.width : 0.5;
-    if (tri.classList.contains("pa-tri-nomid")) return ratio < 0.5 ? "off" : "all";
-    return ratio < 1 / 3 ? "off" : ratio < 2 / 3 ? "mid" : "all";
-  }
-  function triToggleFallback(d, gid) {
+  // 2.12.20 点胶囊任意位置循环：有自定义组合时 自定义 → 全开 → 全关 → 自定义；没有时 全开 ⇄ 全关
+  function triNext(d, gid) {
     const cur = d.groupTriState(gid);
-    if (cur !== "off") return "off";
-    const mem = d.order.filter((o) => d.groupOf(o.identifier) === gid);
-    const hasOff = mem.some((o) => o.enabled === false);
-    return hasOff || d.hasGroupSnap(gid) ? "mid" : "all";
+    const mixed = cur === "off" && d.order.some((o) => d.groupOf(o.identifier) === gid && o.enabled === false);
+    const hasMid = cur === "mid" || mixed || d.hasGroupSnap(gid);
+    if (!hasMid) return cur === "all" ? "off" : "all";
+    return cur === "mid" ? "all" : cur === "all" ? "off" : "mid";
   }
-  // 三段式分组总开关：支持直接拖动，也支持点击左 / 中 / 右三区
-  list.addEventListener("pointerdown", (e) => {
-    const tri = e.target.closest(".pa-tri[data-act=gtoggle]");
-    if (!tri || st.mode || e.button > 0) return;
-    const head = tri.closest(".pa-ghead");
-    if (!head) return;
-    e.preventDefault();
-    e.stopPropagation();
-    const gid = head.dataset.gid;
-    const startX = e.clientX;
-    let moved = false;
-    let preview = triZoneAt(tri, e.clientX);
-    const pid = e.pointerId;
-    try { tri.setPointerCapture(pid); } catch {}
-    const onMove = (ev) => {
-      if (ev.pointerId !== pid) return;
-      if (!moved && Math.abs(ev.clientX - startX) > 4) {
-        moved = true;
-        tri.classList.add("pa-tri-drag");
-      }
-      if (!moved) return;
-      preview = triZoneAt(tri, ev.clientX);
-      tri.dataset.state = preview;
-    };
-    const finish = (ev, commit) => {
-      if (ev.pointerId !== pid) return;
-      window.removeEventListener("pointermove", onMove);
-      window.removeEventListener("pointerup", onUp);
-      window.removeEventListener("pointercancel", onCancel);
-      tri.classList.remove("pa-tri-drag");
-      tri._paPtrAt = Date.now();
-      const d = draft();
-      if (!commit) {
-        tri.dataset.state = d.groupTriState(gid);
-        return;
-      }
-      const zone = triZoneAt(tri, ev.clientX);
-      const cur = d.groupTriState(gid);
-      const target = moved ? zone : (zone !== cur ? zone : triToggleFallback(d, gid));
-      applyGroupTri(gid, target);
-    };
-    const onUp = (ev) => finish(ev, true);
-    const onCancel = (ev) => finish(ev, false);
-    window.addEventListener("pointermove", onMove);
-    window.addEventListener("pointerup", onUp);
-    window.addEventListener("pointercancel", onCancel);
-  });
-  list.addEventListener("keydown", (e) => {
-    const tri = e.target.closest?.(".pa-tri[data-act=gtoggle]");
-    if (!tri || st.mode) return;
-    const gid = tri.closest(".pa-ghead")?.dataset.gid;
-    if (!gid) return;
-    const d = draft();
-    const cur = d.groupTriState(gid);
-    let next = null;
-    if (e.key === "ArrowLeft") next = cur === "all" ? (d.hasGroupSnap(gid) ? "mid" : "off") : "off";
-    else if (e.key === "ArrowRight") next = cur === "off" ? (d.order.some((o) => d.groupOf(o.identifier) === gid && o.enabled === false) || d.hasGroupSnap(gid) ? "mid" : "all") : "all";
-    else if (e.key === "Home") next = "off";
-    else if (e.key === "End") next = "all";
-    else if (e.key === " " || e.key === "Enter") next = triToggleFallback(d, gid);
-    if (!next) return;
-    e.preventDefault();
-    e.stopPropagation();
-    applyGroupTri(gid, next);
-  });
   list.addEventListener("click", async (e) => {
     if (e.target.closest("[data-repair-groups]")) return repairGroups(draft());
     if (e.target.closest("[data-act=qbody]")) {
@@ -596,14 +526,7 @@ function mountOrganize(page) {
         setOpen(d, gid, st.collapsed.has(gid));
         return render();
       }
-      if (act === "gtoggle") {
-        if (actEl._paPtrAt && Date.now() - actEl._paPtrAt < 400) return;
-        const zone = e.clientX || e.clientY ? triZoneAt(actEl, e.clientX) : null;
-        const cur = d.groupTriState(gid);
-        const target = zone && zone !== cur ? zone : triToggleFallback(d, gid);
-        applyGroupTri(gid, target);
-        return;
-      }
+      if (act === "gtoggle") return applyGroupTri(gid, triNext(d, gid));
       if (act === "gmenu") return groupMenu(d, gid);
       if (act === "gselect") {
         const ids = d.order.filter((o) => d.groupOf(o.identifier) === gid).map((o) => o.identifier);
@@ -1192,12 +1115,7 @@ function mountOrganize(page) {
     if (drag && e.pointerId === drag.pid) endDrag(true);
   });
   list.addEventListener("pointercancel", () => endDrag(false));
-  function paintTriEl(tri, state, onN, total) {
-    if (!tri) return;
-    tri.dataset.state = state;
-    tri.setAttribute("aria-valuenow", state === "off" ? "0" : state === "mid" ? "1" : "2");
-    tri.setAttribute("aria-valuetext", state === "off" ? "全关" : state === "mid" ? `自定义（${onN}/${total}）` : "全开");
-  }
+  const paintTriEl = paintTri;
   // 2.3.6 单条开关、分组开关只改了开关状态：就地改这一行（或这一组）和计数，不重建整个列表
   let patchNext = null;
   function patchSwitch(p) {
@@ -1213,8 +1131,6 @@ function mountOrganize(page) {
         const ids = b?.ids || [];
         const onN = ids.filter((i) => en.get(i)).length;
         paintTriEl(sec.querySelector(":scope > .pa-ghead [data-act=gtoggle]"), triState, onN, ids.length);
-        const count = sec.querySelector(":scope > .pa-ghead .pa-count");
-        if (count) count.textContent = `${onN}/${ids.length}`;
         const gtk = sec.querySelector(":scope > .pa-ghead > .pa-gtk");
         if (gtk) gtk.textContent = tkFmt(tkSumOf(d, ids, (i) => en.get(i)));
         sec.querySelectorAll(":scope > .pa-gbody > .pa-row[data-id]").forEach((row) => {
@@ -1236,8 +1152,6 @@ function mountOrganize(page) {
     const sec = row.closest(".pa-group");
     if (sec) {
       const onN = b.ids.filter((i) => en.get(i)).length;
-      const count = sec.querySelector(":scope > .pa-ghead .pa-count");
-      if (count) count.textContent = `${onN}/${b.ids.length}`;
       const gtk = sec.querySelector(":scope > .pa-ghead > .pa-gtk");
       if (gtk) gtk.textContent = tkFmt(tkSumOf(d, b.ids, (i) => en.get(i)));
       if (b.groupId) paintTriEl(sec.querySelector(":scope > .pa-ghead [data-act=gtoggle]"), d.groupTriState(b.groupId), onN, b.ids.length);

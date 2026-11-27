@@ -31,11 +31,11 @@ await rowClick(".pa-dst-list", "示例条目"); await page.waitForTimeout(150);
 assert.match(await page.$eval(".pa-where", (x) => x.textContent), /世界书「示例世界书」，「示例条目」之后/);
 await page.screenshot({ path: S + "w-1-target.png" });
 await page.click('[data-st="go"]'); await page.waitForTimeout(500);
-const chips = await page.$$eval(".pa-sheet .pa-item .pa-badges", (xs) => xs.map((x) => x.textContent));
+const chips = await page.$$eval(".pa-sheet .pa-item .pa-item-sub", (xs) => xs.map((x) => x.textContent)); // 2.12.20 状态写在条目名下面一行
 console.log(chips);
 assert.ok(chips[0].includes("常驻") && chips[0].includes("角色定义之后"), "默认常驻，插入位置跟随锚点条目");
 assert.ok(chips[1].includes("按深度插入 2"), "预设里的深度插入转为世界书的按深度插入");
-await page.locator(".pa-sheet .pa-item-head").first().click(); await page.waitForTimeout(150);
+await page.locator(".pa-sheet .pa-item-head").first().click(); await page.waitForTimeout(300);
 await page.selectOption('.pa-sheet [data-c="constant"]', "0"); await page.waitForTimeout(150);
 assert.ok(await page.locator(".pa-sheet .pa-chip-warn").first().isVisible(), "关键词为空时提醒");
 await page.fill('.pa-sheet [data-c="keys"]', "开场，开头"); await page.dispatchEvent('.pa-sheet [data-c="keys"]', "change"); await page.waitForTimeout(150);
@@ -57,7 +57,7 @@ await rowClick(".pa-src-list", "示例条目");
 await choose(page, ".pa-dst-wb", "空白世界书"); await page.waitForTimeout(300);
 await page.click('.pa-dst-list [data-act="top"]'); await page.waitForTimeout(150);
 await page.click('[data-st="go"]'); await page.waitForTimeout(500);
-assert.match(await page.$eval(".pa-sheet .pa-badges", (x) => x.textContent), /关键词.*角色定义之后/);
+assert.match(await page.$eval(".pa-sheet .pa-item-sub", (x) => x.textContent), /关键词.*角色定义之后/);
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(800);
 w = (await wi())["空白世界书"];
 list = Object.values(w.entries);
@@ -71,7 +71,7 @@ await rowClick(".pa-src-list", "示例条目");
 await page.evaluate(() => [...document.querySelectorAll(".pa-dst-list .pa-ghead")].find((x) => x.textContent.includes("正文规则")).click());
 await page.waitForTimeout(150);
 await page.click('[data-st="go"]'); await page.waitForTimeout(500);
-await page.locator(".pa-sheet .pa-item-head").first().click(); await page.waitForTimeout(150);
+await page.locator(".pa-sheet .pa-item-head").first().click(); await page.waitForTimeout(300);
 assert.match(await page.$eval(".pa-sheet .pa-item", (x) => x.textContent), /按关键词触发（示例、例子），缝进预设后会一直生效/);
 await page.click(".pa-sheet-actions .pa-btn-primary"); await page.waitForTimeout(1200);
 const rec = await page.evaluate((T) => { const m = window.__mock; return m.presets[m.names.indexOf(T)].extensions.presetAtelier?.stitched; }, T);
@@ -144,7 +144,7 @@ for (const n of [0, 1]) {
   await page.waitForTimeout(150);
   const after = await page.$eval(".pa-src-list", (l) => l.scrollTop);
   assert.ok(Math.abs(after - r.top) <= 2 && r.top > 800, `点「${r.name}」后列表停在原处：${r.top} → ${after}`);
-  assert.equal(await page.$eval(".pa-picked-n", (x) => x.textContent), `已选 ${n + 1} 条 ▸`);
+  assert.equal(await page.$eval(".pa-picked-n", (x) => x.textContent), `已选 ${n + 1} 条`);
 }
 await page.click('[data-st="clear"]'); await page.waitForTimeout(200);
 

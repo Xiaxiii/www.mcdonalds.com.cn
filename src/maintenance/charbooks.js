@@ -349,6 +349,18 @@ function deleteGlobalRegex(i) {
   ctx().saveSettingsDebounced();
   syncNativeRegexRow("#saved_regex_scripts", rule, { remove: true });
   noteRegexDisplay(rule);
+  refreshNativeRegex();
+}
+// 2.12.20 新建、复制、删除正则后，宿主有正则列表的刷新函数或事件时顺手触发，酒馆自己的正则抽屉不用重开就看到
+function refreshNativeRegex() {
+  try {
+    const c = ctx();
+    const fn = [c.reloadRegexScripts, c.loadRegexScripts, window.loadRegexScripts].find((f) => typeof f === "function");
+    if (fn) return void fn();
+    const ev = c.eventTypes || c.event_types || {};
+    const key = Object.keys(ev).find((k) => /^REGEX_SCRIPTS?_(UPDATED|CHANGED)$/.test(k));
+    if (key) c.eventSource?.emit?.(ev[key]);
+  } catch (e) { console.warn("[麦当劳] 刷新酒馆正则列表失败", e); }
 }
 // 2.12.17 新建、复制正则：插到 at（省略时放最后）
 function insertGlobalRegex(rule, at) {
@@ -357,6 +369,7 @@ function insertGlobalRegex(rule, at) {
   all.regex.splice(at ?? all.regex.length, 0, rule);
   ctx().saveSettingsDebounced();
   noteRegexDisplay(rule);
+  refreshNativeRegex();
 }
 async function insertCharRegex(ci, rule, at) {
   const ext = ci?.ch?.data?.extensions;
@@ -373,6 +386,7 @@ async function insertCharRegex(ci, rule, at) {
     throw e;
   }
   noteRegexDisplay(rule);
+  refreshNativeRegex();
 }
 async function writeCharRegex(ci, list) {
   const write = ctx().writeExtensionField;
@@ -409,4 +423,5 @@ async function deleteCharRegex(ci, i) {
   }
   if (currentChar()?.avatar === ci.avatar) syncNativeRegexRow("#saved_scoped_scripts", rule, { remove: true });
   noteRegexDisplay(rule);
+  refreshNativeRegex();
 }

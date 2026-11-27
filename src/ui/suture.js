@@ -7,19 +7,24 @@ function repaint(node, html) {
     repainting = false;
   }
 }
-// 2.12.17 缝后开关：三段「全关 | 按来源 | 全开」，现在是哪一种就亮哪一段；逐条改过、哪段都不是时都不亮
+// 2.12.17 缝后开关：三段「全关 | 按来源 | 全开」，现在是哪一种就亮哪一段；逐条改过、哪段都不是时都不亮（滑块淡出）
+// 2.12.20 一行：左「缝后开启 n/N」，右滑动三段
 function sutureEnableTools() {
-  return `<div class="pa-field-row pa-enablebar" data-enable-tools role="group" aria-label="本次缝合的开启状态">
-    <span data-enable-count aria-live="polite"></span>
+  return `<div class="pa-tc-row pa-enablebar" data-enable-tools role="group" aria-label="本次缝合的开启状态">
+    <span class="pa-tc-k" data-enable-count aria-live="polite"></span>
     <div class="pa-seg pa-seg-s" role="group" aria-label="缝后开关"><button type="button" data-enable="off" aria-pressed="false">全关</button><button type="button" data-enable="source" aria-pressed="false" title="每条恢复成来源里的开关状态">按来源</button><button type="button" data-enable="on" aria-pressed="false">全开</button></div></div>`;
 }
 function bindSutureEnableTools(body, items) {
   const tools = body.querySelector("[data-enable-tools]");
   const refresh = () => {
     const count = items.filter((it) => it.enabled).length;
-    tools.querySelector("[data-enable-count]").textContent = `${count && count < items.length ? "部分开启" : "缝后开启"}：${count} / ${items.length}`;
     const now = count === items.length ? "on" : count === 0 ? "off" : items.every((it) => it.enabled === (it.srcEnabled !== false)) ? "source" : "";
+    const edited = !now || now !== "source" && items.some((it) => it.enabled !== (it.srcEnabled !== false)) && count > 0 && count < items.length;
+    tools.querySelector("[data-enable-count]").textContent = `缝后开启 ${count}/${items.length}${edited ? " · 已单改" : ""}`;
     tools.querySelectorAll("[data-enable]").forEach((b) => { const on = b.dataset.enable === now; b.classList.toggle("on", on); b.setAttribute("aria-pressed", String(on)); });
+    const seg = tools.querySelector(".pa-seg");
+    now ? seg.removeAttribute("data-none") : seg.setAttribute("data-none", "1");
+    body.dispatchEvent(new CustomEvent("pa-enable-change"));
   };
   tools.addEventListener("click", (e) => {
     const k = e.target.closest("[data-enable]")?.dataset.enable;
@@ -36,6 +41,22 @@ function bindSutureEnableTools(body, items) {
     if (e.target.matches(".pa-items [data-c=on]")) refresh();
   });
   refresh();
+}
+// 2.12.20 条目头：左边旋转箭头 + 名称 + 一行安静状态，右边缝后开关；点头部在下面呼吸展开详情
+function sutureItemHead(i, open, name, sub, warnN, enabled) {
+  return `<header class="pa-item-head" data-c="toggle" role="button" tabindex="0" aria-expanded="${!!open}" aria-controls="pa-item-acc-${i}">${CARET_SVG}<span class="pa-item-t"><span class="pa-item-name">${esc(name)}</span><span class="pa-item-meta"><small class="pa-item-sub">${sub}</small>${warnN ? `<span class="pa-chip pa-chip-warn">提醒 ${warnN}</span>` : ""}</span></span><label class="pa-switch pa-item-on" title="缝后开启。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" aria-label="缝后开启「${esc(name)}」" ${enabled ? "checked" : ""}><i></i></label></header>`;
+}
+function bindItemAcc(box, items, onOpen) {
+  box.addEventListener("click", (e) => {
+    const head = e.target.closest(".pa-item-head[data-c=toggle]");
+    if (!head || e.target.closest("input, .pa-item-on")) return;
+    const art = head.closest(".pa-item");
+    const it = items[Number(art.dataset.i)];
+    it.open = !it.open;
+    art.classList.toggle("open", it.open);
+    accSet(art.querySelector(":scope > .pa-acc"), it.open, head);
+    onOpen?.(art, it);
+  });
 }
 var sutureQueryMem = {};
 var sutureDefaultLayout = () => window.matchMedia?.("(max-width: 759px)").matches ? "switch" : "split";
@@ -768,7 +789,7 @@ function mountSuture(page, app) {
     }
     const m = st.dstType === "world" ? st.wbMarker : st.marker;
     const pn = bar.querySelector(".pa-picked-n");
-    pn.textContent = n ? `已选 ${n} 条 ▸` : "未选条目";
+    pn.innerHTML = n ? `已选 ${n} 条<span class="fold-caret" aria-hidden="true">${FOLD_SVG}</span>` : "未选条目";
     pn.disabled = !n;
     bar.querySelector(".pa-where").textContent = d && m ? `位置：${st.dstType === "world" ? `世界书「${d.name}」，` : ""}${placeText(d, m)}` : st.dstType === "world" ? "在「到」点条目选位置" : "在「到」点选位置";
     bar.querySelector("[data-st=go]").disabled = !(n && m);
@@ -1068,18 +1089,12 @@ function mountSuture(page, app) {
       const v = await pickBox("工具", [
         fileRegex ? { label: "缝合文件中的正则…", sub: `文件中有 ${fileRegex} 条正则`, value: "regex" } : { label: "缝合正则…", sub: "从另一个预设挑正则缝进目标预设", value: "regexask" },
         { label: "搬到新版…", sub: "把旧版里缝入的条目按原位置搬到新版", value: "migrate" },
-        { label: "合并新版…", sub: "逐条比对新版的提示词、正则、酒馆助手脚本后并入自己改过的旧版", value: "merge" },
-        ...st.picked.size ? [{ label: "清空已选条目", value: "clearpicked" }] : []
+        { label: "合并新版…", sub: "逐条比对新版的提示词、正则、酒馆助手脚本后并入自己改过的旧版", value: "merge" }
       ]);
       if (v === "regex") return regexSuture();
       if (v === "regexask") return regexSuture({ ask: true });
       if (v === "migrate") return migrateAsk();
       if (v === "merge") return mergeNewVersion();
-      if (v === "clearpicked") {
-        st.picked.clear();
-        renderSrc();
-        return renderBar();
-      }
     }
     if (a === "wbundo") undoWorld();
     if (a === "newgroup") {
@@ -1226,7 +1241,7 @@ function mountSuture(page, app) {
       return acc;
     }, []));
     const grpDefault = groupKeys.length ? "keep" : "none";
-    const grpRow = gid || !single || spec ? "" : `<div class="pa-field-row pa-grp-row"><span>分组</span>
+    const grpRow = gid || !single || spec ? "" : `<div class="pa-tc-field pa-grp-row"><span class="pa-tc-k">归入分组</span>
                 <select class="pa-select pa-select-s" data-g="grp">
                     ${groupKeys.length ? `<option value="keep">保留原分组（${esc(groupKeys.map((g) => g.name).join("、"))}）</option>` : ""}
                     <option value="none" ${grpDefault === "none" ? "selected" : ""}>不分组</option>
@@ -1242,22 +1257,26 @@ function mountSuture(page, app) {
       tgtProf.lines.length ? `<b class="pa-sub">目标预设怎样让条目生效</b><ul class="pa-notes">${tgtProf.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "",
       ...[...srcProfs].map(([sd, pr]) => pr.lines.length ? `<b class="pa-sub">来源「${esc(sd.name)}」怎样让条目生效</b><ul class="pa-notes">${pr.lines.map((l) => `<li>${esc(l)}</li>`).join("")}</ul>` : "")
     ].join("");
+    // 2.12.20 总控卡收成三行：去向摘要（详情 ▾ 展开分组、写法、注明来源）、缝后开启、接入思维链
+    const detId = accId("tc");
+    const details = `${grpRow}
+                <div class="pa-tc-field" data-mode-sec><span class="pa-tc-k">条目写法</span>
+                <div class="pa-modebar"><span class="pa-modebar-n" aria-live="polite"></span><div class="pa-seg pa-seg-s" role="group" aria-label="条目写法"><button type="button" data-g="mode-raw" aria-pressed="false">原样</button><button type="button" data-g="mode-fix" aria-pressed="false">按目标写法</button></div></div>
+                <small data-mode-hint></small>
+                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 角色和位置也随目标</label>
+                ${analysisLines ? `<details class="pa-explain"><summary>分析</summary><div class="pa-explain-body">${analysisLines}</div></details>` : ""}
+                </div>
+                <div class="pa-tc-from"><label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 名称后注明来源</label><small>记住此偏好</small></div>`;
     const body = el(`<div class="pa-review">
             <div class="pa-target-card">
-                ${single ? `<div><b>位置：${esc(placeText(d, marker))}</b></div>
-                ${grpRow}` : `<div><b>缝到 ${posCache.size} 个位置</b></div><small>按来源中的位置分别放置，见各条详情</small>`}
-                <label class="pa-inline-check"><input type="checkbox" data-g="from" ${settings().nameWithSource ? "checked" : ""}> 名称后注明来源</label>
-                <div class="pa-rv-sec" data-mode-sec>
-                <div class="pa-modebar"><span class="pa-modebar-n" aria-live="polite"></span><button type="button" class="pa-btn pa-btn-s" data-g="mode-raw">全部原样</button><button type="button" class="pa-btn pa-btn-s" data-g="mode-fix">全部按目标写法</button></div>
-                <small data-mode-hint></small>
-                <label class="pa-inline-check"><input type="checkbox" data-g="inj" ${settings().followTargetInjection ? "checked" : ""}> 按目标写法时，角色和位置也随目标</label>
-                ${analysisLines ? `<details class="pa-explain"><summary>两边写法的分析</summary><div class="pa-explain-body">${analysisLines}</div></details>` : ""}
+                <div class="pa-tc-row pa-tc-where">
+                    <div class="pa-tc-t"><b>${single ? `到${esc(placeText(d, marker))}` : `缝到 ${posCache.size} 个位置`}</b><small data-tc-sum></small></div>
+                    <button type="button" class="pa-btn pa-btn-s pa-tc-more" data-g="more" aria-expanded="false" aria-controls="${detId}">详情${CARET_SVG}</button>
                 </div>
-                <div class="pa-rv-sec">${sutureEnableTools()}</div>
-                <div class="pa-rv-sec">
-                <div class="pa-hookbar"><span class="pa-hookbar-n"></span><button class="pa-btn pa-btn-s" data-g="hook-all">全部接入</button><button class="pa-btn pa-btn-s" data-g="hook-rec">推荐接入</button><button class="pa-btn pa-btn-s" data-g="hook-none">全部不接入</button></div>
-                <small>每接入一条，思考多一个问题</small>
-                </div>
+                ${accBox(`<div class="pa-tc-det">${details}</div>`, false, detId)}
+                ${sutureEnableTools()}
+                <div class="pa-tc-row pa-hookbar" title="每接入一条，思考多一个问题"><span class="pa-tc-k pa-hookbar-n"></span><div class="pa-seg pa-seg-s" role="group" aria-label="接入思维链"><button type="button" data-g="hook-none" aria-pressed="false">不接入</button><button type="button" data-g="hook-rec" aria-pressed="false">推荐</button><button type="button" data-g="hook-all" aria-pressed="false">全部</button></div></div>
+                <p class="pa-warn pa-hookbar-warn" hidden></p>
             </div>
             <div class="pa-items"></div>
         </div>`);
@@ -1357,17 +1376,16 @@ function mountSuture(page, app) {
       ].join("");
       const showAdv = mode !== "raw" && (/[{]{2}/.test(chosen.content) || t.headerTpl || t.tagTpl || t.ownTag);
       const modeLabel = { raw: "原样", fix: "按目标写法", slot: "加入多选一" }[mode];
-      const hookLabel = it.hook.status !== "hook" ? "" : it.hookOn ? '<span class="pa-chip pa-chip-cot">接入思维链</span>' : it.hook.on ? '<span class="pa-chip pa-chip-dim">推荐接入</span>' : "";
-      // 默认收起，只显示一行摘要；点开看详情
+      const hookSub = it.hook.status !== "hook" ? "" : it.hookOn ? " · 接入思维链" : it.hook.on ? " · 推荐接思维链" : " · 可接思维链";
+      // 默认收起，只显示一行状态；点开在下面呼吸展开详情
       return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
-                <header class="pa-item-head" data-c="toggle"><span class="pa-item-name">${esc(nameOf(it))}</span><span class="pa-item-caret">${it.open ? "▾" : "▸"}</span>
-                <span class="pa-item-meta"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label><span class="pa-badges"><span class="pa-chip">${modeLabel}</span>${hookLabel}${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span></span></header>
-                <div class="pa-item-body"${it.open ? "" : " hidden"}>
+                ${sutureItemHead(i, it.open, nameOf(it), esc(modeLabel + hookSub), warns.length, it.enabled)}
+                ${accBox(`<div class="pa-item-body">
+                ${warns.length ? `<div class="pa-item-warns">${warns.map((w) => `<p class="pa-warn">${esc(w)}</p>`).join("")}</div>` : ""}
                 <label class="pa-field"><span>条目名称</span><input class="pa-input pa-input-s" data-c="name" value="${esc(nameOf(it))}"></label>
                 ${single ? "" : `<small class="pa-from">位置：${esc(placeText(d, it.pos.marker))}</small>`}
                 ${it.desc ? `<details class="pa-was"><summary>在「${esc(it.src.from || "")}」中的作用</summary><ul class="pa-notes">${it.desc.lines.map((l) => `<li>${esc(l)}</li>`).join("")}${it.desc.cot ? `<li>${esc(it.desc.cot.text)}</li>` : ""}</ul></details>` : `<small class="pa-from">来自 ${esc(it.src.from || "")}</small>`}
                 <div class="pa-modes" role="radiogroup">${modes}</div>
-                ${warns.length ? `<ul class="pa-notes">${warns.map((w) => `<li class="pa-warn">${esc(w)}</li>`).join("")}</ul>` : ""}
                 ${hookBlock(it)}
                 ${showAdv ? `<details class="pa-adv" ${it.choice.adv ? "open" : ""}><summary>高级</summary>
                 <div class="pa-item-ctl">
@@ -1379,7 +1397,7 @@ function mountSuture(page, app) {
                 <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</summary>
                 <textarea class="pa-input pa-text" data-c="content" spellcheck="false">${esc(it.manual ?? it.finalContent)}</textarea>
                 ${it.manual != null ? '<button class="pa-link" data-c="reset">撤销手动修改，按上方选项重新生成</button>' : ""}</details>
-                </div>
+                </div>`, it.open, `pa-item-acc-${i}`)}
             </article>`;
     };
     const rerender = (art, it) => {
@@ -1399,32 +1417,51 @@ function mountSuture(page, app) {
     const recommended = () => hookable().filter((it) => it.hook.on && it.enabled);
     const paintHookBar = () => {
       const bar = body.querySelector(".pa-hookbar");
-      const n = hookable().length, rec = recommended().length;
+      const hk = hookable(), recs = recommended();
+      const n = hk.length, rec = recs.length;
+      const on = items.filter((it) => it.hookOn);
       bar.hidden = !n;
-      bar.querySelector("[data-g=hook-rec]").textContent = `推荐接入（${rec}）`;
-      bar.querySelector(".pa-hookbar-n").textContent = `思维链：已接入 ${items.filter((it) => it.hookOn).length} / ${n}`;
-      let warn = bar.querySelector(".pa-hookbar-warn");
-      if (!warn) { warn = document.createElement("p"); warn.className = "pa-warn pa-hookbar-warn"; bar.append(warn); }
-      warn.hidden = rec <= 10;
+      bar.querySelector("[data-g=hook-rec]").textContent = `推荐 ${rec}`;
+      bar.querySelector(".pa-hookbar-n").textContent = `接入思维链 ${on.length}/${n}`;
+      const now = !on.length ? "hook-none" : rec && on.length === rec && recs.every((it) => it.hookOn) ? "hook-rec" : on.length === n ? "hook-all" : "";
+      bar.querySelectorAll("[data-g]").forEach((b) => { const x = b.dataset.g === now; b.classList.toggle("on", x); b.setAttribute("aria-pressed", String(x)); });
+      const seg = bar.querySelector(".pa-seg");
+      now ? seg.removeAttribute("data-none") : seg.setAttribute("data-none", "1");
+      const warn = body.querySelector(".pa-hookbar-warn");
+      warn.hidden = !n || rec <= 10;
       warn.textContent = rec > 10 ? `推荐的 ${rec} 条在来源中已被思维链读取。全部接入将增加 ${rec} 个思考问题，思考变长、易爆思维链。整套缝合时，只接入需重点落实的几条。` : "";
     };
     paintHookBar();
     // 写法批量切换：只算能选的条目；「全部按目标写法」不动已选多选一的条目
     const modeTarget = single ? `目标：${t.summary}${tgtWr.length ? `，在 <${tgtWr.join("> / <")}> 内` : ""}` : "";
+    const grpSel = body.querySelector("[data-g=grp]");
+    const grpName = body.querySelector("[data-g=gname]");
+    const paintSum = () => {
+      const ch = items.filter((it) => it.choosable);
+      const fix = ch.filter((it) => it.mode !== "raw").length;
+      const grp = !grpSel ? "" : grpSel.value === "keep" ? "保留原分组" : grpSel.value === "new" ? (grpName.value.trim() ? `放入新分组「${grpName.value.trim()}」` : "放入新分组") : "不分组";
+      const mode = ch.length ? `按目标写法 ${fix}/${ch.length}` : "原样（与目标一致）";
+      body.querySelector("[data-tc-sum]").textContent = [grp, mode, body.querySelector("[data-g=from]").checked ? "注明来源" : ""].filter(Boolean).join(" · ");
+    };
     const paintModeBar = () => {
       const sec = body.querySelector("[data-mode-sec]");
       const ch = items.filter((it) => it.choosable);
-      // 没有可选的条目时仍显示这一段；只藏起按钮和只对按目标写法有用的勾选
+      // 没有可选的条目时只写一行说明；有可选的条目时是「原样 | 按目标写法」滑动两段
       const none = !ch.length;
-      sec.querySelectorAll(".pa-modebar .pa-btn").forEach((b) => { b.hidden = none; });
+      sec.querySelector(".pa-modebar .pa-seg").hidden = none;
       sec.querySelector("[data-g=inj]").closest("label").hidden = none;
       const fix = ch.filter((it) => it.mode !== "raw").length;
-      sec.querySelector(".pa-modebar-n").textContent = none ? "写法：全部原样" : `写法：按目标写法 ${fix} / ${ch.length}`;
+      sec.querySelector(".pa-modebar-n").textContent = none ? "全部原样，两边写法相同" : `按目标写法 ${fix}/${ch.length}`;
+      const now = none ? "" : fix === 0 ? "mode-raw" : fix === ch.length ? "mode-fix" : "";
+      sec.querySelectorAll(".pa-modebar [data-g]").forEach((b) => { const x = b.dataset.g === now; b.classList.toggle("on", x); b.setAttribute("aria-pressed", String(x)); });
+      const seg = sec.querySelector(".pa-modebar .pa-seg");
+      now ? seg.removeAttribute("data-none") : seg.setAttribute("data-none", "1");
       const sameN = items.length - ch.length;
-      const note = [modeTarget, none ? "两边写法相同" : sameN ? `${sameN} 条两边写法相同` : ""].filter(Boolean).join("；");
+      const note = [modeTarget, !none && sameN ? `${sameN} 条两边写法相同` : ""].filter(Boolean).join("；");
       const hint = sec.querySelector("[data-mode-hint]");
       hint.textContent = note;
       hint.hidden = !note;
+      paintSum();
     };
     paintModeBar();
     body.querySelector(".pa-modebar").addEventListener("click", (e) => {
@@ -1441,6 +1478,10 @@ function mountSuture(page, app) {
       paintHookBar();
       paintModeBar();
     });
+    body.querySelector("[data-g=more]").addEventListener("click", (e) => {
+      const btn = e.currentTarget, acc = body.querySelector(`#${detId}`);
+      accSet(acc, !acc.classList.contains("open"), btn);
+    });
     body.querySelector(".pa-hookbar").addEventListener("click", (e) => {
       const g = e.target.closest("[data-g]")?.dataset.g;
       if (!g) return;
@@ -1452,17 +1493,17 @@ function mountSuture(page, app) {
       paintHookBar();
     });
     bindSutureEnableTools(body, items);
-    body.addEventListener("change", (e) => { if (e.target.matches("[data-enable-toggle], .pa-items [data-c=on]")) paintHookBar(); });
-    body.querySelector("[data-enable-source]")?.addEventListener("click", () => paintHookBar());
-    const grpSel = body.querySelector("[data-g=grp]");
-    const grpName = body.querySelector("[data-g=gname]");
+    body.addEventListener("pa-enable-change", () => paintHookBar());
     grpSel?.addEventListener("change", () => {
       grpName.hidden = grpSel.value !== "new";
       if (!grpName.hidden) grpName.focus();
+      paintSum();
     });
+    grpName?.addEventListener("input", paintSum);
     body.querySelector("[data-g=from]").addEventListener("change", (e) => {
       settings().nameWithSource = e.target.checked;
       saveSettings();
+      paintSum();
       box.querySelectorAll(".pa-item").forEach((art) => {
         const it = items[Number(art.dataset.i)];
         const inp = art.querySelector("[data-c=name]");
@@ -1480,7 +1521,7 @@ function mountSuture(page, app) {
       const c2 = e.target.dataset.c;
       if (c2 === "on") {
         it.enabled = e.target.checked;
-        return;
+        return paintHookBar();
       }
       if (c2 === "name") {
         it.customName = e.target.value;
@@ -1504,14 +1545,8 @@ function mountSuture(page, app) {
       paintHookBar();
       if (c2 === "mode") paintModeBar();
     });
+    bindItemAcc(box, items);
     box.addEventListener("click", (e) => {
-      const head = e.target.closest("[data-c=toggle]");
-      if (head && !e.target.closest("input, .pa-item-on")) {
-        const art = head.closest(".pa-item");
-        const it = items[Number(art.dataset.i)];
-        it.open = !it.open;
-        return rerender(art, it);
-      }
       if (e.target.dataset.c !== "reset") return;
       const art = e.target.closest(".pa-item");
       const it = items[Number(art.dataset.i)];
@@ -1675,14 +1710,14 @@ function mountSuture(page, app) {
             <span class="pa-mode-head"><input type="radio" name="pa-wmode-${i}" data-c="mode" value="${value}" ${mode === value ? "checked" : ""}><b>${esc(title)}</b><small>${esc(sub)}</small></span>
             <pre class="pa-snip">${snip(content)}</pre>${mode === value && value === "fix" && plan.changes.length ? `<ul class="pa-notes">${plan.changes.map((n) => `<li>${esc(n)}</li>`).join("")}</ul>` : ""}</label>`;
       const w = it.wb;
+      const wsub = `${mode === "raw" ? "原样" : "按目标写法"} · ${w.constant ? "常驻" : "关键词"} · ${posName(w.position)}${Number(w.position) === 4 ? ` ${w.depth}` : ""}`;
       return `<article class="pa-item${it.open ? " open" : ""}" data-i="${i}">
-        <header class="pa-item-head" data-c="toggle"><span class="pa-item-name">${esc(it.name ?? it.src.name)}</span><span class="pa-item-caret">${it.open ? "▾" : "▸"}</span>
-                <span class="pa-item-meta"><label class="pa-item-on" title="缝进去以后是开着还是关着。不想缝这一条，请回到来源里取消选择"><input type="checkbox" data-c="on" ${it.enabled ? "checked" : ""}>缝后开启</label><span class="pa-badges"><span class="pa-chip">${w.constant ? "常驻" : "关键词"}</span><span class="pa-chip">${esc(posName(w.position))}${Number(w.position) === 4 ? ` ${w.depth}` : ""}</span>${warns.length ? `<span class="pa-chip pa-chip-warn">提醒 ${warns.length}</span>` : ""}</span></span></header>
-        <div class="pa-item-body"${it.open ? "" : " hidden"}>
+        ${sutureItemHead(i, it.open, it.name ?? it.src.name, esc(wsub), warns.length, it.enabled)}
+        ${accBox(`<div class="pa-item-body">
+          ${warns.length ? `<div class="pa-item-warns">${warns.map((x) => `<p class="pa-warn">${esc(x)}</p>`).join("")}</div>` : ""}
           <label class="pa-field"><span>条目名称</span><input class="pa-input pa-input-s" data-c="name" value="${esc(it.name ?? it.src.name)}"></label>
           <small class="pa-from">来自 ${esc(it.src.from || "")}${w.from ? "，沿用原世界书中的触发和插入设置" : ""}</small>
           <div class="pa-modes" role="radiogroup">${same ? card("raw", "原样缝合", "两边写法相同，无需调整", raw) : card("raw", "原样缝合", "不调整写法", raw) + card("fix", "按目标写法缝合", `按「${d.name}」的写法调整`, plan.content)}</div>
-          ${warns.length ? `<ul class="pa-notes">${warns.map((x) => `<li class="pa-warn">${esc(x)}</li>`).join("")}</ul>` : ""}
           <div class="pa-item-ctl pa-wbset">
             <label class="pa-field"><span>触发</span><select class="pa-select pa-select-s" data-c="constant"><option value="1" ${w.constant ? "selected" : ""}>常驻（一直生效）</option><option value="0" ${w.constant ? "" : "selected"}>按关键词触发</option></select></label>
             ${w.constant ? "" : `<label class="pa-field pa-field-wide"><span>关键词（逗号分隔）</span><input class="pa-input pa-input-s" data-c="keys" value="${esc(w.keys)}"></label>`}
@@ -1693,11 +1728,17 @@ function mountSuture(page, app) {
           </div>
           <details class="pa-body" ${it.bodyOpen ? "open" : ""}><summary>缝合后的完整正文${it.manual != null ? "（已手动修改）" : ""}</summary>
             <textarea class="pa-input pa-text" data-c="content" spellcheck="false">${esc(it.manual ?? it.content)}</textarea></details>
-        </div></article>`;
+        </div>`, it.open, `pa-item-acc-${i}`)}</article>`;
     };
+    const wdetId = accId("tc");
     const body = el(`<div class="pa-review">
-        <div class="pa-target-card"><div><b>位置：世界书「${esc(d.name)}」，${esc(placeText(d, marker))}</b></div>
-          <small>位置决定条目在世界书编辑器中的排列。实际发送顺序由每条的「插入位置」和「顺序」决定，默认与${anchor ? `「${esc(d.prompt(afterId || firstId)?.name || "")}」` : "世界书默认值"}相同。预设条目缝入后默认「常驻」，与在预设中一样一直生效。</small>${sutureEnableTools()}</div>
+        <div class="pa-target-card">
+          <div class="pa-tc-row pa-tc-where">
+            <div class="pa-tc-t"><b>到世界书「${esc(d.name)}」，${esc(placeText(d, marker))}</b></div>
+            <button type="button" class="pa-btn pa-btn-s pa-tc-more" data-g="more" aria-expanded="false" aria-controls="${wdetId}">详情${CARET_SVG}</button>
+          </div>
+          ${accBox(`<div class="pa-tc-det"><small>位置决定条目在世界书编辑器中的排列。实际发送顺序由每条的「插入位置」和「顺序」决定，默认与${anchor ? `「${esc(d.prompt(afterId || firstId)?.name || "")}」` : "世界书默认值"}相同。预设条目缝入后默认「常驻」，与在预设中一样一直生效。</small></div>`, false, wdetId)}
+          ${sutureEnableTools()}</div>
         <div class="pa-items"></div></div>`);
     const box = body.querySelector(".pa-items");
     const paint = () => { box.innerHTML = items.map(renderItem).join(""); };
@@ -1722,13 +1763,10 @@ function mountSuture(page, app) {
       it.bodyOpen = art.querySelector(".pa-body")?.open || void 0;
       repaint(art, renderItem(it, Number(art.dataset.i)));
     });
-    box.addEventListener("click", (e) => {
-      const head = e.target.closest("[data-c=toggle]");
-      if (!head || e.target.closest("input, .pa-item-on")) return;
-      const art = head.closest(".pa-item");
-      const it = items[Number(art.dataset.i)];
-      it.open = !it.open;
-      repaint(art, renderItem(it, Number(art.dataset.i)));
+    bindItemAcc(box, items);
+    body.querySelector("[data-g=more]").addEventListener("click", (e) => {
+      const acc = body.querySelector(`#${wdetId}`);
+      accSet(acc, !acc.classList.contains("open"), e.currentTarget);
     });
     const ok = await sheet({ title: `缝合 ${items.length} 条到世界书「${d.name}」`, body, wide: true, noFocus: true, actions: [{ label: "取消", value: null }, { label: "确认缝合", kind: "primary", value: true }] });
     if (!ok) return;

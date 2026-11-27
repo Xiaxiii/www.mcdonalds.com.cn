@@ -29,7 +29,7 @@ function actualSurfaces() {
   };
   const mix = (fg, bg, alpha = fg[3]) => [0, 1, 2].map(i => fg[i] * alpha + bg[i] * (1 - alpha));
   const root = document.getElementById('mcd-root');
-  return [...root.querySelectorAll('.pa-sheet .pa-item-on,.pa-sheet .pa-item-name,.pa-sheet .pa-hint,.pa-sheet .pa-mode.on b,.pa-sheet .pa-mode.on small,.pa-sheet .pa-snip,.pa-sheet .pa-input,.pa-sheet .pa-select')].map(node => {
+  return [...root.querySelectorAll('.pa-sheet .pa-item-on,.pa-sheet .pa-item-name,.pa-sheet .pa-hint,.pa-sheet .pa-mode.on b,.pa-sheet .pa-mode.on small,.pa-sheet .pa-snip,.pa-sheet .pa-input,.pa-sheet .pa-select')].filter(node => getComputedStyle(node).visibility !== 'hidden').map(node => { // 2.12.20 收起的抽屉里看不见的字不算
     const chain = [];
     for (let current = node; current; current = current.parentElement) chain.unshift(current);
     let bg = [255, 255, 255];
@@ -80,7 +80,12 @@ try {
     await page.waitForSelector('.pa-item-on input');
     assert.equal(await page.locator('.pa-item-on input').count(), 2);
     await page.locator('.pa-item-head').first().click();
+    await page.waitForTimeout(300);
     await page.locator('.pa-item').first().locator('.pa-body summary').click();
+    // 2.12.20 缝后开启是条目右边的拨杆；复选框的配色改看「详情」里的「名称后注明来源」
+    await page.click('.pa-review [data-g=more]');
+    await page.waitForTimeout(300);
+    await page.locator('.pa-review [data-g=from]').check();
     await page.locator('.pa-sheet').evaluate(async node => { await Promise.all(node.getAnimations().map(a => a.finished)); });
 
     // 模拟截图中的外部美化：原生复选框被强制画成白色长方块。
@@ -96,9 +101,9 @@ try {
         return root.style.getPropertyValue('--pa-tint') === `rgb(${theme.bg.join(', ')})` && root._paThemeSignature.includes(theme.text);
       }, theme);
       const colors = await page.evaluate(() => {
-        const root = document.getElementById('mcd-root'), label = root.querySelector('.pa-item-on'), input = label.querySelector('input');
+        const root = document.getElementById('mcd-root'), label = root.querySelector('.pa-tc-from .pa-inline-check'), input = label.querySelector('input');
         const cs = getComputedStyle(root), ctl = getComputedStyle(input), button = getComputedStyle(root.querySelector('.pa-sheet-actions .pa-btn-primary'));
-        return { text: getComputedStyle(label).color, title: getComputedStyle(root.querySelector('.pa-item-name')).color, badge: getComputedStyle(root.querySelector('.pa-item-meta .pa-chip')).color, dim: cs.getPropertyValue('--pa-dim'), accent: ctl.backgroundColor, ink: button.color, primary: button.backgroundColor, border: ctl.borderColor, width: ctl.width, height: ctl.height, appearance: ctl.appearance, image: ctl.backgroundImage, shadow: ctl.boxShadow, filter: ctl.filter, mask: ctl.maskImage, pseudo: getComputedStyle(input, '::before').content, shellBlur: getComputedStyle(root.querySelector('.pa-shell')).backdropFilter, sheetBlur: getComputedStyle(root.querySelector('.pa-sheet')).backdropFilter };
+        return { text: getComputedStyle(label).color, title: getComputedStyle(root.querySelector('.pa-item-name')).color, badge: getComputedStyle(root.querySelector('.pa-item-meta .pa-item-sub')).color, dim: cs.getPropertyValue('--pa-dim'), accent: ctl.backgroundColor, ink: button.color, primary: button.backgroundColor, border: ctl.borderColor, width: ctl.width, height: ctl.height, appearance: ctl.appearance, image: ctl.backgroundImage, shadow: ctl.boxShadow, filter: ctl.filter, mask: ctl.maskImage, pseudo: getComputedStyle(input, '::before').content, shellBlur: getComputedStyle(root.querySelector('.pa-shell')).backdropFilter, sheetBlur: getComputedStyle(root.querySelector('.pa-sheet')).backdropFilter };
       });
       assert.ok(ratio(rgb(colors.text), theme.bg) >= 4.5, theme.name + ': 开启标签可读');
       assert.equal(await page.evaluate(() => document.getElementById('mcd-root').classList.contains('pa-guard')), true, theme.name + ': 检测到宿主强改字色');
@@ -118,7 +123,8 @@ try {
       assert.ok(actual.some(x => x.name.includes('/INPUT/')), '展开条目包含标题输入框');
       assert.ok(actual.some(x => x.name.includes('/TEXTAREA/')), '展开完整正文包含文本框');
       for (const surface of actual) assert.ok(ratio(surface.painted, surface.bg) >= 4.5, `${theme.name}: ${surface.name} 在实际叠加表面上的对比度 ${ratio(surface.painted, surface.bg).toFixed(3)}`);
-      const enabled = page.locator('.pa-item-on input').first();
+      await page.locator('.pa-item-on input').first().uncheck();
+      const enabled = page.locator('.pa-review [data-g=from]');
       await enabled.uncheck();
       const off = await enabled.evaluate(e => ({ border: getComputedStyle(e).borderColor, image: getComputedStyle(e).backgroundImage }));
       assert.ok(ratio(rgb(off.border), theme.bg) >= 3, theme.name + ': 未选边框可分辨');

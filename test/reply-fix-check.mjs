@@ -45,7 +45,7 @@ try {
   });
   await page.click('[data-r=latest]');
   const result = page.locator('[data-r=result]');
-  assert.match(await result.innerText(), /思考区在正文开始前结束/);
+  assert.match(await result.textContent(), /思考区在正文开始前结束/); // 2.12.20 修正步骤收在「查看修正说明」里
   await page.click('[data-r=fix]');
   await page.locator('[data-r=undo-fix]').waitFor();
   const fixed = await page.evaluate(() => window.SillyTavern.getContext().chat[2]);

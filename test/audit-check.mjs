@@ -40,7 +40,8 @@ const close=async(page,label)=>{await page.locator('.pa-sheet-actions .pa-btn').
 const go=async(page,key)=>{await page.evaluate(k=>window.__mcdonalds.open(k),key);await pause(page);};
 const R=s=>`[data-page=reply] ${s}`;
 // 2.8.0 AI 语义审查收在回复页页尾的折叠块里
-const goAi=async(page)=>{await go(page,'reply-ai');await page.evaluate(()=>{const d=document.querySelector('[data-page=reply] details.pa-rai');if(d)d.open=true;});};
+// 2.12.20 语义审查说明和「最近结果」收在「更多规则与检测范围」里
+const goAi=async(page)=>{await go(page,'reply-ai');const m=page.locator('[data-page=reply] [data-r=more]');if(await m.getAttribute('aria-expanded')!=='true'){await m.click();await page.waitForTimeout(300);}};
 try {
   const page=await open();
   await go(page,'vars');
@@ -50,11 +51,11 @@ try {
   const before=await page.evaluate(()=>JSON.stringify(window.SillyTavern.getContext().chatMetadata.variables));
   await page.click('[data-vf=snapshot]');
   const snapshotText=await page.locator('[data-vf=result]').innerText();
-  assert.match(snapshotText,/audit_hidden/);assert.match(snapshotText,/audit_zero.*有值/);assert(!snapshotText.includes('STATE_VALUE_NOT_FOR_API'));
+  assert.match(snapshotText,/audit_hidden/);assert.match(snapshotText,/audit_zero\n[^\n]*\n有值/);assert(!snapshotText.includes('STATE_VALUE_NOT_FOR_API'));
   assert.equal(await page.evaluate(()=>JSON.stringify(window.SillyTavern.getContext().chatMetadata.variables)),before);
   await page.check('[data-vf=watch]');
   await page.evaluate(async()=>{const c=window.SillyTavern.getContext();await c.eventSource.emit(c.eventTypes.GENERATION_STARTED,'normal',{},false);await c.eventSource.emit(c.eventTypes.GENERATION_AFTER_COMMANDS,'normal',{},false);c.chatMetadata.variables.audit_zero=1;await c.eventSource.emit(c.eventTypes.GENERATION_ENDED);});
-  await page.click('[data-vf=refresh]');await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();assert.match(await page.locator('[data-vf=result]').innerText(),/audit_zero.*变化/);await page.uncheck('[data-vf=watch]');
+  await go(page,'vars');await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();assert.match(await page.locator('[data-vf=result]').innerText(),/audit_zero.*变化/);await page.uncheck('[data-vf=watch]');
   console.log('✓ 顺序风险、变量快照、只读状态与默认关闭的生成前后对比');
 
   await goAi(page);

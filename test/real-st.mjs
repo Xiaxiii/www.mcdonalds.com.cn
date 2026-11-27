@@ -82,7 +82,6 @@ try {
     c.variables.local.set('bcw_zero',1);await c.eventSource.emit(c.eventTypes.GENERATION_ENDED,c.chat.length);
   });
   await page.evaluate(() => window.__mcdonalds.open('vars'));
-  await page.click('[data-vf=refresh]');
   await page.locator('[data-vf=result] details').filter({hasText:'最近一次生成前后变化'}).locator('summary').click();
   assert.match(await page.locator('[data-vf=result]').innerText(),/bcw_zero.*变化/);
   await page.locator('.pa-sheet-actions .pa-btn').filter({hasText:'关闭'}).click();await page.waitForTimeout(200);

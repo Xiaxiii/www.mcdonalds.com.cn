@@ -95,13 +95,15 @@ try {
   // 3) 站点列表：小三角点开，每个分组一行，各有「切换」
   const card = page.locator(".pa-plan-sites .pa-site-multi");
   assert.equal(await card.locator(".pa-kline").count(), 0, "默认折起");
-  assert.equal((await card.locator(".pa-fold-pill").textContent()).trim(), "2 组 ▸");
+  // 2.12.20 箭头是细线 SVG，展开时 aria-expanded 变 true
+  assert.equal((await card.locator(".pa-fold-pill").textContent()).trim(), "2 组");
+  assert.equal(await card.locator(".pa-fold-pill").getAttribute("aria-expanded"), "false");
   // 点名字打开编辑窗口（和单密钥站点一样），点「2 组」展开
   await card.locator(".pa-site-mhead b").click();
   await page.locator(".pa-sheet").waitFor();
   await page.click(".pa-sheet-actions >> text=取消"); await page.waitForTimeout(300);
   await card.locator(".pa-fold-pill").click();
-  assert.equal((await card.locator(".pa-fold-pill").textContent()).trim(), "2 组 ▾");
+  assert.equal(await card.locator(".pa-fold-pill").getAttribute("aria-expanded"), "true");
   assert.equal(await card.locator(".pa-kline").count(), 2);
   await card.locator(".pa-kline", { hasText: "按次" }).locator("[data-a=use]").click();
   await page.waitForFunction(() => window.__toasts.some((t) => /已连接/.test(t)), null, { timeout: 20000 });

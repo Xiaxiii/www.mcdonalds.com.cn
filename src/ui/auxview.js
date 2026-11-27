@@ -72,7 +72,7 @@ function mountAux(page) {
     const models = [...new Set(chs.map((c) => c.model).filter(Boolean))];
     return `<div class="pa-sitecard pa-aux-grp pa-aux-unit${open ? " open" : ""}${uses.length ? " on-route" : ""}" data-site="${esc(site.id)}">
         <div class="pa-aux-ghead">${grip(site.name || "站点")}<button class="site-main pa-aux-gmain" type="button" data-a="grpfold" aria-expanded="${open}"><span class="pa-aux-k"><b>${esc(site.name || "站点")}</b><small>主 API 同源站点 · 含 ${esc(models.join("、") || "未选模型")}</small></span></button>
-        <span class="site-actions">${uses.length && !editing ? `<span class="pa-chip pa-aux-routetag">${routeLabel(uses)}</span>` : ""}<button class="pa-swpill pa-fold-pill" data-a="grpfold" type="button" aria-expanded="${open}" aria-label="${chs.length} 个渠道，${open ? "收起" : "展开"}">${chs.length} 个 ${open ? "▾" : "▸"}</button></span></div>
+        <span class="site-actions">${uses.length && !editing ? `<span class="pa-chip pa-aux-routetag">${routeLabel(uses)}</span>` : ""}<button class="pa-swpill pa-fold-pill" data-a="grpfold" type="button" aria-expanded="${open}" aria-label="${chs.length} 个渠道，${open ? "收起" : "展开"}"><span>${chs.length} 个</span><span class="fold-caret" aria-hidden="true">${FOLD_SVG}</span></button></span></div>
         ${open ? `<div class="pa-klines pa-aux-glines">${chs.map((c) => chCard(c, site)).join("")}${editing ? "" : `<button class="pa-aux-addmore" type="button" data-a="addsite" data-site="${esc(site.id)}"><span class="pa-mi" aria-hidden="true">${ICON.plus}</span>添加「${esc(site.name || "站点")}」的其他模型…</button>`}</div>` : ""}
       </div>`;
   }

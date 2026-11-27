@@ -75,6 +75,14 @@ try {
   assert.ok(hMid2 < h0 && Math.abs(await accH() - h0) <= 1, `展开有过渡：${hMid2} → ${h0}`);
   ok("当前连接卡三行齐平；「显示余额」平滑收起、展开");
 
+  // 2.12.20 ② 手机上「自动」与「流式」两个开关一样大（不再被 .pa-bal-auto 撑高到 34px）
+  const sw = await page.evaluate(() => {
+    const h = (el) => el ? Math.round(el.getBoundingClientRect().height * 10) / 10 : null;
+    return { auto: h(document.querySelector(".pa-live [data-o=balauto]").closest(".pa-switch")), stream: h(document.querySelector(".pa-live .pa-stream .pa-switch")), any: h(document.querySelector(".pa-switch:not(.pa-bal-auto)")) };
+  });
+  assert.ok(Math.abs(sw.auto - (sw.stream ?? sw.any)) <= 1 && sw.auto <= 28, "「自动」「流式」开关同高：" + JSON.stringify(sw));
+  ok("2.12.20 「自动」「流式」开关同高");
+
   // ② 站点顶栏：钱包 32px 圆钮，三个按钮热区不重叠；⋯ → 排序与删除：「完成」钉在 ⋯ 原位，把手滑出，点站点名不弹编辑窗
   const box = (sel) => page.evaluate((s) => { const r = document.querySelector(s).getBoundingClientRect(); return { l: r.left, r: r.right, t: r.top, b: r.bottom, w: r.width, h: r.height }; }, sel);
   const wb = await box(".pa-plan-sites [data-a=balall]");
@@ -105,6 +113,18 @@ try {
   await page.waitForTimeout(400);
   assert.equal(await page.locator(".pa-plan-sites .pa-site-grip").count(), 0, "完成后把手收回");
   ok("站点顶栏钱包 32px、热区不重叠；整理态「完成」零跳位、把手滑出、点卡片不误开编辑");
+
+  // 2.12.20 ① 顶栏 [＋] 与 [钱包][⋯] 同一套圆钮：没有主题色粗边、蓝底；③「使用中」是绿色系；④ 折叠胶囊里是 SVG 箭头
+  const heads = await page.evaluate(() => [...document.querySelectorAll(".pa-plan-sites .pa-head-btns > .pa-head-ico")].map((b) => { const c = getComputedStyle(b); return { a: b.dataset.a, bg: c.backgroundColor, sh: c.boxShadow, bc: c.borderTopColor, bw: c.borderTopWidth }; }));
+  const plus = heads.find((x) => x.a === "new"), more = heads.find((x) => x.a === "sitesmore");
+  assert.ok(plus && more && plus.bg === more.bg && plus.sh === more.sh, "＋ 与 ⋯ 同底色、同阴影：" + JSON.stringify(heads));
+  const thread = await page.evaluate(() => { const p = document.createElement("i"); p.style.color = "var(--pa-thread)"; document.getElementById("mcd-root").append(p); const c = getComputedStyle(p).color; p.remove(); return c; });
+  assert.ok(!(plus.bw !== "0px" && plus.bc === thread) && !plus.sh.includes(thread), "＋ 没有 1px 主题色实线框");
+  const chip = await page.evaluate(() => { const c = document.querySelector(".pa-plan-sites .pa-site-on-chip"); const cs = getComputedStyle(c); const ok = getComputedStyle(document.getElementById("mcd-root")).getPropertyValue("--pa-ok").trim(); const p = document.createElement("i"); p.style.color = ok; document.body.append(p); const okc = getComputedStyle(p).color; p.remove(); return { color: cs.color, okc, bg: cs.backgroundColor, h: c.getBoundingClientRect().height }; });
+  assert.ok(chip.color === chip.okc && chip.h <= 27, "「使用中」用语义绿：" + JSON.stringify(chip));
+  const pill = await page.evaluate(() => { const b = document.querySelector(".pa-plan-sites [data-a=sitefold]"); return { svg: !!b.querySelector("svg"), text: b.textContent }; });
+  assert.ok(pill.svg && !/[▸▾▶]/.test(pill.text), "「N 组」胶囊用细线 SVG 箭头：" + pill.text);
+  ok("2.12.20 顶栏 ＋ 与钱包、⋯ 同款；「使用中」柔绿；折叠胶囊 SVG 箭头");
 
   // ③ 切换站点、分组：卡片节点原地复用；展开的多密钥分组保持打开；顶部卡片回响
   await page.evaluate(() => { window.__nodes = [...document.querySelectorAll(".pa-plan-sites .pa-sitecard")]; window.__liveNode = document.querySelector(".pa-live"); });

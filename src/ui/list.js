@@ -133,16 +133,12 @@ function renderIndexedList(draft, o) {
     const caret = place || o.mode === "target";
     const startSlot = inside && !isCol && b.part === 1 ? atStart ? mark : `<button class="pa-slot pa-slot-in" data-act="gstart" data-gid="${esc(b.groupId)}">${b.empty ? "↓ 放入此组" : "↑ 组内最前"}</button>` : "";
     const emptyNote = b.empty && !startSlot ? '<p class="pa-gempty">空分组</p>' : "";
-    const triState = draft.groupOff(b.groupId) ? "off" : (b.empty || onCount === b.ids.length ? "all" : "mid");
-    const triVal = triState === "off" ? 0 : triState === "mid" ? 1 : 2;
-    const triText = triState === "off" ? "全关" : triState === "mid" ? `自定义（${onCount}/${b.ids.length}）` : "全开";
-    // 2.12.17 有自定义的开关组合（快照，或现在部分开着）才有中间档；没有时不画中间的圆点
-    const hasMid = triState === "mid" || !!draft.hasGroupSnap?.(b.groupId) || onCount > 0 && onCount < b.ids.length;
+    const triState = draft.groupTriState ? draft.groupTriState(b.groupId) : draft.groupOff(b.groupId) ? "off" : (b.empty || onCount === b.ids.length ? "all" : "mid");
     html += `<section class="pa-group${hasAt ? " pa-has-at" : ""}${afterHere ? " pa-after-at" : ""}${isCol ? " pa-collapsed" : ""}${b.empty ? " pa-gempty-box" : ""}${draft.groupOff(b.groupId) ? " pa-goff" : ""}${allSel && !b.empty ? " pa-gsel" : ""}" data-gid="${esc(b.groupId)}">
             <header class="pa-ghead" data-gid="${esc(b.groupId)}" data-first="${esc(first)}" data-last="${esc(last)}" tabindex="0">
                 ${caret ? `<button class="pa-icon-btn pa-caret${isCol ? "" : " open"}" data-act="collapse" aria-label="展开或折叠" aria-expanded="${!isCol}">${ICON.caret}</button>` : `<button class="pa-icon-btn pa-group-select" data-act="gselect" aria-label="选择整组" aria-pressed="${!!allSel && !b.empty}"><span class="pa-check"></span></button>`}
-                <span class="pa-gname"${place ? "" : ' data-act="collapse" role="button" tabindex="0"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span><span class="pa-count">${onCount}/${b.ids.length}</span>${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-gsp"></span>${showTk ? `<small class="pa-tk pa-gtk">${tkFmt(tkSumOf(draft, b.ids, (i) => enabledMap.get(i)))}</small>` : ""}
-                ${showSwitch ? `<span class="pa-tri${hasMid ? "" : " pa-tri-nomid"}" data-act="gtoggle" data-state="${triState}" role="slider" tabindex="0" aria-label="分组总开关" aria-valuemin="0" aria-valuemax="2" aria-valuenow="${triVal}" aria-valuetext="${esc(triText)}" title="${hasMid ? "左：全关 · 中：自定义 · 右：全开（可点击或拖动）" : "左：全关 · 右：全开（可点击或拖动）"}"><i class="pa-tri-dots" aria-hidden="true"><span></span><span></span><span></span></i><i class="pa-tri-thumb" aria-hidden="true"></i></span>
+                <span class="pa-gname"${place ? "" : ' data-act="collapse" role="button" tabindex="0"'}>${markText(g?.name || "分组", q)}${b.parts > 1 ? `<em class="pa-split">第 ${b.part}/${b.parts} 段</em>` : ""}</span>${hasAt && isCol ? '<span class="pa-at-chip">位置在组内</span>' : ""}<span class="pa-gsp"></span>${showTk ? `<small class="pa-tk pa-gtk">${tkFmt(tkSumOf(draft, b.ids, (i) => enabledMap.get(i)))}</small>` : ""}
+                ${showSwitch ? `${triHtml(triState, onCount, b.ids.length, g?.name || "分组")}
                 <button class="pa-icon-btn" data-act="gmenu" aria-label="分组操作">${ICON.more}</button>
                 <span class="pa-handle" data-act="gdrag" role="button" tabindex="0" aria-label="拖动分组">${ICON.grip}</span>` : ""}
             </header>
@@ -150,6 +146,40 @@ function renderIndexedList(draft, o) {
         </section>${afterHere ? mark : ""}`;
   }
   return html || '<p class="pa-empty">没有匹配的条目</p>';
+}
+// 2.12.20 分组总开关：16px 进度环 + n/N 的固定宽胶囊。点任意位置循环（有自定义组合：自定义 → 全开 → 全关 → 自定义；没有：全开 ⇄ 全关）
+var TRI_C = 37.7; // 2πr，r = 6
+function triShown(state, onN, total) {
+  return state === "off" ? 0 : onN;
+}
+function triLabel(name, state, onN, total) {
+  const st = state === "off" ? `全关（打开后 ${onN}/${total}）` : state === "all" ? "全开" : "自定义";
+  return { aria: `分组「${name}」总开关，当前已开 ${triShown(state, onN, total)}/${total}，${st}`, title: `${st} · 点按切换` };
+}
+function triArc(state, onN, total) {
+  const f = state === "off" || !total ? 0 : state === "all" ? 1 : onN / total;
+  return (TRI_C * (1 - f)).toFixed(2);
+}
+function triHtml(state, onN, total, name) {
+  const t = triLabel(name, state, onN, total);
+  const w = String(total).length * 2 + 1;
+  return `<button type="button" class="pa-tri" data-act="gtoggle" data-state="${state}" data-ready="0" aria-label="${esc(t.aria)}" title="${esc(t.title)}"><svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><circle class="r-fill" cx="8" cy="8" r="7"/><circle class="r-track" cx="8" cy="8" r="6"/><circle class="r-arc" cx="8" cy="8" r="6" stroke-dasharray="${TRI_C}" stroke-dashoffset="${triArc(state, onN, total)}" transform="rotate(-90 8 8)"/><path class="r-tick" d="M5 8.2 7.1 10.2 11 6.2" pathLength="1"/></svg><span class="pa-tri-n" style="width:${w}ch">${triShown(state, onN, total)}/${total}</span></button>`;
+}
+function paintTri(tri, state, onN, total) {
+  if (!tri) return;
+  const name = tri.closest(".pa-group")?.querySelector(":scope > .pa-ghead .pa-gname")?.textContent || "分组";
+  const t = triLabel(name, state, onN, total);
+  tri.dataset.state = state;
+  tri.setAttribute("aria-label", t.aria);
+  tri.title = t.title;
+  tri.querySelector(".r-arc")?.setAttribute("stroke-dashoffset", triArc(state, onN, total));
+  const n = tri.querySelector(".pa-tri-n");
+  if (n) n.textContent = `${triShown(state, onN, total)}/${total}`;
+}
+// 首屏不播扫弧动画：画完下一帧再打开过渡
+function readyTris(box) {
+  if (typeof requestAnimationFrame !== "function") return;
+  requestAnimationFrame(() => box.querySelectorAll('.pa-tri[data-ready="0"]').forEach((x) => { x.dataset.ready = "1"; }));
 }
 // 条目的标签（列表右侧显示的变量名）
 var ROLE_TEXT = { system: "系统", user: "用户", assistant: "AI" };

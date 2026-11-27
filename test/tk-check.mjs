@@ -66,15 +66,15 @@ const g = await page.$eval(".pa-list .pa-group", (sec) => {
     rowRight: [...sec.querySelectorAll(".pa-row > .pa-tk")].map((x) => Math.round(r(x).right)),
     headRight: Math.round(r(head.querySelector(".pa-gtk")).right),
     headMenuLeft: Math.round(r(head.querySelector("[data-act=gmenu]")).left),
-    countAfterName: Math.round(r(head.querySelector(".pa-count")).left - r(head.querySelector(".pa-gname")).right)
+    count: head.querySelectorAll(".pa-count").length, tri: head.querySelector(".pa-tri .pa-tri-n")?.textContent || ""
   };
 });
 assert.ok(g.rows.length > 0 && g.head === g.rows.reduce((a, b) => a + b, 0), "分组头的合计等于组内开着的条目之和：" + JSON.stringify(g));
 assert.strictEqual(new Set(g.rowRight).size, 1, "条目的数字右端对齐：" + g.rowRight.join());
 assert.ok(g.headRight <= g.headMenuLeft && g.headMenuLeft - g.headRight <= 12, "分组头合计紧靠 ⋯ 菜单左侧：" + JSON.stringify(g));
-assert.ok(g.countAfterName >= 4 && g.countAfterName <= 12, "「5/7」紧跟组名：" + JSON.stringify(g));
+assert.ok(g.count === 0 && /^\d+\/\d+$/.test(g.tri), "组名旁不再重复 n/N，计数在右边的进度环胶囊里：" + JSON.stringify(g));
 await page.screenshot({ path: S + "tk-1-each.png" });
-console.log("✓ 点圆点：每条旁显示 token 数；分组头「5/7」紧跟组名，合计在右边一列");
+console.log("✓ 点圆点：每条旁显示 token 数；分组头计数在进度环胶囊里，合计在右边一列");
 
 // 关掉一条：分组头、合计跟着少
 const rowId = await page.locator(".pa-list .pa-group .pa-row:not(.pa-off)").first().getAttribute("data-id");

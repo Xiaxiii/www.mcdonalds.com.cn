@@ -41,7 +41,7 @@ function familyGroups(models) {
 // 外观写在元素自己的 style 上并加 !important，任何样式表都盖不过；颜色取配色变量，毛玻璃配色另给边框和内阴影
 const KEY_INPUT_STYLE = FIELD_STYLE;
 // 分段标题（按分类、按分组共用）
-const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret">${open ? "▾" : "▸"}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
+const secHead = (id, label, n, open, sub = "") => `<button type="button" class="pa-ksec" data-fold="${esc(id)}" aria-expanded="${open}"><span class="pa-sgcaret pa-acc-caret" aria-hidden="true">${FOLD_SVG}</span><b>${esc(label)}</b>${sub ? `<small>${esc(sub)}</small>` : ""}<span class="pa-ksec-n">${n}</span></button>`;
 const viewSeg = (views) => views.length > 1 ? `<div class="pa-seg pa-seg-s pa-kview" role="tablist" aria-label="模型显示方式">${views.map(([v, label]) => `<button type="button" data-v="${v}" role="tab">${label}</button>`).join("")}</div>` : "";
 // 排序把手：两列三行小圆点
 const ICON_GRIP = '<svg viewBox="0 0 16 16" width="16" height="16" aria-hidden="true"><g fill="currentColor"><circle cx="6" cy="3.5" r="1.1"/><circle cx="10" cy="3.5" r="1.1"/><circle cx="6" cy="8" r="1.1"/><circle cx="10" cy="8" r="1.1"/><circle cx="6" cy="12.5" r="1.1"/><circle cx="10" cy="12.5" r="1.1"/></g></svg>';
@@ -821,7 +821,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       return `<div class="pa-sgroup pa-sitecard pa-site pa-site-multi${on ? " pa-srow-on" : ""}${open ? " open" : ""}" data-id="${esc(x.id)}">
             <div class="pa-site-mhead site-main" data-a="edit" role="button" tabindex="${sitesEditing ? -1 : 0}" aria-label="编辑「${esc(x.name)}」">
             ${gripSlot(x)}<div class="pa-srow-main"><b>${esc(x.name)}</b>${info ? `<small class="pa-site-model pa-num">${info}</small>` : ""}</div>
-            <span class="site-actions">${sitesEditing ? delBtn(x) : `${on ? onChip : useBtn}<button class="pa-swpill pa-fold-pill" data-a="sitefold" type="button" aria-expanded="${open}" aria-label="${x.keys.length} 个分组，${open ? "收起" : "展开"}">${x.keys.length} 组 ${open ? "▾" : "▸"}</button>`}</span></div>${lines}</div>`;
+            <span class="site-actions">${sitesEditing ? delBtn(x) : `${on ? onChip : useBtn}<button class="pa-swpill pa-fold-pill" data-a="sitefold" type="button" aria-expanded="${open}" aria-label="${x.keys.length} 个分组，${open ? "收起" : "展开"}"><span>${x.keys.length} 组</span><span class="fold-caret" aria-hidden="true">${FOLD_SVG}</span></button>`}</span></div>${lines}</div>`;
     };
     // 2.12.19 标题右边：[钱包]（能查余额时）[＋][⋯]，都是 32px 圆钮；⋯ 里是排序与删除、导入、导出。
     // 整理态：[＋] 加钉在 ⋯ 原位的「完成」，右边界、高度不变
@@ -871,7 +871,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
   function optCard(key, check, label, count, body) {
     const on = foldGet("opts", key);
     return `<section class="pa-sgroup pa-optgroup${on ? " open" : ""}" data-w="${key}">
-        <header class="pa-sghead pa-opthead" data-a="optfold" role="button" tabindex="0" aria-expanded="${on}"><span class="pa-sgcaret pa-acc-caret" aria-hidden="true">▸</span><span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<label class="pa-switch pa-optcheck">${check}<i></i></label></header>
+        <header class="pa-sghead pa-opthead" data-a="optfold" role="button" tabindex="0" aria-expanded="${on}"><span class="pa-sgcaret pa-acc-caret" aria-hidden="true">${FOLD_SVG}</span><span class="pa-optlabel">${label}</span>${count ? `<span class="pa-optcount">${count}</span>` : ""}<label class="pa-switch pa-optcheck">${check}<i></i></label></header>
         ${on ? `<div class="pa-sgbody">${body}</div>` : ""}</section>`;
   }
   // 跟随开着时，当前预设的记录就是酒馆现在的设置（离开时会照它记下），所以显示实时值，不给删除

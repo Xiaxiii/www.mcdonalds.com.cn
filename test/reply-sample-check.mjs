@@ -48,6 +48,8 @@ try {
   assert.equal(c.remindBySample, true);
   assert.equal(await R('bysample').isChecked(), true);
   assert.equal(c.skeleton.join().includes('夜风'), false, '只存标签名');
+  await R('more').click(); // 2.12.20 低频规则收在「更多规则与检测范围」里
+  await page.waitForTimeout(300);
   await R('bysample').uncheck();
   assert.equal((await cfg()).remindBySample, false);
   await R('outside').uncheck();

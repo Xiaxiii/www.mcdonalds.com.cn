@@ -84,7 +84,7 @@ const state = (page) => page.evaluate(() => {
   await page.click('.pa-subnav [data-tab="vars"]');
   s = await state(page);
   assert.deepEqual(s.page, ["vars"]);
-  assert.ok(await page.locator('[data-page=vars] [data-vf="refresh"]').isVisible(), "变量页直接显示顺序检查");
+  assert.ok(await page.locator('[data-page=vars] .pa-vcol-flow').isVisible() && await page.locator('[data-page=vars] [data-vf="refresh"]').count() === 0, "变量页直接显示顺序检查，不用点刷新");
   await page.click('.pa-subnav [data-tab="cot"]');
 
   await page.click('.pa-tabs [data-nav="conn"]');

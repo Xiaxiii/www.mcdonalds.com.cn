@@ -172,12 +172,12 @@ function mountCleanup(sec) {
       const sub = [...r.inUse.map((w) => `${w}在用`), r.lastUse ? relDay(r.lastUse) : since && Date.now() - since > 7 * 864e5 ? "开始记录后未用过" : ""].filter(Boolean).join(" · ");
       return `<label class="pa-crow${r.current ? " pa-locked" : ""}${st.sel.has(r.name) ? " on" : ""}">
         <input type="checkbox" data-c="pick" data-n="${esc(r.name)}" ${r.current ? "disabled" : ""} ${st.sel.has(r.name) ? "checked" : ""}>
-        <span class="pa-crow-main"><b>${esc(r.name)}</b>${chip ? `<span class="pa-crow-tags">${chip}</span>` : ""}${sub ? `<small class="pa-crow-sub">${esc(sub)}</small>` : ""}</span>
+        <span class="pa-crow-main"><span class="r-title-line"><b>${esc(r.name)}</b>${chip}</span>${sub ? `<small class="pa-crow-sub">${esc(sub)}</small>` : ""}</span>
         <span class="pa-crow-size"><i class="pa-bar"><b style="width:${Math.max(2, Math.round(r.size / max * 100))}%"></b></i><em>${fmtSize(r.size)}</em></span>
       </label>`;
     };
     const archRow = (a, i) => `<div class="pa-crow pa-crow-arch">
-        <span class="pa-crow-main"><b>${esc(a.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${dateStr(a.at)} 归档</span></span></span>
+        <span class="pa-crow-main"><span class="r-title-line"><b>${esc(a.name)}</b><span class="pa-chip pa-chip-dim">${dateStr(a.at)} 归档</span></span></span>
         <span class="pa-crow-size"><em>${fmtSize(a.size || 0)}</em></span>
         <span class="pa-crow-btns"><button class="pa-btn pa-btn-s pa-btn-soft" data-c="restore" data-i="${i}">恢复</button><button class="pa-btn pa-btn-s" data-c="adl" data-i="${i}">下载</button><button class="pa-btn pa-btn-s pa-btn-danger-soft" data-c="adel" data-i="${i}">删除</button></span>
       </div>`;

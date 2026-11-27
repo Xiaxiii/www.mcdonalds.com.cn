@@ -138,8 +138,17 @@ const onTipBtn = (e) => {
   b.setAttribute("aria-expanded", String(open));
   b.classList.toggle("on", open);
 };
+// 2.12.20 输入方式：按 Tab、方向键时给面板记 data-kbd，按下鼠标、手指时去掉；输入框的粗外圈只在键盘导航时出现
+var kbdWatch = false;
+function watchKbd() {
+  if (kbdWatch || typeof document === "undefined") return;
+  kbdWatch = true;
+  document.addEventListener("keydown", (e) => { if (/^(Tab|Arrow|Home|End|PageUp|PageDown)/.test(e.key)) rootEl?.setAttribute("data-kbd", ""); }, true);
+  document.addEventListener("pointerdown", () => rootEl?.removeAttribute("data-kbd"), true);
+}
 function setRoot(el2) {
   rootEl = el2;
+  watchKbd();
   el2?.addEventListener("click", noteTap, true);
   el2?.addEventListener("click", onTipBtn);
   if (el2) watchSegs(el2);
@@ -546,7 +555,7 @@ function tip(inner, label = "说明", { caret = false } = {}) {
   if (!String(inner || "").trim()) return "";
   // 2.8.5 按钮留在原位，说明在所在行下方展开（行内为弹性布局时排到最后、占满整行）
   // 2.12.19 caret：「详情 ▾」样式（不带 ⓘ），展开时箭头翻转
-  const face = caret ? `${esc(label)}<span class="pa-tip-caret" aria-hidden="true">▾</span>` : `${INFO_ICON}${esc(label)}`;
+  const face = caret ? `${esc(label)}<span class="pa-tip-caret" aria-hidden="true"><svg width="12" height="12" viewBox="0 0 12 12"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg></span>` : `${INFO_ICON}${esc(label)}`;
   return `<button type="button" class="pa-tip${caret ? " pa-tip-more" : ""}${label ? "" : " pa-tip-ico"}" data-tip aria-expanded="false"${label ? "" : ' aria-label="说明"'}>${face}</button><div class="pa-tip-body" hidden>${inner}</div>`;
 }
 // 2.12.19 <details class="pa-breathe">：点标题时内容呼吸展开、收起（内容包在 .pa-details-body 里）
@@ -619,6 +628,22 @@ async function accHidden(node, open) {
   node._accAnim = null;
   node.style.overflow = "";
 }
+// 2.12.20 网格呼吸抽屉：<div class="pa-acc" data-acc><div class="pa-acc-in" inert>…</div></div>，
+// grid-template-rows 在 0fr 和 1fr 之间过渡；收起时内层 inert（不能点、不能 Tab 进去）
+var accSeq = 0;
+var FOLD_SVG = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>';
+const CARET_SVG = '<svg class="pa-acc-caret" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>';
+function accBox(inner, open = false, id = "", extra = "") {
+  return `<div class="pa-acc${open ? " open" : ""}${extra ? " " + extra : ""}" data-acc${id ? ` id="${id}"` : ""}><div class="pa-acc-in"${open ? "" : " inert"}>${inner}</div></div>`;
+}
+function accSet(acc, open, btn) {
+  if (!acc) return;
+  acc.classList.toggle("open", !!open);
+  const inn = acc.querySelector(":scope > .pa-acc-in");
+  if (inn) open ? inn.removeAttribute("inert") : inn.setAttribute("inert", "");
+  if (btn) btn.setAttribute("aria-expanded", String(!!open));
+}
+const accId = (p = "acc") => `pa-${p}-${++accSeq}`;
 // 原地补丁：把 fresh 的属性、子节点同步到 live 上，结构相同的节点原地复用，不整块重建（选中底色、折叠状态、过渡都留得住）。
 // 标签或 data-id / data-k / data-ch / data-use 不同时才换掉那个节点（带 data-morph-keep 的只看标签，如当前连接卡换站点时）；换进来的元素交给 onEnter（给状态胶囊加入场动效）
 const morphKey = (n) => n.nodeType === 1 ? n.hasAttribute("data-morph-keep") ? n.tagName : `${n.tagName}|${n.getAttribute("data-id") ?? n.getAttribute("data-k") ?? n.getAttribute("data-ch") ?? n.getAttribute("data-use") ?? n.getAttribute("data-site") ?? ""}` : `#${n.nodeType}`;

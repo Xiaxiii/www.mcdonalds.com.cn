@@ -147,13 +147,13 @@ const firstToggle = ".pa-list .pa-loose .pa-row .pa-switch, .pa-list .pa-group .
     const selection = () => g.locator('.pa-row [data-act=toggle]').evaluateAll(xs => xs.map(x => x.checked));
     const before = await selection();
     const tri = g.locator(".pa-tri[data-act=gtoggle]");
-    const tb = await tri.boundingBox();
-    await page.mouse.click(tb.x + tb.width * 0.16, tb.y + tb.height / 2); await page.waitForTimeout(400);
+    // 2.12.20 点按循环：自定义 → 全开 → 全关 → 自定义；全关不动成员，回到自定义还原
+    for (let i = 0; i < 2 && await tri.getAttribute("data-state") !== "off"; i++) { await tri.click(); await page.waitForTimeout(300); }
     assert.equal(await tri.getAttribute("data-state"), "off");
-    assert.deepEqual(await selection(), before, "关闭分组后内部选择不变");
-    await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height / 2); await page.waitForTimeout(400);
+    const offSel = await selection();
+    await tri.click(); await page.waitForTimeout(400);
     assert.notEqual(await tri.getAttribute("data-state"), "off");
-    assert.deepEqual(await selection(), before, "开启分组后内部选择不变");
+    assert.deepEqual(await selection(), (await tri.getAttribute("data-state")) === "mid" ? before : offSel, "开启分组后内部选择不变");
     ok("分组开关保留内部条目选择");
   }
   // 没有弹窗时 Esc 关闭面板

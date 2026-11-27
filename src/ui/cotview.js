@@ -286,15 +286,12 @@ async function batchVarHookDialog(d, cotId = null) {
 function mountCot(page, app) {
   const st = { filter: "none" };
   page.innerHTML = `
-        <div class="pa-toolbar"><div class="pa-picker-slot"></div><button class="pa-btn pa-btn-primary" data-repair-all title="修复变量问题">修复</button></div>
+        <div class="pa-toolbar"><div class="pa-picker-slot"></div></div>
         <div class="pa-scroll pa-cot"></div>`;
   const box = page.querySelector(".pa-cot");
   const picker = presetPicker(page.querySelector(".pa-picker-slot"), (n) => setFocusPreset(n), { use: true });
   // 2.7.7 变量检查只在「检查 → 变量」页，正文格式只在「检查 → 回复」页
-  page.querySelector('[data-repair-all]').addEventListener('click', async () => {
-    try { await repairAllVariables(getDraft(focusPreset()), manualFor(focusPreset())); }
-    catch(err) { toast('修复失败：'+err.message,'error'); }
-  });
+  // 2.12.20「一键修复变量读取」只在有待核对的变量读取时出现在结论卡里，工具栏不再有无上下文的「修复」
   const manualFor = (name) => {
     const s = settings();
     if (!s.cotManual[name]) s.cotManual[name] = {};
@@ -320,7 +317,6 @@ function mountCot(page, app) {
     const cotVarReads = a.cot.reduce((n, c2) => n + c2.reads.length, 0);
     const okN = counts.var + counts.chain;
     const style = !a.cotIds.length ? "" : cotVarReads >= 3 && okN >= counts.mention ? "以变量读取为主" : cotVarReads >= 3 ? "变量读取与文字提及并用" : "以文字提及为主，不读取变量";
-    page.querySelector("[data-repair-all]").disabled = !dead.length;
     // 2.5.0 结论就是「待核对」的标题，下面是要核对的条目，四个数字放在条目下面；没有问题时只留一行
     const styleLine = a.cotIds.length ? `思维链${style}` : "未识别到开启的思维链，可在下方手动指定";
     const info = `<button class="pa-why" type="button" data-tipbtn aria-label="说明" aria-expanded="false" title="说明">${INFO_ICON}</button>`;
@@ -370,6 +366,7 @@ function mountCot(page, app) {
       ? `<div class="pa-verdict-head">
             <div class="pa-verdict-top"><p><b>${dead.length} 项变量读取待核对</b><small class="pa-verdict-sub">${styleLine}</small></p>${info}</div>
             ${legendNote}
+            <div class="pa-card-act pa-verdict-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-repair-all type="button">一键修复变量读取</button></div>
         </div>
         <div class="pa-cards pa-dead-list">${deadHtml}</div>`
       : `<div class="pa-verdict-line${a.cotIds.length ? " pa-good" : ""}"><div class="pa-verdict-top"><p>${a.cotIds.length ? "没有读取问题 · " : ""}${styleLine}</p>${info}</div>${legendNote}</div>`;

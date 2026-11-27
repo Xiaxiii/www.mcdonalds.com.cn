@@ -542,7 +542,7 @@ function mountCleanKind(kind, box) {
       const on = backupOn(), n = backupMax();
       // 2.12.19 首行：箭头 + 自动备份（副文写保留几份）……右边开关；点左边呼吸展开份数步进器
       return `<div class="pa-bk-set${on ? "" : " pa-off"}${bkIsOpen() ? " open" : ""}">
-          <div class="pa-bk-row pa-bk-head" data-bk="fold" role="button" tabindex="0" aria-expanded="${bkIsOpen()}"><span class="pa-sgcaret pa-acc-caret" aria-hidden="true">▸</span><span class="pa-bk-t"><b>自动备份</b><small class="pa-bk-sum">${on ? `每个预设 / 世界书保留 ${n} 份` : "已关闭"}</small></span><label class="pa-switch"><input type="checkbox" data-bk="on" aria-label="自动备份" ${on ? "checked" : ""}><i></i></label></div>
+          <div class="pa-bk-row pa-bk-head" data-bk="fold" role="button" tabindex="0" aria-expanded="${bkIsOpen()}"><span class="pa-sgcaret pa-acc-caret" aria-hidden="true">${FOLD_SVG}</span><span class="pa-bk-t"><b>自动备份</b><small class="pa-bk-sum">${on ? `每个预设 / 世界书保留 ${n} 份` : "已关闭"}</small></span><label class="pa-switch"><input type="checkbox" data-bk="on" aria-label="自动备份" ${on ? "checked" : ""}><i></i></label></div>
           ${on ? "" : '<p class="pa-bk-warn">已关闭。此后的修改无法从备份恢复。</p>'}
           ${!bkIsOpen() ? "" : `<div class="pa-bk-body">${on ? '<p class="pa-hint">修改预设、世界书前自动备份，可从页头的备份按钮恢复。</p>' : ""}
           <div class="pa-bk-row pa-bk-cnt"><span>每个预设保留</span><span class="pa-bk-num"><span class="pa-bk-step"><button type="button" data-bk="dec" aria-label="减少" ${on && n > 1 ? "" : "disabled"}>−</button><input data-bk="n" inputmode="numeric" aria-label="保留份数" value="${n}" ${on ? "" : "disabled"}><button type="button" data-bk="inc" aria-label="增加" ${on && n < 30 ? "" : "disabled"}>＋</button></span>份</span></div></div>`}</div>`;

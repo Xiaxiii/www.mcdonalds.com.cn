@@ -105,13 +105,13 @@ try {
     assert.deepEqual(now.extensions.syntheticUnrelatedData, expected.extensions.syntheticUnrelatedData);
     const chosen = states(now);
     const tri = list.locator('[data-gid="perf-g0"] .pa-tri[data-act=gtoggle]');
-    const tb = await tri.boundingBox();
-    await page.mouse.click(tb.x + tb.width * 0.16, tb.y + tb.height / 2);
+    // 2.12.20 进度环胶囊点按循环：自定义 → 全开 → 全关 → 自定义（回到原来的开关）
+    for (let i = 0; i < 2 && await tri.getAttribute('data-state') !== 'off'; i++) await tri.click();
     await waitSaved(page, p => p.extensions.baibaiToolkit.presetPromptGroups.groups[0].enabled === false);
-    assert.deepEqual(states(await saved(page)), chosen, '性能优化不能重新引入分组开关联动');
-    await page.mouse.click(tb.x + tb.width * 0.5, tb.y + tb.height / 2);
+    await tri.click();
     await waitSaved(page, p => p.extensions.baibaiToolkit.presetPromptGroups.groups[0].enabled === true);
-    assert.deepEqual(states(await saved(page)), chosen);
+    for (let i = 0; i < 30 && JSON.stringify(states(await saved(page))) !== JSON.stringify(chosen); i++) await page.waitForTimeout(150);
+    assert.deepEqual(states(await saved(page)), chosen, '性能优化不能重新引入分组开关联动');
     await foldAll(page);
     assert.equal(await list.locator('.pa-row').count(), 0);
     await page.locator('[data-page=organize] [data-tool=search]').click();
@@ -149,7 +149,7 @@ try {
     assert.equal(await page.locator('.pa-review .pa-item').count(), 4);
     // 缝后开关默认与来源一致：source-1 在来源里关着
     assert.deepEqual(await page.locator('.pa-review [data-c=on]').evaluateAll(xs => xs.map(x => x.checked)), [true, false, true, true]);
-    assert.equal(await page.locator('[data-enable-count]').innerText(), '部分开启：3 / 4');
+    assert.equal(await page.locator('[data-enable-count]').innerText(), '缝后开启 3/4');
     // 2.12.17 三段「全关 | 按来源 | 全开」
     const pressed = (k) => page.locator(`[data-enable=${k}]`).getAttribute('aria-pressed');
     assert.deepEqual([await pressed('on'), await pressed('off'), await pressed('source')], ['false', 'false', 'true'], '默认按来源');
@@ -162,22 +162,22 @@ try {
     for (const on of [true, false, true, false]) {
       await page.click(`[data-enable=${on ? 'on' : 'off'}]`);
       assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), on ? 4 : 0);
-      assert.equal(await page.locator('[data-enable-count]').innerText(), `缝后开启：${on ? 4 : 0} / 4`);
+      assert.equal(await page.locator('[data-enable-count]').innerText(), `缝后开启 ${on ? 4 : 0}/4`);
       assert.equal(await pressed(on ? 'on' : 'off'), 'true');
     }
     await page.locator('.pa-review [data-c=on]').first().check();
-    assert.equal(await page.locator('[data-enable-count]').innerText(), '部分开启：1 / 4');
+    assert.equal(await page.locator('[data-enable-count]').innerText(), '缝后开启 1/4 · 已单改');
     assert.deepEqual([await pressed('on'), await pressed('off')], ['false', 'false']);
     // 键盘：分段按钮可用 Tab 聚焦、空格切换；只作用于当前预览
     await page.locator('[data-enable=on]').focus();
     await page.keyboard.press('Space');
     assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), 4);
-    assert.equal(await page.locator('[data-enable-count]').innerText(), '缝后开启：4 / 4');
+    assert.equal(await page.locator('[data-enable-count]').innerText(), '缝后开启 4/4');
     await page.locator('[data-enable=off]').focus();
     await page.keyboard.press('Space');
     assert.equal(await page.locator('.pa-review [data-c=on]:checked').count(), 0);
     await page.locator('.pa-review [data-c=on]').first().check();
-    assert.equal(await page.locator('[data-enable-count]').innerText(), '部分开启：1 / 4');
+    assert.equal(await page.locator('[data-enable-count]').innerText(), '缝后开启 1/4 · 已单改');
     assert.deepEqual(await page.evaluate(() => ({
       article: window.__perf.bulk.article.isConnected, input: window.__perf.bulk.input.isConnected,
       analyses: window.__perf.analyses - window.__perf.bulk.analyses, regions: window.__perf.regions - window.__perf.bulk.regions,

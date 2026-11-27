@@ -135,7 +135,7 @@ assert.equal(st.schemePersonaPick, "__none");
 await page.click(".pa-head-btn[data-s=new]"); await page.waitForTimeout(200);
 assert.equal(await page.$eval(".pa-sheet [data-f=api]", (x) => x.value), "__live", "沿用上次的选择");
 assert.equal(await page.$eval(".pa-sheet [data-f=persona]", (x) => x.value), "__none");
-assert.match(await page.locator(".pa-sheet .pa-tip-fold > summary").evaluate((x) => getComputedStyle(x, "::before").content), /▸/, "保存范围前有小三角");
+assert.match(await page.locator(".pa-sheet .pa-tip-fold > summary").evaluate((x) => getComputedStyle(x, "::before").maskImage || getComputedStyle(x, "::before").webkitMaskImage), /svg/, "保存范围前有细线箭头"); // 2.12.20 ▸ 换成细线 SVG
 await closeSheet(); await page.waitForTimeout(300);
 ok("保存方案时 API 默认不记录，可选当前连接，下次沿用");
 
