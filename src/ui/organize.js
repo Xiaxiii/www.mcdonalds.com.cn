@@ -965,8 +965,35 @@ function mountOrganize(page) {
     toast(`已归组 ${result.assignedIds.length} 条，可撤销`, "success");
     render();
   }
-  // ---- 拖动：条目右侧的把手拖条目；分组头右侧的把手拖整个分组
+  // ---- 拖动：条目左侧的把手拖条目；分组头左侧的把手拖整个分组
+  // 2.12.25 移动 ≥ 5px 才真正进入拖动状态（变灰、出浮层），轻点把手没拖动不再把整条变灰；监听挂在 window 上避免松手漏收
   let drag = null;
+  function startDrag(dr) {
+    if (dr.started) return;
+    dr.started = true;
+    if (dr.group) dr.head?.closest(".pa-group")?.classList.add("pa-dragging");
+    else dr.ids.forEach((i) => list.querySelector(`.pa-row[data-id="${CSS.escape(i)}"]`)?.classList.add("pa-dragging"));
+    dr.ghost = el(`<div class="pa-ghost">${ICON.grip}<span>${esc(dr.label)}</span></div>`);
+    page.append(dr.ghost);
+    dr.line = el('<div class="pa-drop-line"></div>');
+    list.append(dr.line);
+    try { dr.h.setPointerCapture(dr.pid); } catch {}
+    moveGhost(dr.x, dr.y);
+    dr.raf = requestAnimationFrame(autoScroll);
+  }
+  const onDragMove = (e) => {
+    if (!drag || e.pointerId !== drag.pid) return;
+    drag.x = e.clientX;
+    drag.y = e.clientY;
+    if (!drag.started) {
+      if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 5) return;
+      startDrag(drag);
+    }
+    e.preventDefault();
+    moveGhost(e.clientX, e.clientY);
+  };
+  const onDragUp = (e) => { if (drag && e.pointerId === drag.pid) endDrag(true); };
+  const onDragCancel = (e) => { if (drag && (!e.pointerId || e.pointerId === drag.pid)) endDrag(false); };
   list.addEventListener("pointerdown", (e) => {
     const h = e.target.closest(".pa-handle");
     if (!h || st.mode) return;
@@ -978,24 +1005,15 @@ function mountOrganize(page) {
       group = head.dataset.gid;
       ids = d.order.filter((o) => d.groupOf(o.identifier) === group).map((o) => o.identifier);
       label = `分组「${d.group(group)?.name || ""}」`;
-      head.closest(".pa-group").classList.add("pa-dragging");
     } else {
       const id = h.closest(".pa-row").dataset.id;
       ids = st.selected.has(id) ? ordered() : [id];
       label = `${d.prompt(id)?.name || id}${ids.length > 1 ? ` 等 ${ids.length} 条` : ""}`;
-      ids.forEach((i) => list.querySelector(`.pa-row[data-id="${CSS.escape(i)}"]`)?.classList.add("pa-dragging"));
     }
-    const ghost = el(`<div class="pa-ghost">${ICON.grip}<span>${esc(label)}</span></div>`);
-    page.append(ghost);
-    const line = el('<div class="pa-drop-line"></div>');
-    list.append(line);
-    drag = { ids, group, ghost, line, target: null, y: e.clientY, x: e.clientX, raf: 0, pid: e.pointerId };
-    try {
-      h.setPointerCapture(e.pointerId);
-    } catch {
-    }
-    moveGhost(e.clientX, e.clientY);
-    drag.raf = requestAnimationFrame(autoScroll);
+    drag = { h, head, ids, label, group, ghost: null, line: null, target: null, started: false, x0: e.clientX, y0: e.clientY, y: e.clientY, x: e.clientX, raf: 0, pid: e.pointerId };
+    window.addEventListener("pointermove", onDragMove, { passive: false });
+    window.addEventListener("pointerup", onDragUp);
+    window.addEventListener("pointercancel", onDragCancel);
   });
   // 拖整个分组：只能落在分组之间或散条目之间
   function groupTarget(under, y, lr) {
@@ -1080,11 +1098,16 @@ function mountOrganize(page) {
   }
   const endDrag = (commit) => {
     if (!drag) return;
+    window.removeEventListener("pointermove", onDragMove);
+    window.removeEventListener("pointerup", onDragUp);
+    window.removeEventListener("pointercancel", onDragCancel);
     cancelAnimationFrame(drag.raf);
-    drag.ghost.remove();
-    drag.line.remove();
-    const { ids, target, group } = drag;
+    drag.ghost?.remove();
+    drag.line?.remove();
+    list.querySelectorAll(".pa-dragging").forEach((n) => n.classList.remove("pa-dragging"));
+    const { ids, target, group, started } = drag;
     drag = null;
+    if (!started) return;
     if (!commit || !target) return render();
     const d = draft();
     if (group && !ids.length) {
@@ -1105,16 +1128,7 @@ function mountOrganize(page) {
       render();
     });
   };
-  list.addEventListener("pointermove", (e) => {
-    if (drag && e.pointerId === drag.pid) {
-      e.preventDefault();
-      moveGhost(e.clientX, e.clientY);
-    }
-  });
-  list.addEventListener("pointerup", (e) => {
-    if (drag && e.pointerId === drag.pid) endDrag(true);
-  });
-  list.addEventListener("pointercancel", () => endDrag(false));
+  // 拖动结束与移动事件由 window 监听（见上方 onDragMove/Up/Cancel）
   const paintTriEl = paintTri;
   // 2.3.6 单条开关、分组开关只改了开关状态：就地改这一行（或这一组）和计数，不重建整个列表
   let patchNext = null;

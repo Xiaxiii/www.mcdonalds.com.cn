@@ -22,7 +22,7 @@ try {
   assert.equal(await arrow(), 0, '没有模型列表时不显示 ▾');
   assert.equal(await page.locator('.pa-live [data-a=testmodel]').getAttribute('aria-label'), '发送测试消息');
   assert.equal(await page.locator('.pa-plan-sites .pa-optgroup').count(), 0, '站点那块只放站点');
-  assert.equal(await page.locator('[data-page=look] .pa-plan-opts .pa-optgroup').count(), 2, '两个选项在设置页');
+  assert.equal(await page.locator('[data-page=schemes] .pa-plan-opts .pa-optgroup').count(), 2, '两个选项在方案页');
   ok('模型旁有拉取和测试，没拉取时模型框没有 ▾');
 
   await page.click('[data-a=livefetch]');

@@ -40,7 +40,8 @@ function replyForm(name, { onSaved } = {}) {
   <section class="pa-rcol pa-rcol-check">
     <div class="pa-card pa-rcard">
       <header class="pa-rcard-head"><b class="pa-rcard-t" data-r="target"></b><div class="pa-seg pa-seg-s pa-rmode" role="tablist" aria-label="检查哪段文字"><button type="button" role="tab" data-r="mode" data-m="latest" class="on" aria-selected="true">最近回复</button><button type="button" role="tab" data-r="mode" data-m="paste" aria-selected="false">粘贴</button></div></header>
-      <div class="pa-rcheck pa-racts" data-rm="latest"><button class="pa-btn pa-btn-primary" data-r="latest">检查格式</button><button class="pa-btn" data-r="ai-latest" ${aiOff}>AI 语义审查</button><button class="pa-link pa-raux" data-r="aux" type="button" title="语义审查用的 API，点这里更改"><span data-r="auxname">${esc(auxLabel(auxTarget("review")))}</span> ›</button></div>
+      <div class="pa-raux-row"><span class="pa-raux-k">语义审查</span><button class="pa-link pa-raux" data-r="aux" type="button" title="语义审查用的 API，点这里更改"><span data-r="auxname">${esc(auxLabel(auxTarget("review")))}</span> ›</button></div>
+      <div class="pa-rcheck pa-racts" data-rm="latest"><button class="pa-btn pa-btn-primary" data-r="latest">检查格式</button><button class="pa-btn" data-r="ai-latest" ${aiOff}>AI 语义审查</button></div>
       <div class="pa-rpaste" data-rm="paste" hidden>
         <textarea class="pa-input" data-r="sample" rows="3" aria-label="粘贴一条 AI 回复" placeholder="粘贴一条 AI 回复检查格式；粘贴格式正确的回复，点「按范本校准」（只在本页检测，不保存）"></textarea>
         <div class="pa-rcheck pa-racts"><button class="pa-btn pa-btn-primary" data-r="paste">检查格式</button><button class="pa-btn" data-r="diagnose">按范本校准</button><button class="pa-btn" data-r="ai-paste" ${aiOff}>AI 审查</button></div>
@@ -313,7 +314,7 @@ function replyForm(name, { onSaved } = {}) {
     body.querySelectorAll('[data-r="mode"]').forEach((b) => { const on = b.dataset.m === m; b.classList.toggle("on", on); b.setAttribute("aria-selected", String(on)); });
     body.querySelectorAll("[data-rm]").forEach((x) => { x.hidden = x.dataset.rm !== m; });
     paintTarget();
-    if (m === "paste") body.querySelector('[data-r="sample"]').focus({ preventScroll: true });
+    if (m === "paste" && (typeof matchMedia !== "function" || matchMedia("(pointer: fine)").matches)) body.querySelector('[data-r="sample"]').focus({ preventScroll: true });
   });
   body.addEventListener("click", async (e) => {
     if (e.target.closest('[data-r="ai-cancel"]')) { reviewCancel?.abort(); return; }

@@ -96,7 +96,7 @@ function mountAux(page) {
     const us = units();
     const head = editing
       ? `<button class="pa-head-ico pa-head-add" data-a="add" type="button" aria-label="添加渠道" title="添加渠道">${ICON.plus}</button><button class="pa-swpill pa-done-pill" data-a="chdone" type="button">完成</button>`
-      : `<button class="pa-head-ico pa-head-add" data-a="add" type="button" aria-label="添加渠道" title="添加渠道">${ICON.plus}</button>${chs.length ? `<button class="pa-head-ico pa-head-more" data-a="chmore" type="button" aria-label="排序与删除渠道" title="排序与删除">${ICON.edit}</button>` : ""}`;
+      : `<button class="pa-head-ico pa-head-add" data-a="add" type="button" aria-label="添加渠道" title="添加渠道">${ICON.plus}</button>${chs.length ? `<button class="pa-head-ico pa-head-more" data-a="chmore" type="button" aria-label="排序与删除渠道" title="排序与删除">${ICON.pencil}</button>` : ""}`;
     const html = `
       <div class="pa-row-head"><h3 class="pa-h">内部 AI 分流${whyBtn("aux")}</h3></div>
       ${whyNote("aux", "<p>麦当劳自己的 AI 功能用哪个 API。用渠道时不切换酒馆的连接，聊天照常用主 API。</p><p>推荐便宜、快的模型，如 DeepSeek Flash、豆包。</p>")}

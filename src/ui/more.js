@@ -1,9 +1,9 @@
 // 2.7.0 「方案」「连接」各占一页，共用一个连接模块：当前连接、站点在连接页。
-// 2.12.16 换角色提示、推理格式跟随预设移到「设置」页（optsBox 由设置页给）
-function mountPlan(schemesPage, connPage, optsBox) {
-  schemesPage.innerHTML = '<div class="pa-scroll pa-plan"><div class="pa-plan-schemes"></div></div>';
+// 2.12.25 换聊天时提示切换方案、推理格式跟随预设（自动解析）放回「方案」页
+function mountPlan(schemesPage, connPage) {
+  schemesPage.innerHTML = '<div class="pa-scroll pa-plan"><div class="pa-plan-schemes"></div><div class="pa-plan-opts"></div></div>';
   connPage.innerHTML = '<div class="pa-scroll pa-plan"><div class="pa-plan-live"></div><div class="pa-plan-sites"></div></div>';
-  const api = mountApi(connPage.querySelector(".pa-plan-live"), connPage.querySelector(".pa-plan-sites"), optsBox);
+  const api = mountApi(connPage.querySelector(".pa-plan-live"), connPage.querySelector(".pa-plan-sites"), schemesPage.querySelector(".pa-plan-opts"));
   // 方案改动后刷新站点列表（站点标题显示被哪些预设的方案使用）
   const sc = mountSchemes(schemesPage.querySelector(".pa-plan-schemes"), { after: () => api.render() });
   return {
@@ -23,7 +23,6 @@ function mountLook(page, { goBackup } = {}) {
     <section class="pa-setsec"><h3 class="pa-h pa-set-group">偏好</h3>
       <div class="pa-setcard pa-prefcard">
         <div class="pa-setrow"><span class="pa-setk">面板内防下拉误刷新<small>在页面顶部往下拖时，浏览器不再刷新整个酒馆</small></span><label class="pa-switch"><input type="checkbox" data-set="pull" aria-label="防止下拉误刷新"><i></i></label></div>
-        <div class="pa-plan-opts pa-set-opts"></div>
       </div></section>
     <p class="pa-setfoot"><span class="pa-appname"></span> ${esc(VERSION)}${BUILD_KIND === "extension" ? "" : " · 脚本版"} · by EC<button type="button" class="pa-link" data-set="rename" title="改面板名称">改名称</button></p>
   </div>`;

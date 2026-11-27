@@ -260,7 +260,7 @@ try {
       assert.ok(ink <= 1, "滑块落在选中的分组上：" + ink);
       await mp.evaluate(() => window.__mcdonalds.open("more", "look"));
       await mp.waitForTimeout(300);
-      assert.equal(await mp.locator("[data-page=look] .pa-prefcard .pa-switch input").count(), 3, "偏好卡：防下拉、换聊天提示、推理格式跟随三个开关");
+      assert.equal(await mp.locator("[data-page=look] .pa-prefcard .pa-switch input").count(), 1, "设置偏好卡：防下拉开关（换聊天提示与推理格式已搬回方案页）");
       assert.match(await mp.locator("[data-page=look] .pa-setfoot").innerText(), /2\.\d+\.\d+/, "页脚写版本");
       assert.equal(await mp.locator('[data-page=look] [data-bk="on"], [data-page=look] [data-set=backup]').count(), 0, "设置页不重复放自动备份");
     }

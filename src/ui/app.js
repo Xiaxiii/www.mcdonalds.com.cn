@@ -118,7 +118,7 @@ function buildRoot() {
   };
   const pageEl = (k) => rootEl2.querySelector(`[data-page="${k}"]`);
   const look = mountLook(pageEl("look"), { goBackup: () => { show("clean"); pages.clean?.showKind?.("local"); } });
-  const plan = mountPlan(pageEl("schemes"), pageEl("conn"), look.optsSlot);
+  const plan = mountPlan(pageEl("schemes"), pageEl("conn"));
   look.setOptsRender(plan.opts);
   pages = {
     organize: mountOrganize(pageEl("organize"), app),
@@ -342,12 +342,13 @@ function show(key, sub) {
   rootEl2.querySelector(".pa-title").textContent = PAGE_TITLE[k];
   paintSutureLayoutBtn(sec === "suture");
   const pk = PAGE_EL[k] || k;
-  const prevPage = rootEl2.querySelector(".pa-page:not([hidden])");
+  const prevKey = rootEl2.dataset.paPageKey || "";
+  rootEl2.dataset.paPageKey = k;
   const nextPage = rootEl2.querySelector(`.pa-page[data-page="${pk}"]`);
   rootEl2.querySelectorAll(".pa-page").forEach((p) => {
     p.hidden = p.dataset.page !== pk;
   });
-  if (wasVisible && nextPage && (prevPage !== nextPage)) replay(nextPage, "pa-subenter", 220);
+  if (wasVisible && nextPage && prevKey !== k) replay(nextPage, "pa-subenter", 230);
   try {
     const subLabel = SUBNAV[sec]?.find(([x]) => x === k)?.[1];
     jankTime(`显示页面：${sec === "more" ? subLabel : PAGE_TITLE[k] + (subLabel ? " · " + subLabel : "")}`, () => pages[pk].render(k, !wasVisible));
