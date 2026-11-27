@@ -795,28 +795,28 @@ function segDown(e) {
   };
   const up = (ev) => {
     if (ev.pointerId !== d.id) return;
-    seg.removeEventListener("pointermove", move);
-    seg.removeEventListener("pointerup", up);
-    seg.removeEventListener("pointercancel", up);
+    window.removeEventListener("pointermove", move);
+    window.removeEventListener("pointerup", up);
+    window.removeEventListener("pointercancel", up);
     seg.classList.remove("pa-seg-drag");
     const dragged = d.on;
     d.on = false;
     seg._segDrag = null;
     if (!dragged) return;
-    // 拖完不让 click 落到按下的那一项上
-    const eat = (c) => { c.stopPropagation(); c.preventDefault(); };
-    seg.addEventListener("click", eat, { capture: true, once: true });
+    // 拖完只拦原生 click，不拦下面脚本触发的选中点击
+    const eat = (c) => { if (!c.isTrusted) return; c.stopPropagation(); c.preventDefault(); };
+    seg.addEventListener("click", eat, { capture: true });
     setTimeout(() => seg.removeEventListener("click", eat, { capture: true }), 0);
     const mid = d.x + d.start.w / 2;
     let best = 0;
     d.bx.forEach((p, k) => { if (Math.abs(p.x + p.w / 2 - mid) < Math.abs(d.bx[best].x + d.bx[best].w / 2 - mid)) best = k; });
     const pick = btns[best];
-    if (ev.type === "pointerup" && !segOn(pick)) { seg.removeEventListener("click", eat, { capture: true }); pick.click(); }
+    if (ev.type === "pointerup" && !segOn(pick)) pick.click();
     placeSegInk(seg);
   };
-  seg.addEventListener("pointermove", move);
-  seg.addEventListener("pointerup", up);
-  seg.addEventListener("pointercancel", up);
+  window.addEventListener("pointermove", move);
+  window.addEventListener("pointerup", up);
+  window.addEventListener("pointercancel", up);
 }
 function watchSegs(root) {
   if (typeof MutationObserver !== "function" || typeof requestAnimationFrame !== "function") return;

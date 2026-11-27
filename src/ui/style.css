@@ -2957,9 +2957,12 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 站点卡：语义纯底（--card-bg），激活态的淡绿底和描边平滑过渡；左侧把手槽常驻，整理态滑出 */
 #mcd-root .pa-plan-sites .pa-sitecard { --card-bg: var(--pa-tint); border-radius: 14px; transition: background-color 240ms ease-out, box-shadow 240ms ease-out; }
 #mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-plan-sites .pa-sitecard { background-color: var(--card-bg); background-image: none; border-color: transparent; box-shadow: var(--shadow-card); }
-#mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-plan-sites .pa-sitecard.pa-srow-on { --card-bg: var(--pa-ok-wash); --card-bg: color-mix(in srgb, var(--pa-ok) 5%, var(--pa-tint)); box-shadow: var(--shadow-card-active); }
-#mcd-root[data-theme="su"] .pa-plan-sites .pa-sitecard.pa-srow-on { --card-bg: #F5FAF7; }
-#mcd-root[data-theme="night"] .pa-plan-sites .pa-sitecard.pa-srow-on { --card-bg: #262E2C; }
+#mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-plan-sites .pa-sitecard.pa-srow-on { --card-bg: var(--pa-ok-wash); box-shadow: var(--shadow-card-active); }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+    #mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-plan-sites .pa-sitecard.pa-srow-on { --card-bg: color-mix(in srgb, var(--pa-ok) 5%, var(--pa-tint)); }
+}
+#mcd-root[data-theme="su"]:not(.pa-glass):not(.pa-has-bg) .pa-plan-sites .pa-sitecard.pa-srow-on { --card-bg: #F5FAF7; }
+#mcd-root[data-theme="night"]:not(.pa-glass):not(.pa-has-bg) .pa-plan-sites .pa-sitecard.pa-srow-on { --card-bg: #262E2C; }
 #mcd-root .pa-plan-sites .pa-site-multi.pa-srow-on > .pa-site-mhead { background: transparent; }
 #mcd-root .site-actions { flex: none; display: inline-flex; align-items: center; gap: 8px; margin-left: auto; }
 #mcd-root .pa-plan-sites .pa-srow-main { flex: 1 1 auto; min-width: 0; }
@@ -3029,7 +3032,10 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 /* 渠道卡：左正文点了编辑，右边测速 + 指派胶囊；结果在第二行行首缀入，失败原因另起一行 */
 #mcd-root .pa-aux-chs .pa-sitecard { --card-bg: var(--pa-tint); display: flex; flex-wrap: wrap; align-items: center; gap: 0 10px; padding: 8px 10px 8px 14px; border: 1px solid var(--pa-line); border-radius: 14px; background: var(--pa-card); transition: background-color 240ms ease-out, box-shadow 240ms ease-out; }
 #mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-aux-chs .pa-sitecard { border-color: transparent; background-color: var(--card-bg); box-shadow: var(--shadow-card); }
-#mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-aux-chs .pa-sitecard.on-route { --card-bg: var(--pa-ok-wash); --card-bg: color-mix(in srgb, var(--pa-ok) 4%, var(--pa-tint)); box-shadow: var(--shadow-card-active); }
+#mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-aux-chs .pa-sitecard.on-route { --card-bg: var(--pa-ok-wash); box-shadow: var(--shadow-card-active); }
+@supports (color: color-mix(in srgb, red 50%, blue)) {
+    #mcd-root:not(.pa-glass):not(.pa-has-bg) .pa-aux-chs .pa-sitecard.on-route { --card-bg: color-mix(in srgb, var(--pa-ok) 4%, var(--pa-tint)); }
+}
 #mcd-root .pa-aux-chs .pa-aux-ch { display: flex; grid-template-columns: none; border-bottom: 0; }
 #mcd-root .pa-aux-chs .pa-aux-chmain { flex: 1 1 0; min-width: 0; min-height: 44px; padding: 4px 0; border-radius: 8px; }
 #mcd-root .pa-aux-chs .pa-aux-k { display: grid; gap: 2px; line-height: 1.35; font-weight: 600; }
@@ -3195,7 +3201,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-review .pa-item-tog:focus-visible { outline: 2px solid var(--pa-info, var(--pa-thread)); outline-offset: -2px; border-radius: 10px; }
 #mcd-root .pa-review .pa-item-tog > svg.pa-acc-caret { margin: 0 2px; }
 #mcd-root .pa-item-t { flex: 1 1 auto; min-width: 0; display: grid; gap: 2px; }
-#mcd-root .pa-review .pa-item-head .pa-item-name { grid-column: auto; transition: color 180ms ease-out; }
+#mcd-root .pa-review .pa-item-head .pa-item-name { grid-column: auto; }
 #mcd-root .pa-review .pa-item.pa-item-off .pa-item-name { color: var(--pa-dim); }
 #mcd-root .pa-review .pa-item-meta { display: flex; align-items: center; gap: 6px; flex-wrap: nowrap; min-width: 0; }
 #mcd-root .pa-item-sub { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; color: var(--pa-dim); font-size: max(12px, .8em); }
