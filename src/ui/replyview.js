@@ -18,7 +18,7 @@ function nativeReasoningNote(message) {
   const st = stReasoningTag();
   if (!st?.autoParse || !message?.extra?.reasoning || message.extra.reasoning_type !== "model") return "";
   if (!new RegExp(`<\\s*${st.tag}\\s*>`, "iu").test(replyCheckMask(String(message.mes || "")))) return "";
-  return `<div class="pa-card pa-card-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型回传了自己的思考，酒馆不再把 &lt;${esc(st.tag)}&gt; 解析进思考区，生成时它先出现在正文中，写完才被美化正则收起。只保留预设思维链：酒馆「AI 响应配置」关闭「请求思维链」。模型仍会思考，只是不再回传。</p></div>`;
+  return `<div class="pa-rnote pa-rnote-warn"><b>思考区里是模型自带的思考，&lt;${esc(st.tag)}&gt; 留在了正文里</b><p class="pa-hint">模型回传了自己的思考，酒馆不再把 &lt;${esc(st.tag)}&gt; 解析进思考区，生成时它先出现在正文中，写完才被美化正则收起。只保留预设思维链：酒馆「AI 响应配置」关闭「请求思维链」。模型仍会思考，只是不再回传。</p></div>`;
 }
 // 正文格式检查表单：只在「回复」页显示
 function replyForm(name, { onSaved } = {}) {
@@ -191,11 +191,11 @@ function replyForm(name, { onSaved } = {}) {
     const can = Object.keys(diag.patch).length > 0;
     const sk = diag.skeleton.length ? `<p class="pa-p">范本的标签顺序：${diag.skeleton.map((t) => `&lt;${esc(t)}&gt;`).join("、")}</p><div class="pa-toolbar"><button class="pa-btn" data-r="sample-save">记为范本</button></div>` : "";
     if (!diag.advice.length) {
-      result.innerHTML = `<div class="pa-card"><p class="pa-p"><b>按现在的设置，这份范本没有问题。</b></p><p class="pa-hint">回复仍被提醒或修正时，原因在那条回复本身：切到「最近回复」点「检查格式」看具体问题。</p>${sk}</div>`;
+      result.innerHTML = `<div class="pa-rnote"><p class="pa-p"><b>按现在的设置，这份范本没有问题。</b></p><p class="pa-hint">回复仍被提醒或修正时，原因在那条回复本身：切到「最近回复」点「检查格式」看具体问题。</p>${sk}</div>`;
       return;
     }
     const left = can ? diag.after.issues : [];
-    result.innerHTML = `<div class="pa-card"><p class="pa-p"><b>设置与范本有 ${diag.advice.length} 处不符</b></p><ul class="pa-notes">${diag.advice.map((a) => `<li>${esc(a.text)}</li>`).join("")}</ul>
+    result.innerHTML = `<div class="pa-rnote"><p class="pa-p"><b>设置与范本有 ${diag.advice.length} 处不符</b></p><ul class="pa-notes">${diag.advice.map((a) => `<li>${esc(a.text)}</li>`).join("")}</ul>
       ${can ? `<div class="pa-toolbar"><button class="pa-btn pa-btn-primary" data-r="diag-apply">按建议修改设置</button></div>${left.length ? `<p class="pa-hint">修改后仍会报：${esc(left.map((i) => i.text).join("；"))}</p>` : '<p class="pa-hint">修改后，这份范本不再报问题。</p>'}` : ""}${sk}</div>`;
   };
   const applyDiag = () => {
@@ -241,7 +241,7 @@ function replyForm(name, { onSaved } = {}) {
       <b class="pa-sub">修正后原文预览</b><pre class="pa-pre">${esc(plan.text)}</pre>
       ${pending ? "" : '<p class="pa-hint">粘贴的文字不写回聊天，可复制上面的预览。</p>'}` : "";
     const auto = latest && replyAutoFixFor(latest.index);
-    const note = (auto ? `<div class="pa-card"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
+    const note = (auto ? `<div class="pa-rnote"><p class="pa-p">这条回复已自动修正：${esc(auto.steps.join("；"))}。<button class="pa-link" data-r="undo-auto">撤销</button></p></div>` : "") + (latest ? nativeReasoningNote(latest.message) : "");
     const skipped = unused.length ? `<p class="pa-hint">${esc(unusedText(unused))}</p>` : "";
     const n = report.issues.length;
     const detail = n ? `${fixDetail}<b class="pa-sub">下一轮提醒预览</b><pre class="pa-pre">${esc(reminder)}</pre>` : "";

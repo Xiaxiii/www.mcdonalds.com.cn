@@ -28,7 +28,7 @@ function mountAux(page) {
   const resHtml = (r) => `<span class="pa-live-res ${r.ok ? "ok" : "bad"}" title="${esc(r.raw || resText(r))}">${r.ok ? RES_OK : RES_BAD}${esc(resText(r))}</span>`;
   const testBtn = (sig, attrs, label) => {
     const st = busy.has(sig) ? "busy" : flashOk.has(sig) ? "ok" : "idle";
-    return `<button class="pa-icon-btn pa-aux-test" type="button" ${attrs} data-sig="${esc(sig)}" aria-label="${esc(label)}" title="发一句 Hi，看能不能用"${st === "busy" ? " disabled" : ""}>${icoMorph(ICON.bolt, st)}</button>`;
+    return `<button class="pa-icon-btn pa-aux-test has-morph" type="button" ${attrs} data-sig="${esc(sig)}" aria-label="${esc(label)}" title="发一句 Hi，看能不能用"${st === "busy" ? " disabled" : ""}>${icoMorph(ICON.bolt, st)}</button>`;
   };
   const grip = (label) => `<span class="grip-slot">${editing ? `<button type="button" class="pa-key-grip pa-aux-grip" aria-label="「${esc(label)}」：拖动或按上下方向键调整顺序" title="拖动调整顺序">${ICON_GRIP}</button>` : ""}</span>`;
   const delBtn = (ch) => `<button class="pa-icon-btn pa-site-del" data-a="delch" type="button" aria-label="删除渠道「${esc(ch.name || "渠道")}」" title="删除">${ICON.trash}</button>`;
@@ -43,7 +43,7 @@ function mountAux(page) {
       : `<b>${esc(t.name)}</b><span class="pa-aux-sep"> · </span><code class="pa-mono">${esc(t.model || "未选模型")}</code>`;
     return `<section class="pa-card pa-aux-fn" data-fn="${u.key}">
         <header class="pa-aux-fnhead"><span class="pa-aux-fnt"><b>${esc(u.label)}</b><small>${USE_SUB[u.key] || ""}</small></span><span class="pa-aux-resslot">${r ? resHtml(r) : ""}</span>${testBtn(sig, `data-a="fntest" data-u="${u.key}"`, `测试「${u.label}」用的 API`)}</header>
-        <button class="pa-aux-row model-box" type="button" data-use="${u.key}" aria-haspopup="listbox" aria-label="${esc(`${u.label}：${auxLabel(t)}，点按更换`)}"><i class="pa-aux-dot is-${dot}" aria-hidden="true"></i><span class="pa-aux-v">${v}${t.missing ? '<small class="pa-aux-bad">选过的渠道已失效</small>' : ""}</span><span class="pa-aux-caret" aria-hidden="true">${ICON.caret}</span></button>
+        <button class="pa-aux-row model-box" type="button" data-use="${u.key}" aria-haspopup="listbox" aria-expanded="false" aria-label="${esc(`${u.label}：${auxLabel(t)}，点按更换`)}"><i class="pa-aux-dot is-${dot}" aria-hidden="true"></i><span class="pa-aux-v">${v}${t.missing ? '<small class="pa-aux-bad">选过的渠道已失效</small>' : ""}</span><span class="pa-aux-caret" aria-hidden="true">${ICON.caret}</span></button>
       </section>`;
   }
   // 下半区：每个渠道一张圆角卡。左边点正文编辑；右边测速、四态指派胶囊（选用 / 缝合在用 / 审查在用 / 2 项在用）
@@ -132,6 +132,9 @@ function mountAux(page) {
     };
     paint();
     let v = null;
+    // 2.12.22 下拉开着时模型框的箭头朝上，关上转回
+    const row = anchor?.closest?.(".pa-aux-row");
+    row?.setAttribute("aria-expanded", "true");
     await sheet({ title: u.label, body, place: "pop", anchor, popWidth: true, actions: [], onMount: (w) => {
       q?.addEventListener("input", paint);
       body.addEventListener("click", (e) => {
@@ -141,6 +144,7 @@ function mountAux(page) {
         w._close(null);
       });
     } });
+    if (row?.isConnected) row.setAttribute("aria-expanded", "false");
     if (v === null) return;
     let id = v;
     if (v === "\u0002add") {

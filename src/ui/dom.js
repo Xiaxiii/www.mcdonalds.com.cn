@@ -566,11 +566,14 @@ if (typeof document !== "undefined") document.addEventListener("click", (e) => {
   const body = d.querySelector(":scope > .pa-details-body");
   if (!body) return;
   e.preventDefault();
+  // 2.12.22 收起动画期间挂 .pa-closing，箭头和内容一起转回去，不等动画放完才跳
   if (d.open && !d._closing) {
     d._closing = true;
-    accOut(body).then((done) => { if (!done) return; d._closing = false; d.open = false; body._accAnim?.cancel(); body.style.overflow = ""; });
+    d.classList.add("pa-closing");
+    accOut(body).then((done) => { if (!done) return; d._closing = false; d.classList.remove("pa-closing"); d.open = false; body._accAnim?.cancel(); body.style.overflow = ""; });
   } else {
     d._closing = false;
+    d.classList.remove("pa-closing");
     d.open = true;
     accIn(body);
   }
@@ -632,6 +635,7 @@ async function accHidden(node, open) {
 // grid-template-rows 在 0fr 和 1fr 之间过渡；收起时内层 inert（不能点、不能 Tab 进去）
 var accSeq = 0;
 var FOLD_SVG = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>';
+var DOWN_SVG = '<svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5"/></svg>';
 const CARET_SVG = '<svg class="pa-acc-caret" width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M4.5 2.5 8 6l-3.5 3.5"/></svg>';
 function accBox(inner, open = false, id = "", extra = "") {
   return `<div class="pa-acc${open ? " open" : ""}${extra ? " " + extra : ""}" data-acc${id ? ` id="${id}"` : ""}><div class="pa-acc-in"${open ? "" : " inert"}>${inner}</div></div>`;
@@ -693,17 +697,39 @@ function setIco(btn, st) {
 }
 // 分段槽滑块：.pa-seg 里选中的按钮（.on / aria-pressed / aria-selected）下面垫一块白底，换选项时滑过去。
 // 整块重画后按「同一组按钮」记下的上次位置起步，看起来也是滑过去的
+// 2.12.22 位置按 getBoundingClientRect 取小数像素；没有自带语义的分段槽补上单选组语义（radiogroup / radio / aria-checked）和方向键
 var segLast = new Map();
 const segOn = (b) => b.classList.contains("on") || b.getAttribute("aria-pressed") === "true" || b.getAttribute("aria-selected") === "true";
 const segSig = (seg) => seg.getAttribute("aria-label") || [...seg.children].filter((c) => c.tagName === "BUTTON").map((c) => c.textContent.replace(/[\d\s]+/g, "")).join("|");
+const segBtns = (seg) => [...seg.children].filter((c) => c.tagName === "BUTTON");
+const setAttr = (n, k, v) => { if (n.getAttribute(k) !== v) n.setAttribute(k, v); };
+const segBox = (seg, b) => {
+  const r = seg.getBoundingClientRect(), q = b.getBoundingClientRect();
+  return { x: q.left - r.left - seg.clientLeft, y: q.top - r.top - seg.clientTop, w: q.width, h: q.height };
+};
+// 按钮本身用 aria-pressed / aria-selected / role 表达状态的不动；其余补成单选组，选中项可 Tab 到，其他项用方向键到达
+function segAria(seg, btns, on) {
+  const plain = btns.length > 1 && btns.every((b) => !b.hasAttribute("aria-pressed") && !b.hasAttribute("aria-selected") && (!b.hasAttribute("role") || b.getAttribute("role") === "radio"));
+  if (!plain) return;
+  setAttr(seg, "data-seg-radio", "");
+  if (!seg.hasAttribute("role")) seg.setAttribute("role", "radiogroup");
+  const focusOn = on || btns.find((b) => !b.disabled) || btns[0];
+  for (const b of btns) {
+    setAttr(b, "role", "radio");
+    setAttr(b, "aria-checked", String(b === on));
+    setAttr(b, "tabindex", b === focusOn ? "0" : "-1");
+  }
+}
 function placeSegInk(seg) {
-  const btns = [...seg.children].filter((c) => c.tagName === "BUTTON");
+  const btns = segBtns(seg);
   const on = btns.find(segOn);
+  segAria(seg, btns, on);
   let ink = seg.querySelector(":scope > .pa-seg-ink");
   if (!on) { if (ink) ink.style.opacity = "0"; return; }
   if (!on.offsetWidth) return;
+  if (seg._segDrag?.on) return;
   const sig = segSig(seg);
-  const to = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight };
+  const to = segBox(seg, on);
   const put = (p) => { ink.style.width = p.w + "px"; ink.style.height = p.h + "px"; ink.style.transform = `translate(${p.x}px, ${p.y}px)`; };
   if (!ink) {
     ink = document.createElement("i");
@@ -720,19 +746,95 @@ function placeSegInk(seg) {
   put(to);
   segLast.set(sig, to);
 }
+// 方向键：左右（上下）换到相邻一项并选中，Home / End 到两端；跳过禁用项
+function segKey(e) {
+  const b = e.target.closest?.(".pa-seg > button");
+  const seg = b?.parentElement;
+  if (!seg || !seg.hasAttribute("data-seg-radio")) return;
+  const btns = segBtns(seg).filter((x) => !x.disabled && !x.hidden);
+  const i = btns.indexOf(b);
+  if (i < 0) return;
+  const k = e.key;
+  let j = -1;
+  if (k === "ArrowRight" || k === "ArrowDown") j = (i + 1) % btns.length;
+  else if (k === "ArrowLeft" || k === "ArrowUp") j = (i - 1 + btns.length) % btns.length;
+  else if (k === "Home") j = 0;
+  else if (k === "End") j = btns.length - 1;
+  if (j < 0) return;
+  e.preventDefault();
+  btns[j].focus();
+  if (!segOn(btns[j])) btns[j].click();
+}
+// 横向拖动滑块：按下后水平移动 ≥ 6px 且比竖直多才算拖（竖直滑动照常滚页面），滑块跟手；松手吸到最近的一项并选中
+function segDown(e) {
+  if (e.button !== 0 || reducedMotion()) return;
+  const seg = e.target.closest?.(".pa-seg.pa-seg-inked");
+  const ink = seg?.querySelector(":scope > .pa-seg-ink");
+  if (!ink || !e.target.closest(".pa-seg > button")) return;
+  const btns = segBtns(seg).filter((b) => !b.disabled && !b.hidden);
+  if (btns.length < 2) return;
+  const d = { x0: e.clientX, y0: e.clientY, on: false, id: e.pointerId };
+  seg._segDrag = d;
+  const boxes = () => btns.map((b) => segBox(seg, b));
+  const move = (ev) => {
+    if (ev.pointerId !== d.id) return;
+    const dx = ev.clientX - d.x0, dy = ev.clientY - d.y0;
+    if (!d.on) {
+      if (Math.abs(dx) < 6 || Math.abs(dx) <= Math.abs(dy)) return;
+      d.on = true;
+      d.bx = boxes();
+      const cur = btns.find(segOn);
+      d.start = cur ? segBox(seg, cur) : d.bx[0];
+      seg.classList.add("pa-seg-drag");
+      try { seg.setPointerCapture(d.id); } catch {}
+    }
+    const min = d.bx[0].x, max = d.bx[d.bx.length - 1].x + d.bx[d.bx.length - 1].w - d.start.w;
+    const x = Math.max(min, Math.min(max, d.start.x + dx));
+    ink.style.transform = `translate(${x}px, ${d.start.y}px)`;
+    d.x = x;
+  };
+  const up = (ev) => {
+    if (ev.pointerId !== d.id) return;
+    seg.removeEventListener("pointermove", move);
+    seg.removeEventListener("pointerup", up);
+    seg.removeEventListener("pointercancel", up);
+    seg.classList.remove("pa-seg-drag");
+    const dragged = d.on;
+    d.on = false;
+    seg._segDrag = null;
+    if (!dragged) return;
+    // 拖完不让 click 落到按下的那一项上
+    const eat = (c) => { c.stopPropagation(); c.preventDefault(); };
+    seg.addEventListener("click", eat, { capture: true, once: true });
+    setTimeout(() => seg.removeEventListener("click", eat, { capture: true }), 0);
+    const mid = d.x + d.start.w / 2;
+    let best = 0;
+    d.bx.forEach((p, k) => { if (Math.abs(p.x + p.w / 2 - mid) < Math.abs(d.bx[best].x + d.bx[best].w / 2 - mid)) best = k; });
+    const pick = btns[best];
+    if (ev.type === "pointerup" && !segOn(pick)) { seg.removeEventListener("click", eat, { capture: true }); pick.click(); }
+    placeSegInk(seg);
+  };
+  seg.addEventListener("pointermove", move);
+  seg.addEventListener("pointerup", up);
+  seg.addEventListener("pointercancel", up);
+}
 function watchSegs(root) {
   if (typeof MutationObserver !== "function" || typeof requestAnimationFrame !== "function") return;
   const dirty = new Set();
   const seen = new WeakSet();
   let raf = 0;
-  const ro = typeof ResizeObserver === "function" ? new ResizeObserver((es) => { for (const e of es) dirty.add(e.target); flush(); }) : null;
+  const ro = typeof ResizeObserver === "function" ? new ResizeObserver((es) => { for (const e of es) dirty.add(e.target.classList.contains("pa-seg") ? e.target : e.target.parentElement); flush(); }) : null;
+  root.addEventListener("keydown", segKey);
+  root.addEventListener("pointerdown", segDown);
   const flush = () => {
     if (raf) return;
     raf = requestAnimationFrame(() => {
       raf = 0;
       for (const s of dirty) {
-        if (!s.isConnected) continue;
+        if (!s?.isConnected || !s.classList.contains("pa-seg")) continue;
         if (ro && !seen.has(s)) { seen.add(s); ro.observe(s); }
+        // 按钮里的数字、文字变了宽度也跟着量（如「全部 12」变成「全部 3」）
+        if (ro) for (const b of segBtns(s)) if (!seen.has(b)) { seen.add(b); ro.observe(b); }
         placeSegInk(s);
       }
       dirty.clear();
@@ -742,7 +844,7 @@ function watchSegs(root) {
   const mo = new MutationObserver((ms) => {
     for (const m of ms) {
       const t = m.target;
-      if (m.type === "attributes") { if (t.parentElement?.classList.contains("pa-seg")) dirty.add(t.parentElement); continue; }
+      if (m.type === "attributes") { if (t.parentElement?.classList.contains("pa-seg")) dirty.add(t.parentElement); else if (t.classList?.contains("pa-seg") && m.attributeName === "data-seg-radio") dirty.add(t); continue; }
       if (t.classList?.contains("pa-seg")) { dirty.add(t); continue; }
       if (t.closest?.(BIG)) continue;
       for (const n of m.addedNodes) {
@@ -753,5 +855,5 @@ function watchSegs(root) {
     }
     if (dirty.size) flush();
   });
-  mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "aria-pressed", "aria-selected"] });
+  mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "aria-pressed", "aria-selected", "aria-checked", "data-seg-radio"] });
 }
