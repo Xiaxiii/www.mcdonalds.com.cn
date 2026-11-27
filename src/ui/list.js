@@ -24,8 +24,8 @@ var ICON = {
   needle: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 4 7 17"/><path d="M17 4h3v3"/><path d="M7 17c-2 2-4 2-4 2s0-2 2-4"/></svg>',
   // 2.12.6 「AI 推荐」前的四角星，与其他线条图标同粗细
   spark: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3.5c.6 4.6 2.9 6.9 7.5 7.5-4.6.6-6.9 2.9-7.5 7.5-.6-4.6-2.9-6.9-7.5-7.5 4.6-.6 6.9-2.9 7.5-7.5Z"/></svg>',
-  // 2.11.14 查全部站点的余额：小猪存钱罐，与铅笔、＋ 同为线条图标（描边跟随文字色）；圆身子、卷尾巴、投币口、豆豆眼
-  piggy: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12.6C5 9.2 8.1 6.6 12 6.6c1.2 0 2.3.2 3.3.6l1.7-1.9c.4-.4 1-.2 1 .3l.1 2.6c.7.7 1.3 1.5 1.6 2.5h.7a1 1 0 0 1 1 1v1.8a1 1 0 0 1-1 1h-.9c-.5 1.3-1.4 2.4-2.6 3.1V20h-2.4v-1.5c-.6.1-1.3.2-2 .2s-1.4-.1-2-.2V20H7.6v-2.6C6 16.3 5 14.6 5 12.6z"/><path d="M5.1 11.2c-1.2-.1-2-.9-2-2"/><path d="M10.2 9.7h2.6"/><circle cx="15.7" cy="11.5" r="1.15" fill="currentColor" stroke="none"/></svg>'
+  // 2.12.19 查全部站点的余额：圆角钱包（1.85px 线描，与其他线条图标同一家族），代替小猪存钱罐
+  wallet: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.85" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 7V5.5A1.5 1.5 0 0 0 17.5 4h-12A2.5 2.5 0 0 0 3 6.5v11A2.5 2.5 0 0 0 5.5 20h13a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2H5.5A2.5 2.5 0 0 1 3 4.5"/><path d="M20.5 11.5H17a2 2 0 1 0 0 4h3.5"/><circle cx="17" cy="13.5" r=".7" fill="currentColor" stroke="none"/></svg>'
 };
 /**
  * 列表渲染。o.place 为 true 时是"选位置"：

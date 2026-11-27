@@ -43,7 +43,7 @@ try {
   await page.waitForFunction(() => /\$14\.88/.test(document.querySelector('.pa-bal-total')?.textContent || ''));
   let txt = await page.locator('.pa-bal').innerText();
   assert.match(txt, /距上次查询\s*\$0\.120/, '手动查询时，标为「距上次查询」');
-  assert.match(txt, /近 24 小时\s*\$0\.120/);
+  assert.match(txt, /24h\s*\$0\.120/);
   // 打开「每轮生成后自动查询」后，生成结束自动再查一次，标为「上一轮」
   await page.locator('.pa-bal [data-o=balauto]').check({ force: true });
   assert.equal(await page.evaluate(() => window.SillyTavern.getContext().extensionSettings.mcdonalds.balanceAuto), true);
@@ -59,7 +59,7 @@ try {
   await page.waitForFunction(() => /\$14\.70/.test(document.querySelector('.pa-bal-total')?.textContent || ''), null, { timeout: 15000 });
   txt = await page.locator('.pa-bal').innerText();
   assert.match(txt, /上一轮\s*\$0\.180/);
-  assert.match(txt, /近 24 小时\s*\$0\.300/);
+  assert.match(txt, /24h\s*\$0\.300/);
   assert.doesNotMatch(txt, /48 小时/, '只列上一轮和近 24 小时');
   await page.screenshot({ path: new URL('./shots/v280-balance.png', import.meta.url).pathname });
   ok('余额：当前余额、上一轮、近 24 小时用量；生成结束自动查询');

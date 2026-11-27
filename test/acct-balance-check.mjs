@@ -55,8 +55,8 @@ try {
   ok('以前只存在本浏览器的令牌：打开连接页后存进酒馆密钥库，别的设备也能用');
   await bal.locator('[data-a=balq]').click();
   await page.waitForFunction(() => /不限额度/.test(document.querySelector('.pa-live .pa-bal')?.textContent || ''));
-  assert.match(await bal.innerText(), /自动查账户余额/);
-  ok('不限额度的密钥：余额卡片上有「自动查账户余额」');
+  assert.match(await bal.innerText(), /账户设置/);
+  ok('不限额度的密钥：「自动」一行有「账户设置」');
 
   await bal.locator('[data-a=balacct]').click();
   await page.locator('.pa-sheet:has-text("查询账户余额") .pa-btn-primary').click();

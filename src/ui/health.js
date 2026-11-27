@@ -113,7 +113,8 @@ function mountHealth(sec, { goClean } = {}) {
     const total = Math.max(r.readyAt || 0, ...r.timeline.map((t) => t.end)) || 1;
     const pct = (v) => `${Math.max(0, Math.min(100, v / total * 100)).toFixed(2)}%`;
     // 建议：只显示一句短结论；带数字的完整说明和原因都收进折叠的「详情」
-    const card = (w, warn) => `<div class="pa-card pa-tipcard ${warn ? "pa-card-warn" : ""}"><div class="pa-tiprow pa-tiphead"><p class="pa-tiptitle">${warn ? `<b>${esc(w.h || w.t)}</b>` : esc(w.h || w.t)}</p>${w.act === "clean" && goClean ? '<button type="button" class="pa-golink" data-h="clean">去清理 ›</button>' : ""}${tip(`${w.h ? `<p>${esc(w.t)}</p>` : ""}<p>${esc(w.d)}</p>`, "详情")}</div></div>`;
+    // 2.12.19 建议行：语义圆点 + 标题；右边先露出唯一动作「去清理 ›」，再是收着的「详情 ▾」
+    const card = (w, warn) => `<div class="pa-card pa-tipcard ${warn ? "pa-card-warn" : ""}"><div class="pa-tiprow pa-tiphead"><p class="pa-tiptitle"><i class="pa-hdot${warn ? " is-warn" : ""}" aria-hidden="true"></i>${warn ? `<b>${esc(w.h || w.t)}</b>` : esc(w.h || w.t)}</p>${w.act === "clean" && goClean ? '<button type="button" class="pa-golink" data-h="clean">去清理 ›</button>' : ""}${tip(`${w.h ? `<p>${esc(w.t)}</p>` : ""}<p>${esc(w.d)}</p>`, "详情", { caret: true })}</div></div>`;
     const bgEnd = r.background.length ? Math.max(...r.background.map((x) => x.end)) : null;
     const readyText = r.readyAt ? fmtMs(r.readyAt) : r.readySource === "late" ? "未记录（本扩展加载时酒馆已启动完成）" : "未记录";
     const n = r.warn.length + r.tips.length;
@@ -133,7 +134,7 @@ function mountHealth(sec, { goClean } = {}) {
       ${n ? `<h3 class="pa-h">建议 <span class="pa-dim">${n}</span></h3>` : '<p class="pa-hint">没有发现明显拖慢打开的地方。</p>'}
       ${r.warn.map((w) => card(w, true)).join("")}
       ${r.tips.map((w) => card(w, false)).join("")}
-      <details class="pa-more"><summary>详细数据</summary>
+      <details class="pa-more pa-breathe"><summary>详细数据</summary><div class="pa-details-body">
       ${r.timeline.length > 1 ? `<h3 class="pa-h">打开过程</h3>
       <div class="pa-tl">${r.timeline.map((t) => `<div><span>${esc(t.label)}${t.n > 1 ? `<i>×${t.n}</i>` : ""}</span><i class="pa-tl-track"><b style="left:${pct(t.start)};width:${pct(Math.max(t.end - t.start, total * 0.006))}"></b></i><em>${fmtMs(t.end)}</em></div>`).join("")}
         ${r.readyAt ? `<div class="pa-tl-ready"><span>启动完成</span><i class="pa-tl-track"><b style="left:${pct(r.readyAt)}"></b></i><em>${fmtMs(r.readyAt)}</em></div>` : ""}</div>
@@ -154,11 +155,11 @@ function mountHealth(sec, { goClean } = {}) {
       <h3 class="pa-h">这次测量覆盖不到的</h3>
       <ul class="pa-gaps">${r.gaps.map((x) => `<li>${esc(x)}</li>`).join("")}</ul>
       <p class="pa-hint">${r.extEnabled != null ? `第三方扩展：已开启 ${r.extEnabled} 个，共安装 ${r.extTotal} 个。` : ""}世界书 ${r.worldCount} 本。如仅在长时间未使用后首次打开较慢，可能是云服务器休眠后重新启动；这次测量无法区分。</p>
-      </details>`;
+      </div></details>`;
   }
   function showDetail() {
     if (!last) return;
-    if (!detail.hidden) { detail.hidden = true; return; }
+    if (!accClosed(detail)) { accHidden(detail, false); return; }
     const rows = last.reqs.slice().sort((a, b) => a.start - b.start).slice(0, 400);
     const cacheText = { hit: "缓存", revalidated: "校验", unknown: "未取得", network: "" };
     detail.innerHTML = `<h3 class="pa-h">每笔请求（按开始时间，最多 400 笔）</h3>
@@ -167,7 +168,7 @@ function mountHealth(sec, { goClean } = {}) {
         ${rows.map((x) => `<div class="pa-rt-row" role="row"><span>${esc(redactUrl(x.url))}<small>${esc(CAT_LABEL[x.cat] || x.cat)}${x.provider ? ` · ${esc(x.provider)}接口` : ""}${x.sw ? " · Service Worker" : ""}${cacheText[x.cache] ? ` · ${cacheText[x.cache]}` : ""}</small><small class="pa-rt-more">首字节 ${x.ttfb == null ? "—" : fmtMs(x.ttfb)} / 接收 ${x.recv == null ? "—" : fmtMs(x.recv)} · ${x.transfer == null ? "传输未取得" : `${fmtSize(x.transfer)} / ${fmtSize(x.decoded)}`}</small></span><span>${fmtMs(x.start)}</span><span>${fmtMs(x.dur)}</span><span>${x.ttfb == null ? "—" : fmtMs(x.ttfb)} / ${x.recv == null ? "—" : fmtMs(x.recv)}</span><span>${x.transfer == null ? "未取得" : `${fmtSize(x.transfer)} / ${fmtSize(x.decoded)}`}</span></div>`).join("")}
       </div></div>
       <p class="pa-hint">「首字节」是从发出请求到收到第一个字节，包含网络往返，不等于服务器处理时间。</p>`;
-    detail.hidden = false;
+    accHidden(detail, true);
     scrollToView(detail, "start", true);
   }
   function exportReport() {
@@ -225,9 +226,9 @@ function jankHtml(extData) {
   const any = j.count || j.own.length;
   return `<div class="pa-jank-h"><h3 class="pa-h">运行中的卡顿 <small class="pa-dim">打开酒馆后 ${mins}</small></h3>${tip(`${how}。只记时间和处理名称，不记内容，只保存在本页内存中，刷新页面后重新开始。「重叠」指卡顿期间${esc(appName())}有一项处理超过 16 毫秒。`)}${any ? '<button type="button" class="pa-link" data-h="jankclear">清空</button>' : ""}</div>
     <div class="pa-card pa-jank">
-      <div class="pa-tiprow pa-tiphead pa-jank-top"><p class="pa-jank-line" title="${j.count ? `卡顿 ${j.count} 次 · 最长 ${fmtMs(j.longest)} · ${esc(appName())}参与 ${j.overlapped} 次` : ""}"><b>${j.mode === "none" ? "无法记录" : j.count ? `卡顿 ${j.count} 次` : "没有卡顿"}</b>${j.count ? ` · 最长 ${fmtMs(j.longest)} · ${esc(appName())}参与 ${j.overlapped} 次` : ""}</p>${tip(`<p>${j.severe ? `${j.severe} 次超过 0.2 秒。` : ""}${verdict}${mine ? `本扩展在设置文件中的数据 ${fmtSize(mine.size)}。` : ""}</p>`, "详情")}</div>
-      ${j.scripts.length || j.layout.n ? `<details><summary>卡顿时在运行的脚本</summary>${rows([...j.scripts.slice(0, 8).map((x) => row(esc(x.who), `${x.n} 次 · 共 ${fmtMs(x.ms)}${x.forced >= 5 ? ` · 强制排版 ${fmtMs(x.forced)}` : ""}`)), ...(j.layout.n ? [row("浏览器计算样式和排版", `${j.layout.n} 次 · 共 ${fmtMs(j.layout.ms)}`)] : [])])}</details>` : ""}
-      ${j.recent.length ? `<details><summary>最近的卡顿</summary><ul class="pa-notes">${j.recent.map((x) => `<li>${ago(x.at)}，${fmtMs(x.ms)}${x.owners?.length ? `，脚本来源：${esc(x.owners.join("、"))}` : ""}${x.own.length ? `，${esc(appName())}在处理：${esc(x.own.join("、"))}` : ""}</li>`).join("")}</ul></details>` : ""}
-      ${j.own.length ? `<details><summary>${esc(appName())}各项处理耗时</summary>${rows(j.own.slice(0, 12).map((x) => row(esc(x.label), `${x.n} 次 · 最长 ${ms(x.max)} · 平均 ${ms(x.avg)}`)))}</details>` : ""}
+      <div class="pa-tiprow pa-tiphead pa-jank-top"><p class="pa-jank-line" title="${j.count ? `卡顿 ${j.count} 次 · 最长 ${fmtMs(j.longest)} · ${esc(appName())}参与 ${j.overlapped} 次` : ""}"><b>${j.mode === "none" ? "无法记录" : j.count ? `卡顿 ${j.count} 次` : "没有卡顿"}</b>${j.count ? ` · 最长 ${fmtMs(j.longest)} · ${esc(appName())}参与 ${j.overlapped} 次` : ""}</p>${tip(`<p>${j.severe ? `${j.severe} 次超过 0.2 秒。` : ""}${verdict}${mine ? `本扩展在设置文件中的数据 ${fmtSize(mine.size)}。` : ""}</p>`, "详情", { caret: true })}</div>
+      ${j.scripts.length || j.layout.n ? `<details class="pa-breathe"><summary>卡顿时在运行的脚本</summary><div class="pa-details-body">${rows([...j.scripts.slice(0, 8).map((x) => row(esc(x.who), `${x.n} 次 · 共 ${fmtMs(x.ms)}${x.forced >= 5 ? ` · 强制排版 ${fmtMs(x.forced)}` : ""}`)), ...(j.layout.n ? [row("浏览器计算样式和排版", `${j.layout.n} 次 · 共 ${fmtMs(j.layout.ms)}`)] : [])])}</div></details>` : ""}
+      ${j.recent.length ? `<details class="pa-breathe"><summary>最近的卡顿</summary><div class="pa-details-body"><ul class="pa-notes">${j.recent.map((x) => `<li>${ago(x.at)}，${fmtMs(x.ms)}${x.owners?.length ? `，脚本来源：${esc(x.owners.join("、"))}` : ""}${x.own.length ? `，${esc(appName())}在处理：${esc(x.own.join("、"))}` : ""}</li>`).join("")}</ul></div></details>` : ""}
+      ${j.own.length ? `<details class="pa-breathe"><summary>${esc(appName())}各项处理耗时</summary><div class="pa-details-body">${rows(j.own.slice(0, 12).map((x) => row(esc(x.label), `${x.n} 次 · 最长 ${ms(x.max)} · 平均 ${ms(x.avg)}`)))}</div></details>` : ""}
     </div>`;
 }

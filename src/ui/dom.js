@@ -133,14 +133,16 @@ const onTipBtn = (e) => {
   let note = null;
   for (let p = b.parentElement; p && !note; p = p.parentElement) note = [...p.children].find((c) => c.hasAttribute("data-tipnote")) || null;
   if (!note) return;
-  note.hidden = !note.hidden;
-  b.setAttribute("aria-expanded", String(!note.hidden));
-  b.classList.toggle("on", !note.hidden);
+  const open = accClosed(note);
+  accHidden(note, open);
+  b.setAttribute("aria-expanded", String(open));
+  b.classList.toggle("on", open);
 };
 function setRoot(el2) {
   rootEl = el2;
   el2?.addEventListener("click", noteTap, true);
   el2?.addEventListener("click", onTipBtn);
+  if (el2) watchSegs(el2);
 }
 function el(html) {
   const t = document.createElement("template");
@@ -191,7 +193,8 @@ function sheet(opt) {
     const acts = wrap.querySelector(".pa-sheet-actions");
     const done = (v) => {
       if (wrap.classList.contains("pa-out")) return;
-      wrap.classList.add("pa-out");
+      // 2.12.19 贴边菜单先播 130ms 柔退（.is-closing），再卸载
+      wrap.classList.add("pa-out", "is-closing");
       setTimeout(() => wrap.remove(), 150);
       document.removeEventListener("keydown", onKey, true);
       wrap.dispatchEvent(new Event("pa-closed"));
@@ -274,7 +277,7 @@ function sheet(opt) {
     const docEl = document.scrollingElement || document.documentElement;
     const docY = docEl.scrollTop;
     (rootEl || document.body).append(wrap);
-    if (place === "pop") placePop(wrap, opt.anchor);
+    if (place === "pop") placePop(wrap, opt.anchor, opt.popWidth);
     opt.onMount?.(wrap);
     if (opt.guardDirty) snap0 = snap();
     const first = wrap.querySelector("input:not([type=checkbox]):not([type=radio]), textarea");
@@ -327,8 +330,10 @@ function inlineEdit(target, value, { placeholder = "", selectAll = true, wrap = 
 }
 // 贴着按钮放菜单：宽度按内容（样式里限定 184–300px）；按钮在左半边时左对齐、右半边时右对齐，不出边；
 // 下面放得下就放下面，否则放上面。2.11.25 弹出动画从按钮那一角长出来
-function placePop(wrap, anchor) {
+// 2.12.19 popWidth：与选框等宽的下拉（如副 API 功能卡的模型框），宽度跟着 anchor
+function placePop(wrap, anchor, popWidth = false) {
   const box = wrap.querySelector(".pa-sheet");
+  if (popWidth) { box.classList.add("pa-pop-match"); box.style.width = Math.max(220, anchor.getBoundingClientRect().width) + "px"; }
   // 2.11.26 标题和点的那一行、那个按钮说的一样（如「推荐缝合位置」「新建」）就不显示；说的是哪一组、哪个方案时留着
   const title = (box.querySelector(".pa-sheet-head b")?.textContent || "").trim();
   const near = anchor.closest(".pa-aux-row, .pa-aux-ch, .pa-row, .pa-srow, .pa-site, .pa-sgroup > header") || anchor;
@@ -531,20 +536,197 @@ function bindWhy(box) {
     e.preventDefault();
     const note = box.querySelector(`[data-whynote="${CSS.escape(b.dataset.why)}"]`);
     if (!note) return;
-    note.hidden = !note.hidden;
-    b.setAttribute("aria-expanded", String(!note.hidden));
+    // 2.12.19 说明呼吸展开、收起（收起动画中再点一下照样展开）
+    const open = accClosed(note);
+    accHidden(note, open);
+    b.setAttribute("aria-expanded", String(open));
   });
 }
-function tip(inner, label = "说明") {
+function tip(inner, label = "说明", { caret = false } = {}) {
   if (!String(inner || "").trim()) return "";
   // 2.8.5 按钮留在原位，说明在所在行下方展开（行内为弹性布局时排到最后、占满整行）
-  return `<button type="button" class="pa-tip" data-tip aria-expanded="false">${INFO_ICON}${esc(label)}</button><div class="pa-tip-body" hidden>${inner}</div>`;
+  // 2.12.19 caret：「详情 ▾」样式（不带 ⓘ），展开时箭头翻转
+  const face = caret ? `${esc(label)}<span class="pa-tip-caret" aria-hidden="true">▾</span>` : `${INFO_ICON}${esc(label)}`;
+  return `<button type="button" class="pa-tip${caret ? " pa-tip-more" : ""}${label ? "" : " pa-tip-ico"}" data-tip aria-expanded="false"${label ? "" : ' aria-label="说明"'}>${face}</button><div class="pa-tip-body" hidden>${inner}</div>`;
 }
+// 2.12.19 <details class="pa-breathe">：点标题时内容呼吸展开、收起（内容包在 .pa-details-body 里）
+if (typeof document !== "undefined") document.addEventListener("click", (e) => {
+  const sum = e.target.closest?.("details.pa-breathe > summary");
+  if (!sum || reducedMotion()) return;
+  const d = sum.parentElement;
+  const body = d.querySelector(":scope > .pa-details-body");
+  if (!body) return;
+  e.preventDefault();
+  if (d.open && !d._closing) {
+    d._closing = true;
+    accOut(body).then((done) => { if (!done) return; d._closing = false; d.open = false; body._accAnim?.cancel(); body.style.overflow = ""; });
+  } else {
+    d._closing = false;
+    d.open = true;
+    accIn(body);
+  }
+});
 if (typeof document !== "undefined") document.addEventListener("click", (e) => {
   const b = e.target.closest?.(".pa-tip[data-tip]");
   const body = b?.nextElementSibling;
   if (!body?.classList.contains("pa-tip-body")) return;
-  const on = body.hidden;
-  body.hidden = !on;
+  const on = accClosed(body);
+  accHidden(body, on);
   b.setAttribute("aria-expanded", String(on));
 });
+
+// ---------- 2.12.19 呼吸微交互：展开收起、原地补丁、三态图标、分段滑块 ----------
+const reducedMotion = () => typeof matchMedia === "function" && matchMedia("(prefers-reduced-motion: reduce)").matches;
+const EASE_ACC = "cubic-bezier(0.2, 0, 0, 1)";
+// 展开：从 1px 长到内容高度（220ms），结束后清掉行内样式；收起：缩到 0 后 resolve，由调用方移除或藏起
+function accIn(node, ms = 220) {
+  node && (node._accTok = {});
+  if (!node?.isConnected || reducedMotion() || typeof node.animate !== "function") return Promise.resolve();
+  node._accAnim?.cancel();
+  const h = node.scrollHeight;
+  if (!h) return Promise.resolve();
+  node.style.overflow = "hidden";
+  const a = node.animate([{ height: "1px", opacity: 0.35 }, { height: h + "px", opacity: 1 }], { duration: ms, easing: EASE_ACC });
+  node._accAnim = a;
+  return a.finished.catch(() => {}).then(() => { if (node._accAnim === a) { node._accAnim = null; node.style.overflow = ""; } });
+}
+function accOut(node, ms = 220) {
+  if (!node?.isConnected || reducedMotion() || typeof node.animate !== "function") return Promise.resolve(true);
+  const tok = node._accTok = {};
+  node._accAnim?.cancel();
+  node.style.overflow = "hidden";
+  const a = node.animate([{ height: node.offsetHeight + "px", opacity: 1 }, { height: "0px", opacity: 0 }], { duration: ms, easing: EASE_ACC, fill: "forwards" });
+  node._accAnim = a;
+  return a.finished.catch(() => {}).then(() => node._accTok === tok);
+}
+// 用 hidden 显隐的说明、详情：展开时先去掉 hidden 再长出来，收起时缩回去再加 hidden
+// 收起动画进行中也算「收着」：再点一下就重新展开
+const accClosed = (node) => node.hidden || !!node._closing;
+async function accHidden(node, open) {
+  if (!node) return;
+  if (open) {
+    node._closing = false;
+    node.hidden = false;
+    node.classList.add("open");
+    return accIn(node);
+  }
+  node.classList.remove("open");
+  node._closing = true;
+  if (!await accOut(node)) return;
+  node._closing = false;
+  node.hidden = true;
+  node._accAnim?.cancel();
+  node._accAnim = null;
+  node.style.overflow = "";
+}
+// 原地补丁：把 fresh 的属性、子节点同步到 live 上，结构相同的节点原地复用，不整块重建（选中底色、折叠状态、过渡都留得住）。
+// 标签或 data-id / data-k / data-ch / data-use 不同时才换掉那个节点（带 data-morph-keep 的只看标签，如当前连接卡换站点时）；换进来的元素交给 onEnter（给状态胶囊加入场动效）
+const morphKey = (n) => n.nodeType === 1 ? n.hasAttribute("data-morph-keep") ? n.tagName : `${n.tagName}|${n.getAttribute("data-id") ?? n.getAttribute("data-k") ?? n.getAttribute("data-ch") ?? n.getAttribute("data-use") ?? n.getAttribute("data-site") ?? ""}` : `#${n.nodeType}`;
+// 说明（data-whynote）展开着就让它开着：只同步文字，不动 hidden、class、style
+const MORPH_HOLD = new Set(["hidden", "class", "style"]);
+function morphEl(x, y, onEnter) {
+  const hold = x.hasAttribute("data-whynote");
+  for (const { name } of [...x.attributes]) if (!y.hasAttribute(name) && !(hold && MORPH_HOLD.has(name))) x.removeAttribute(name);
+  for (const { name, value } of [...y.attributes]) if (x.getAttribute(name) !== value && !(hold && MORPH_HOLD.has(name))) x.setAttribute(name, value);
+  if (x.tagName === "INPUT") {
+    if (x.checked !== y.checked) x.checked = y.checked;
+    if (x.type !== "file" && x.type !== "checkbox" && x.value !== y.value) x.value = y.value;
+  }
+  morphChildren(x, y, onEnter);
+}
+function morphChildren(live, fresh, onEnter) {
+  const a = [...live.childNodes], b = [...fresh.childNodes];
+  for (let i = 0; i < b.length; i++) {
+    const x = a[i], y = b[i];
+    if (!x) { live.append(y); if (y.nodeType === 1) onEnter?.(y); continue; }
+    if (morphKey(x) !== morphKey(y)) { x.replaceWith(y); if (y.nodeType === 1) onEnter?.(y); continue; }
+    if (y.nodeType === 1) morphEl(x, y, onEnter);
+    else if (x.nodeValue !== y.nodeValue) x.nodeValue = y.nodeValue;
+  }
+  for (let i = b.length; i < a.length; i++) a[i].remove();
+}
+function morphHtml(box, html, onEnter) {
+  const t = document.createElement("template");
+  t.innerHTML = html;
+  morphChildren(box, t.content, onEnter);
+}
+// 重播一次性动效（呼吸、回响）：去掉类名、强制重排再加上，ms 后去掉
+function replay(node, cls, ms = 700) {
+  if (!node) return;
+  node.classList.remove(cls);
+  void node.offsetWidth;
+  node.classList.add(cls);
+  clearTimeout(node[`_rp_${cls}`]);
+  node[`_rp_${cls}`] = setTimeout(() => node.classList.remove(cls), ms);
+}
+// 三态叠化图标：idle / busy（转圈）/ ok（勾），三层常驻，切状态只改 data-st，不重建按钮
+var SPIN_SVG = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 12a8 8 0 1 1-8-8"/></svg>';
+const icoMorph = (idle, st = "idle") => `<span class="ico-morph" data-st="${st}" aria-hidden="true"><i class="im-idle">${idle}</i><i class="im-busy">${SPIN_SVG}</i><i class="im-ok">${ICON.check}</i></span>`;
+function setIco(btn, st) {
+  const m = btn?.querySelector?.(".ico-morph");
+  if (m && m.dataset.st !== st) m.dataset.st = st;
+}
+// 分段槽滑块：.pa-seg 里选中的按钮（.on / aria-pressed / aria-selected）下面垫一块白底，换选项时滑过去。
+// 整块重画后按「同一组按钮」记下的上次位置起步，看起来也是滑过去的
+var segLast = new Map();
+const segOn = (b) => b.classList.contains("on") || b.getAttribute("aria-pressed") === "true" || b.getAttribute("aria-selected") === "true";
+const segSig = (seg) => seg.getAttribute("aria-label") || [...seg.children].filter((c) => c.tagName === "BUTTON").map((c) => c.textContent.replace(/[\d\s]+/g, "")).join("|");
+function placeSegInk(seg) {
+  const btns = [...seg.children].filter((c) => c.tagName === "BUTTON");
+  const on = btns.find(segOn);
+  let ink = seg.querySelector(":scope > .pa-seg-ink");
+  if (!on) { if (ink) ink.style.opacity = "0"; return; }
+  if (!on.offsetWidth) return;
+  const sig = segSig(seg);
+  const to = { x: on.offsetLeft, y: on.offsetTop, w: on.offsetWidth, h: on.offsetHeight };
+  const put = (p) => { ink.style.width = p.w + "px"; ink.style.height = p.h + "px"; ink.style.transform = `translate(${p.x}px, ${p.y}px)`; };
+  if (!ink) {
+    ink = document.createElement("i");
+    ink.className = "pa-seg-ink";
+    ink.setAttribute("aria-hidden", "true");
+    seg.prepend(ink);
+    seg.classList.add("pa-seg-inked");
+    ink.style.transition = "none";
+    put(segLast.get(sig) || to);
+    void ink.offsetWidth;
+    ink.style.transition = "";
+  }
+  ink.style.opacity = "";
+  put(to);
+  segLast.set(sig, to);
+}
+function watchSegs(root) {
+  if (typeof MutationObserver !== "function" || typeof requestAnimationFrame !== "function") return;
+  const dirty = new Set();
+  const seen = new WeakSet();
+  let raf = 0;
+  const ro = typeof ResizeObserver === "function" ? new ResizeObserver((es) => { for (const e of es) dirty.add(e.target); flush(); }) : null;
+  const flush = () => {
+    if (raf) return;
+    raf = requestAnimationFrame(() => {
+      raf = 0;
+      for (const s of dirty) {
+        if (!s.isConnected) continue;
+        if (ro && !seen.has(s)) { seen.add(s); ro.observe(s); }
+        placeSegInk(s);
+      }
+      dirty.clear();
+    });
+  };
+  const BIG = ".pa-list, .pa-src-list, .pa-dst-list, .pa-mpick-list, .pa-npick-list";
+  const mo = new MutationObserver((ms) => {
+    for (const m of ms) {
+      const t = m.target;
+      if (m.type === "attributes") { if (t.parentElement?.classList.contains("pa-seg")) dirty.add(t.parentElement); continue; }
+      if (t.classList?.contains("pa-seg")) { dirty.add(t); continue; }
+      if (t.closest?.(BIG)) continue;
+      for (const n of m.addedNodes) {
+        if (n.nodeType !== 1 || n.classList.contains("pa-seg-ink")) continue;
+        if (n.classList.contains("pa-seg")) dirty.add(n);
+        for (const s of n.getElementsByClassName("pa-seg")) dirty.add(s);
+      }
+    }
+    if (dirty.size) flush();
+  });
+  mo.observe(root, { subtree: true, childList: true, attributes: true, attributeFilter: ["class", "aria-pressed", "aria-selected"] });
+}

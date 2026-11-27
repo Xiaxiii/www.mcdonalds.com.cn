@@ -20,7 +20,8 @@ try {
   await page.evaluate(() => window.__mcdonalds.open("more", "look"));
   await page.waitForTimeout(300);
   const look = page.locator("[data-page=look]");
-  assert.deepEqual(await look.locator(".pa-set-group").allTextContents(), ["通用与备份", "外观", "关于"]);
+  // 2.12.19 设置页改为白纸平铺：入口、配色、文字大小、背景图、偏好；版本在页脚
+  assert.deepEqual(await look.locator(".pa-set-group").allTextContents(), ["入口", "配色", "文字大小", "背景图", "偏好"]);
   assert.equal(await look.locator(".pa-optgroup .pa-switch input").count(), 2, "两个选项右边是开关");
   const sw = look.locator(".pa-optgroup[data-w=chattoast] .pa-switch");
   const was = await sw.locator("input").isChecked();
@@ -28,10 +29,7 @@ try {
   await page.waitForTimeout(150);
   assert.equal(await look.locator(".pa-optgroup[data-w=chattoast] .pa-switch input").isChecked(), was, "点标题只展开，不改开关");
   assert.equal(await look.locator(".pa-optgroup[data-w=chattoast] .pa-sgbody").count(), 1);
-  await look.locator("[data-set=backup]").click();
-  await page.waitForTimeout(500);
-  assert.ok(await page.locator('[data-page=clean] [data-kind="local"].on').count(), "自动备份一行跳到清理 → 本地备份");
-  ok("设置页：通用与备份、外观、关于；换聊天提示和推理格式跟随在这里，右边是开关");
+  ok("设置页：换聊天提示和推理格式跟随在「偏好」卡里，右边是开关");
 
   // 世界书页：「＋」新建空白世界书
   await page.evaluate(() => window.__mcdonalds.open("books"));

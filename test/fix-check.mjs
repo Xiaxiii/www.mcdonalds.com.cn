@@ -82,7 +82,7 @@ async function boot(ctx) {
     window.__mcdonalds.open("schemes");
   });
   await page.waitForTimeout(500);
-  const card = (n) => page.$eval(`.pa-srow:has-text("${n}") .pa-srow-main`, (x) => x.innerText);
+  const card = (n) => page.$eval(`.pa-srow:has-text("${n}")`, (x) => x.innerText);
   assert.match(await card("记着别的站点"), /开关一致/);
   assert.doesNotMatch(await card("记着别的站点"), /使用中/);
   assert.match(await card("只记开关"), /使用中/);

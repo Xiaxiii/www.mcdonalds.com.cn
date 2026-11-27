@@ -4,65 +4,183 @@ function mountAux(page) {
   page.innerHTML = '<div class="pa-scroll pa-plan pa-aux"></div>';
   const box = page.firstElementChild;
   bindWhy(box);
-  // 测试结果：渠道 id → { sig, ok, text, raw }；改了渠道（网址、密钥、模型）就不再显示旧结果
+  // 2.12.19 测速按目标签名记（渠道的站点或网址、密钥、模型；跟随主 API 时是主 API 的模型）：
+  // 上面功能卡、下面渠道卡的闪电共用一份，点哪个两处一起转圈、一起出结果；改了渠道就不再显示旧结果
   const tests = new Map();
   const busy = new Set();
+  const flashOk = new Set();
+  // 整理态：拖把手排序、垃圾桶删除；同源组收起，可展开删单项
+  let editing = false;
+  const editOpen = new Set();
   const sigOf = (ch) => JSON.stringify([ch.site || ch.url || "", ch.keyId || ch.secretId || "", ch.model || ""]);
+  const followSig = () => JSON.stringify(["follow", auxLiveModel()]);
+  const sigOfUse = (use) => { const t = auxTarget(use); return t.follow ? followSig() : sigOf(t.channel); };
   const hostOf = (url) => { try { return new URL(url).host; } catch { return String(url || ""); } };
   const siteOf = (id) => (settings().sites || []).find((x) => x.id === id) || null;
   const mainSites = () => (settings().sites || []).filter((x) => SOURCES[x.source]);
-  function useRow(u) {
+  const USE_SUB = { suture: "缝合页「AI 推荐」", review: "检查页语义核对" };
+  const SHORT = { suture: "缝合", review: "审查" };
+  const usesOf = (id) => AUX_USES.filter((u) => auxSettings().use[u.key] === id).map((u) => u.key);
+  const routeLabel = (uses) => uses.length > 1 ? `${uses.length} 项在用` : uses.length ? `${SHORT[uses[0]] || "已"}在用` : "选用";
+  const fromOf = (ch) => { const s = ch.site ? siteOf(ch.site) : null; return ch.site ? (s ? `主 API · ${s.name || "站点"}` : "来自的站点已删除") : hostOf(ch.url) || "未填网址"; };
+  const mainName = () => { const a = (settings().sites || []).find((x) => x.id === settings().activeSiteId); return a?.name || "酒馆当前连接"; };
+  const resText = (r) => r.ok ? `可用 · ${r.sec}s` : r.text;
+  const resHtml = (r) => `<span class="pa-live-res ${r.ok ? "ok" : "bad"}" title="${esc(r.raw || resText(r))}">${r.ok ? RES_OK : RES_BAD}${esc(resText(r))}</span>`;
+  const testBtn = (sig, attrs, label) => {
+    const st = busy.has(sig) ? "busy" : flashOk.has(sig) ? "ok" : "idle";
+    return `<button class="pa-icon-btn pa-aux-test" type="button" ${attrs} data-sig="${esc(sig)}" aria-label="${esc(label)}" title="发一句 Hi，看能不能用"${st === "busy" ? " disabled" : ""}>${icoMorph(ICON.bolt, st)}</button>`;
+  };
+  const grip = (label) => `<span class="grip-slot">${editing ? `<button type="button" class="pa-key-grip pa-aux-grip" aria-label="「${esc(label)}」：拖动或按上下方向键调整顺序" title="拖动调整顺序">${ICON_GRIP}</button>` : ""}</span>`;
+  const delBtn = (ch) => `<button class="pa-icon-btn pa-site-del" data-a="delch" type="button" aria-label="删除渠道「${esc(ch.name || "渠道")}」" title="删除">${ICON.trash}</button>`;
+  // 上半区：每项功能一张白卡。卡头功能名、用途、测速；下面全宽模型框（圆点：实心绿 渠道 / 空心灰 跟随主 API / 橙 渠道已失效）
+  function fnCard(u) {
     const t = auxTarget(u.key);
+    const sig = sigOfUse(u.key);
+    const r = tests.get(sig);
+    const dot = t.missing ? "miss" : t.follow ? "follow" : "ch";
     const v = t.follow
-      ? `<b>跟随主 API</b>${t.missing ? '<small class="pa-aux-bad">选过的渠道已删除</small>' : ""}`
-      : `<b>${esc(t.name)}</b><small>${esc(t.model || "未选模型")}</small>`;
-    return `<button class="pa-aux-row" type="button" data-use="${u.key}" aria-label="${esc(`${u.label}：${auxLabel(t)}，点按更换`)}">
-        <b class="pa-aux-k">${esc(u.label)}</b><span class="pa-aux-v">${v}</span><span class="pa-aux-caret" aria-hidden="true">${ICON.caret}</span></button>`;
+      ? `<b>跟随主 API</b>${t.model ? `<span class="pa-aux-sep"> · </span><code class="pa-mono">${esc(t.model)}</code>` : ""}`
+      : `<b>${esc(t.name)}</b><span class="pa-aux-sep"> · </span><code class="pa-mono">${esc(t.model || "未选模型")}</code>`;
+    return `<section class="pa-card pa-aux-fn" data-fn="${u.key}">
+        <header class="pa-aux-fnhead"><span class="pa-aux-fnt"><b>${esc(u.label)}</b><small>${USE_SUB[u.key] || ""}</small></span><span class="pa-aux-resslot">${r ? resHtml(r) : ""}</span>${testBtn(sig, `data-a="fntest" data-u="${u.key}"`, `测试「${u.label}」用的 API`)}</header>
+        <button class="pa-aux-row model-box" type="button" data-use="${u.key}" aria-haspopup="listbox" aria-label="${esc(`${u.label}：${auxLabel(t)}，点按更换`)}"><i class="pa-aux-dot is-${dot}" aria-hidden="true"></i><span class="pa-aux-v">${v}${t.missing ? '<small class="pa-aux-bad">选过的渠道已失效</small>' : ""}</span><span class="pa-aux-caret" aria-hidden="true">${ICON.caret}</span></button>
+      </section>`;
   }
-  function chRow(ch) {
-    const site = ch.site ? siteOf(ch.site) : null;
-    const from = ch.site ? (site ? `主 API · ${site.name || "站点"}` : "来自的站点已删除") : hostOf(ch.url) || "未填网址";
-    const res = tests.get(ch.id);
-    const on = busy.has(ch.id);
-    return `<div class="pa-aux-ch" data-ch="${esc(ch.id)}">
-        <button class="pa-aux-chmain" type="button" data-a="edit" aria-label="${esc(`编辑渠道「${ch.name || "渠道"}」`)}">
-          <span class="pa-aux-k"><b>${esc(ch.name || "渠道")}</b><small${ch.site && !site ? ' class="pa-aux-bad"' : ""}>${esc(from)}</small></span>
-          <span class="pa-aux-m">${esc(ch.model || "未选模型")}</span>
-        </button>
-        <button class="pa-icon-btn pa-aux-test${on ? " pa-busy" : ""}" type="button" data-a="test" aria-label="${esc(`测试渠道「${ch.name || "渠道"}」`)}" title="发一句 Hi，看能不能用"${on ? " disabled" : ""}>${ICON.bolt}</button>
-        ${res && res.sig === sigOf(ch) ? `<p class="pa-live-res ${res.ok ? "ok" : "bad"}"${res.raw ? ` title="${esc(res.raw)}"` : ""}>${res.ok ? RES_OK : RES_BAD}${esc(res.text)}</p>` : ""}
+  // 下半区：每个渠道一张圆角卡。左边点正文编辑；右边测速、四态指派胶囊（选用 / 缝合在用 / 审查在用 / 2 项在用）
+  function chCard(ch, child = null) {
+    const sig = sigOf(ch);
+    const r = tests.get(sig);
+    const uses = usesOf(ch.id);
+    let name = ch.name || "渠道";
+    // 同源组的子行：去掉重复的站点名前缀（「云雾 · Haiku 4.5」→「Haiku 4.5」）
+    if (child) {
+      const cut = name.startsWith(child.name) ? name.slice(child.name.length).replace(/^\s*[·・:：\-]\s*/, "") : name;
+      name = cut && cut !== name ? cut : name === child.name ? ch.model || name : name;
+    }
+    const bad = ch.site && !siteOf(ch.site);
+    const line2 = `${r?.ok ? `${resHtml(r)}<span class="pa-aux-sep"> · </span>` : ""}<span class="pa-aux-m">${esc(ch.model || "未选模型")}</span>${child ? "" : `<span class="pa-aux-sep"> · </span><span${bad ? ' class="pa-aux-bad"' : ""}>${esc(fromOf(ch))}</span>`}`;
+    return `<div class="pa-sitecard pa-aux-ch${child ? " pa-aux-child" : " pa-aux-unit"}${uses.length ? " on-route" : ""}" data-ch="${esc(ch.id)}">
+        ${child ? "" : grip(name)}<button class="site-main pa-aux-chmain" type="button" data-a="edit" aria-label="${esc(`编辑渠道「${ch.name || "渠道"}」`)}"${editing ? ' tabindex="-1"' : ""}><span class="pa-aux-k"><b>${esc(name)}</b><small>${line2}</small></span></button>
+        <span class="site-actions">${editing ? delBtn(ch) : `${testBtn(sig, 'data-a="test"', `测试渠道「${ch.name || "渠道"}」`)}<button class="pa-swpill pa-aux-pill${uses.length ? " on-route" : ""}" type="button" data-a="assign" aria-haspopup="menu" aria-label="${esc(`「${ch.name || "渠道"}」：${routeLabel(uses)}，点按指派`)}">${routeLabel(uses)}</button>`}</span>
+        ${r && !r.ok ? `<p class="pa-live-res bad pa-aux-chres" title="${esc(r.raw || r.text)}">${RES_BAD}${esc(r.text)}</p>` : ""}
       </div>`;
   }
+  // 同一个主 API 站点来的渠道有两个以上：合成一张卡，像多密钥站点一样点「N 个」展开子行
+  function grpCard(site, chs) {
+    const open = editing ? editOpen.has(site.id) : foldGet("auxgrp", site.id);
+    const uses = [...new Set(chs.flatMap((c) => usesOf(c.id)))];
+    const models = [...new Set(chs.map((c) => c.model).filter(Boolean))];
+    return `<div class="pa-sitecard pa-aux-grp pa-aux-unit${open ? " open" : ""}${uses.length ? " on-route" : ""}" data-site="${esc(site.id)}">
+        <div class="pa-aux-ghead">${grip(site.name || "站点")}<button class="site-main pa-aux-gmain" type="button" data-a="grpfold" aria-expanded="${open}"><span class="pa-aux-k"><b>${esc(site.name || "站点")}</b><small>主 API 同源站点 · 含 ${esc(models.join("、") || "未选模型")}</small></span></button>
+        <span class="site-actions">${uses.length && !editing ? `<span class="pa-chip pa-aux-routetag">${routeLabel(uses)}</span>` : ""}<button class="pa-swpill pa-fold-pill" data-a="grpfold" type="button" aria-expanded="${open}" aria-label="${chs.length} 个渠道，${open ? "收起" : "展开"}">${chs.length} 个 ${open ? "▾" : "▸"}</button></span></div>
+        ${open ? `<div class="pa-klines pa-aux-glines">${chs.map((c) => chCard(c, site)).join("")}${editing ? "" : `<button class="pa-aux-addmore" type="button" data-a="addsite" data-site="${esc(site.id)}"><span class="pa-mi" aria-hidden="true">${ICON.plus}</span>添加「${esc(site.name || "站点")}」的其他模型…</button>`}</div>` : ""}
+      </div>`;
+  }
+  // 渠道按设置里的顺序排；同源的两个以上合成一组，放在组里第一个渠道的位置
+  function units() {
+    const chs = auxChannels();
+    const n = new Map();
+    for (const c of chs) if (c.site && siteOf(c.site)) n.set(c.site, (n.get(c.site) || 0) + 1);
+    const out = [], grp = new Map();
+    for (const c of chs) {
+      if (c.site && n.get(c.site) >= 2) {
+        if (!grp.has(c.site)) { const u = { site: siteOf(c.site), chs: [] }; grp.set(c.site, u); out.push(u); }
+        grp.get(c.site).chs.push(c);
+      } else out.push({ ch: c });
+    }
+    return out;
+  }
+  const chipEnter = (n) => { if (n.matches?.(".pa-swpill, .pa-chip")) replay(n, "chip-enter", 260); };
   function render() {
     const chs = auxChannels();
-    box.innerHTML = `
-      <div class="pa-row-head"><h3 class="pa-h">用途${whyBtn("aux")}</h3></div>
+    const us = units();
+    const head = editing
+      ? `<button class="pa-head-ico pa-head-add" data-a="add" type="button" aria-label="添加渠道" title="添加渠道">${ICON.plus}</button><button class="pa-swpill pa-done-pill" data-a="chdone" type="button">完成</button>`
+      : `<button class="pa-head-ico pa-head-add" data-a="add" type="button" aria-label="添加渠道" title="添加渠道">${ICON.plus}</button>${chs.length ? `<button class="pa-head-ico pa-head-more" data-a="chmore" type="button" aria-haspopup="menu" aria-label="渠道：排序与删除" title="排序与删除">${ICON.more}</button>` : ""}`;
+    const html = `
+      <div class="pa-row-head"><h3 class="pa-h">内部 AI 分流${whyBtn("aux")}</h3></div>
       ${whyNote("aux", "<p>麦当劳自己的 AI 功能用哪个 API。用渠道时不切换酒馆的连接，聊天照常用主 API。</p><p>推荐便宜、快的模型，如 DeepSeek Flash、豆包。</p>")}
-      <div class="pa-card pa-aux-list">${AUX_USES.map(useRow).join("")}</div>
-      <div class="pa-row-head"><h3 class="pa-h">渠道${whyBtn("auxch")}</h3><div class="pa-head-btns"><button class="pa-head-ico pa-head-add" data-a="add" type="button" aria-label="添加渠道" title="添加渠道">${ICON.plus}</button></div></div>
-      ${whyNote("auxch", "<p>新建的渠道只在副 API 里用，不进主 API 的站点列表；硅基流动、火山方舟等填 OpenAI 兼容的网址。也可以从主 API 的站点添加，网址和密钥跟着站点。</p>")}
-      ${chs.length ? `<div class="pa-card pa-aux-list">${chs.map(chRow).join("")}</div>` : '<p class="pa-empty">还没有渠道。点 ＋ 新建，或从主 API 的站点添加。</p>'}`;
+      <div class="pa-aux-fns">${AUX_USES.map(fnCard).join("")}</div>
+      <div class="pa-row-head"><h3 class="pa-h">渠道${whyBtn("auxch")}</h3><div class="pa-head-btns">${head}</div></div>
+      ${whyNote("auxch", editing ? "<p>按住左侧把手拖动调整顺序（也决定选渠道时的先后），点垃圾桶删除。</p>" : "<p>新建的渠道只在副 API 里用，不进主 API 的站点列表；硅基流动、火山方舟等填 OpenAI 兼容的网址。也可以从主 API 的站点添加，网址和密钥跟着站点。</p><p>点右边的胶囊把渠道指派给上面的功能。</p>")}
+      ${chs.length ? `<div class="pa-aux-chs">${us.map((u) => u.ch ? chCard(u.ch) : grpCard(u.site, u.chs)).join("")}</div>` : '<p class="pa-empty">还没有渠道。点 ＋ 新建，或从主 API 的站点添加。</p>'}`;
+    box.classList.toggle("is-curating", editing);
+    const sig = us.map((u) => u.ch ? u.ch.id : `g:${u.site.id}`).join(",");
+    if (box._sig === sig && box.firstElementChild) morphHtml(box, html, chipEnter);
+    else box.innerHTML = html;
+    box._sig = sig;
   }
-  // 点用途：选跟随主 API、某个渠道，或当场添加一个
-  async function choose(use) {
+  const pulse = (sel) => box.querySelectorAll(sel).forEach((n) => replay(n, "just-switched", 600));
+  // 点功能卡的模型框：与框等宽的贴边下拉。首项跟随主 API，其下全部渠道（多于 5 个时顶部有搜索），底部「＋ 添加渠道」
+  async function choose(use, anchor) {
     const u = AUX_USES.find((x) => x.key === use);
     const cur = auxSettings().use[use] || "";
     const chs = auxChannels();
-    const live = auxLiveModel();
-    const items = [{ value: "", label: "跟随主 API", sub: live || "酒馆当前连接" },
-      ...chs.map((c) => ({ value: c.id, label: c.name || "渠道", sub: c.model || "未选模型" })),
-      { value: "\u0002add", label: "＋ 添加渠道" }];
-    const v = await pickName({ title: u.label, items, current: chs.some((c) => c.id === cur) ? cur : "", search: items.length > 9 });
+    const items = [{ value: "", label: "跟随主 API", sub: `${mainName()} · ${auxLiveModel() || "未选模型"}` },
+      ...chs.map((c) => ({ value: c.id, label: c.name || "渠道", sub: `${c.model || "未选模型"} · ${fromOf(c)}` }))];
+    const curV = chs.some((c) => c.id === cur) ? cur : "";
+    const body = el(`<div class="pa-npick pa-auxpick" style="${LIST_STYLE}">${items.length > 5 ? `<input class="pa-input pa-npick-q" style="${FIELD_STYLE}" type="text" inputmode="search" placeholder="搜索渠道或模型" autocomplete="off" autocapitalize="off" spellcheck="false">` : ""}<div class="pa-npick-list" role="listbox" style="${LIST_STYLE}"></div>
+      <div class="pa-auxpick-foot"><button type="button" class="pa-npick-item pa-auxpick-add" data-v="\u0002add"><span class="pa-mi" aria-hidden="true">${ICON.plus}</span><span>添加渠道</span><small>新建，或从主站点选模型</small></button></div></div>`);
+    const list = body.querySelector(".pa-npick-list");
+    const q = body.querySelector(".pa-npick-q");
+    const paint = () => {
+      const k = (q?.value || "").trim().toLowerCase();
+      list.innerHTML = items.filter((it) => !k || `${it.label} ${it.sub}`.toLowerCase().includes(k)).map((it) => {
+        const on = it.value === curV;
+        return `<button type="button" class="pa-npick-item${on ? " on" : ""}" style="${ROW_STYLE}" data-v="${esc(it.value)}" role="option" aria-selected="${on}"><span>${esc(it.label)}</span><small>${esc(it.sub)}</small>${on ? `<span class="pa-mi pa-mi-check" aria-hidden="true">${ICON.check}</span>` : ""}</button>`;
+      }).join("") || '<p class="pa-hint">没有匹配的渠道</p>';
+    };
+    paint();
+    let v = null;
+    await sheet({ title: u.label, body, place: "pop", anchor, popWidth: true, actions: [], onMount: (w) => {
+      q?.addEventListener("input", paint);
+      body.addEventListener("click", (e) => {
+        const b = e.target.closest("[data-v]");
+        if (!b) return;
+        v = b.dataset.v;
+        w._close(null);
+      });
+    } });
     if (v === null) return;
     let id = v;
     if (v === "\u0002add") {
       const ch = await addChannel();
-      if (!ch) return;
+      if (!ch) return render();
       id = ch.id;
     }
     if (id) auxSettings().use[use] = id;
     else delete auxSettings().use[use];
     saveSettings();
+    render();
+    pulse(`.pa-aux-fn[data-fn="${use}"]`);
+    if (id) pulse(`.pa-aux-ch[data-ch="${CSS.escape(id)}"]`);
+  }
+  // 渠道卡的指派胶囊：按现在的占用给出最直白的几项，选了立刻同步上面的功能卡
+  async function assign(id, anchor) {
+    const ch = auxChannel(id);
+    if (!ch) return;
+    const uses = usesOf(id);
+    const items = [];
+    if (!uses.length) {
+      items.push({ value: AUX_USES.map((u) => u.key), label: "两项功能都用它" });
+      for (const u of AUX_USES) items.push({ value: [u.key], label: `用于「${u.label}」` });
+    } else if (uses.length < AUX_USES.length) {
+      for (const u of AUX_USES) if (!uses.includes(u.key)) items.push({ value: [...uses, u.key], label: `也用于「${u.label}」` }, { value: [u.key], label: `改为只用于「${u.label}」` });
+    } else for (const u of AUX_USES) items.push({ value: [u.key], label: `只用于「${u.label}」` });
+    if (uses.length) items.push({ value: [], label: "改回跟随主 API", sub: uses.map((k) => AUX_USES.find((u) => u.key === k)?.label).join("、") });
+    const want = await pickBox(`「${ch.name || "渠道"}」用于`, items, { anchor });
+    if (!want) return;
+    const a = auxSettings();
+    const changed = [];
+    for (const u of AUX_USES) {
+      const on = want.includes(u.key);
+      if (on && a.use[u.key] !== id) { a.use[u.key] = id; changed.push(u.key); }
+      if (!on && a.use[u.key] === id) { delete a.use[u.key]; changed.push(u.key); }
+    }
+    saveSettings();
+    render();
+    for (const k of changed) pulse(`.pa-aux-fn[data-fn="${k}"]`);
+    pulse(`.pa-aux-ch[data-ch="${CSS.escape(id)}"]`);
   }
   async function addChannel() {
     const list = mainSites();
@@ -75,6 +193,10 @@ function mountAux(page) {
     const v = await pickName({ title: "从主 API 的站点添加", items: list.map((s) => ({ value: s.id, label: s.name || "站点", sub: siteMulti(s) ? `${s.keys.length} 个分组` : s.model || s.url || "" })), search: list.length > 9 });
     const site = list.find((s) => s.id === v);
     if (!site) return null;
+    return addFromSite(site);
+  }
+  // 从主 API 的站点选一个模型加成渠道（同源组底部的「添加其他模型」也走这里）
+  async function addFromSite(site) {
     const pick = await pickSiteModel(site, null);
     if (!pick) return null;
     const ch = { id: auxId(), name: pick.keyId ? `${site.name}·${keyName(site, siteKey(site, pick.keyId))}` : site.name || "站点", site: site.id, ...pick };
@@ -167,15 +289,7 @@ function mountAux(page) {
     });
     if (r === "del") {
       if (tempId) await dropKey("custom", tempId);
-      const a = auxSettings();
-      a.channels = a.channels.filter((c) => c.id !== d.id);
-      for (const [k, v] of Object.entries(a.use)) if (v === d.id) delete a.use[k];
-      if (!fromSite) {
-        if (d.secretId) await dropKey("custom", d.secretId);
-        setLocalKey(d.id, null);
-      }
-      saveSettings();
-      toast(`已删除渠道「${d.name || "渠道"}」`, "success");
+      await dropChannel(d);
       return null;
     }
     if (r !== "save") {
@@ -212,43 +326,117 @@ function mountAux(page) {
     toast(isNew ? `已添加渠道「${d.name}」` : `已保存「${d.name}」`, "success");
     return auxChannel(d.id);
   }
-  async function test(id) {
-    const ch = auxChannel(id);
-    if (!ch || busy.has(id)) return;
-    const t = auxChannelTarget(ch);
-    if (!t) return toast("来自的站点已删除", "warning");
-    busy.add(id);
+  // 删除渠道：用它的功能改回跟随主 API；只在副 API 用的渠道连同密钥一起删
+  async function dropChannel(d) {
+    const a = auxSettings();
+    a.channels = a.channels.filter((c) => c.id !== d.id);
+    for (const [k, v] of Object.entries(a.use)) if (v === d.id) delete a.use[k];
+    if (!d.site) {
+      if (d.secretId) await dropKey("custom", d.secretId);
+      setLocalKey(d.id, null);
+    }
+    saveSettings();
+    toast(`已删除渠道「${d.name || "渠道"}」`, "success");
+  }
+  // 测速：上下两处共用 sig 的状态，图标闪电 → 转圈 → ✓ 原地叠化
+  async function runTest(sig, t) {
+    if (busy.has(sig)) return;
+    busy.add(sig);
     render();
     const t0 = performance.now();
     try {
       await auxSend(t, [{ role: "user", content: "Hi" }], { maxTokens: 60, timeout: 6e4 });
-      tests.set(id, { sig: sigOf(ch), ok: true, text: `可用 · ${((performance.now() - t0) / 1e3).toFixed(1)} 秒` });
+      tests.set(sig, { ok: true, sec: ((performance.now() - t0) / 1e3).toFixed(1) });
+      flashOk.add(sig);
+      setTimeout(() => {
+        flashOk.delete(sig);
+        box.querySelectorAll(".pa-aux-test").forEach((b) => { if (b.dataset.sig === sig) setIco(b, "idle"); });
+      }, 1200);
     } catch (e) {
-      tests.set(id, { sig: sigOf(ch), ok: false, text: e.why || e.message, raw: e.raw || "" });
+      tests.set(sig, { ok: false, text: e.why || e.message, raw: e.raw || "" });
     } finally {
-      busy.delete(id);
+      busy.delete(sig);
       render();
     }
   }
   box.addEventListener("click", async (e) => {
     if (e.target.closest("[data-why]")) return;
-    const a = e.target.closest("[data-a]")?.dataset.a;
+    const btn = e.target.closest("[data-a]");
+    const a = btn?.dataset.a;
     if (a === "add") {
       await addChannel();
       return render();
     }
-    const use = e.target.closest("[data-use]")?.dataset.use;
-    if (use) {
-      await choose(use);
+    if (a === "chmore") {
+      const v = await pickBox("渠道", [{ label: "排序与删除", sub: "拖动调整顺序或移除渠道", value: "edit" }], { anchor: btn });
+      if (v !== "edit") return;
+      editing = true;
+      editOpen.clear();
       return render();
+    }
+    // 退出整理态：先收回把手（190ms），再换回测速、指派
+    if (a === "chdone") {
+      box.classList.remove("is-curating");
+      await new Promise((r) => setTimeout(r, reducedMotion() ? 0 : 190));
+      editing = false;
+      return render();
+    }
+    if (a === "fntest") {
+      const t = auxTarget(btn.dataset.u);
+      return runTest(sigOfUse(btn.dataset.u), t);
+    }
+    const use = e.target.closest("[data-use]")?.dataset.use;
+    if (use) return choose(use, e.target.closest("[data-use]"));
+    if (a === "addsite") {
+      const site = siteOf(btn.dataset.site);
+      if (site && await addFromSite(site)) render();
+      return;
+    }
+    // 同源组：原地呼吸展开、收起
+    if (a === "grpfold") {
+      const card = btn.closest(".pa-aux-grp");
+      const sid = card?.dataset.site;
+      if (!sid) return;
+      const open = card.classList.contains("open");
+      if (open) {
+        card.classList.remove("open");
+        if (!await accOut(card.querySelector(".pa-aux-glines"))) return;
+        editing ? editOpen.delete(sid) : foldSet("auxgrp", sid, false);
+        return render();
+      }
+      editing ? editOpen.add(sid) : foldSet("auxgrp", sid, true);
+      render();
+      return accIn(box.querySelector(`.pa-aux-grp[data-site="${CSS.escape(sid)}"] .pa-aux-glines`));
     }
     const id = e.target.closest("[data-ch]")?.dataset.ch;
     if (!id) return;
-    if (a === "test") return test(id);
-    if (a === "edit") {
-      await editChannel(auxChannel(id));
+    const ch = auxChannel(id);
+    if (!ch) return;
+    if (a === "test") {
+      const t = auxChannelTarget(ch);
+      if (!t) return toast("来自的站点已删除", "warning");
+      return runTest(sigOf(ch), t);
+    }
+    if (a === "assign") return assign(id, btn);
+    if (a === "delch") {
+      if (!await confirmBox("删除渠道", `删除「${ch.name || "渠道"}」？用它的功能改为跟随主 API。${ch.site ? "主 API 的站点不受影响。" : ""}`, "删除", true)) return;
+      await dropChannel(ch);
+      return render();
+    }
+    // 整理态下点卡片不弹编辑窗
+    if (a === "edit" && !editing) {
+      await editChannel(ch);
       return render();
     }
   });
+  // 整理态：按住把手拖动（或方向键）调整顺序；同源组整组移动
+  dragSort(box, { grip: ".pa-aux-grip", row: ".pa-aux-unit", onDrop: (from, to, how) => {
+    const us = units();
+    moveItem(us, from, to);
+    auxSettings().channels = us.flatMap((u) => u.ch ? [u.ch] : u.chs);
+    saveSettings();
+    render();
+    if (how.keyboard) box.querySelectorAll(".pa-aux-grip")[to]?.focus();
+  } });
   return { render };
 }

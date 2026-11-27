@@ -172,7 +172,7 @@ function mountCleanKind(kind, box) {
         ${err ? `<p class="pa-warn">${esc(err)}</p>` : ""}
         <div class="pa-clist">${list.map((r) => `<label class="pa-crow${S.sel.has(r.k) ? " on" : ""}${r.state === "core" || r.state === "used" ? " pa-locked" : ""}">
           ${chk(r.k, S.sel.has(r.k), r.state === "core" || r.state === "used")}
-          <span class="pa-crow-main"><b>${esc(r.k)}</b><span class="pa-crow-tags"><span class="pa-chip ${r.state === "orphan" ? "pa-ctag-same" : r.state === "maybe" ? "pa-ctag-old" : r.state === "used" ? "pa-ctag-use" : "pa-chip-dim"}">${esc(r.label)}</span></span></span>
+          <span class="pa-crow-main"><b>${esc(r.k)}</b><small class="pa-crow-sub${r.state === "orphan" ? " is-warn" : ""}">${esc(r.label)}</small></span>
           <span class="pa-crow-size"><i class="pa-bar"><b style="width:${Math.max(2, Math.round(r.size / max * 100))}%"></b></i><em>${fmtSize(r.size)}</em></span></label>`).join("")}</div>
         ${actBar(pick.length, pick.reduce((n, r) => n + r.size, 0), '<button class="pa-btn pa-btn-danger-soft" data-x="del">删除</button>')}`;
     };
@@ -540,12 +540,12 @@ function mountCleanKind(kind, box) {
     // 2.4.2：自动备份开关和保留份数（1–30）
     const setCard = () => {
       const on = backupOn(), n = backupMax();
+      // 2.12.19 首行：箭头 + 自动备份（副文写保留几份）……右边开关；点左边呼吸展开份数步进器
       return `<div class="pa-bk-set${on ? "" : " pa-off"}${bkIsOpen() ? " open" : ""}">
-          <div class="pa-bk-row pa-bk-head" data-bk="fold" role="button" tabindex="0" aria-expanded="${bkIsOpen()}"><span class="pa-sgcaret" aria-hidden="true">${bkIsOpen() ? "▾" : "▸"}</span><b>自动备份</b><small class="pa-bk-sum">${on ? `每个预设保留 ${n} 份` : ""}</small><label class="pa-switch"><input type="checkbox" data-bk="on" aria-label="自动备份" ${on ? "checked" : ""}><i></i></label></div>
+          <div class="pa-bk-row pa-bk-head" data-bk="fold" role="button" tabindex="0" aria-expanded="${bkIsOpen()}"><span class="pa-sgcaret pa-acc-caret" aria-hidden="true">▸</span><span class="pa-bk-t"><b>自动备份</b><small class="pa-bk-sum">${on ? `每个预设 / 世界书保留 ${n} 份` : "已关闭"}</small></span><label class="pa-switch"><input type="checkbox" data-bk="on" aria-label="自动备份" ${on ? "checked" : ""}><i></i></label></div>
           ${on ? "" : '<p class="pa-bk-warn">已关闭。此后的修改无法从备份恢复。</p>'}
-          ${!bkIsOpen() ? "</div>" : `${on ? '<p class="pa-hint">修改预设前自动备份，可从页头的备份按钮恢复。</p>' : ""}
-          <div class="pa-bk-row pa-bk-cnt"><span>每个预设保留</span><span class="pa-bk-num"><span class="pa-bk-step"><button type="button" data-bk="dec" aria-label="减少" ${on && n > 1 ? "" : "disabled"}>−</button><input data-bk="n" inputmode="numeric" aria-label="保留份数" value="${n}" ${on ? "" : "disabled"}><button type="button" data-bk="inc" aria-label="增加" ${on && n < 30 ? "" : "disabled"}>＋</button></span>份</span></div>
-          <p class="pa-hint pa-bk-note">注：世界书缝合、编辑前的备份同样适用。</p></div>`}`;
+          ${!bkIsOpen() ? "" : `<div class="pa-bk-body">${on ? '<p class="pa-hint">修改预设、世界书前自动备份，可从页头的备份按钮恢复。</p>' : ""}
+          <div class="pa-bk-row pa-bk-cnt"><span>每个预设保留</span><span class="pa-bk-num"><span class="pa-bk-step"><button type="button" data-bk="dec" aria-label="减少" ${on && n > 1 ? "" : "disabled"}>−</button><input data-bk="n" inputmode="numeric" aria-label="保留份数" value="${n}" ${on ? "" : "disabled"}><button type="button" data-bk="inc" aria-label="增加" ${on && n < 30 ? "" : "disabled"}>＋</button></span>份</span></div></div>`}</div>`;
     };
     const extra = () => {
       const n = backupMax();
@@ -586,8 +586,16 @@ function mountCleanKind(kind, box) {
       if (bk === "dec" || bk === "inc") return setMax(backupMax() + (bk === "inc" ? 1 : -1));
       if (bk === "fold") {
         if (e.target.closest(".pa-switch")) return;
-        foldSet("clean", "backup", !bkIsOpen());
-        return draw();
+        if (bkIsOpen()) {
+          foldSet("clean", "backup", false);
+          const set = box.querySelector(".pa-bk-set");
+          set?.classList.remove("open");
+          if (await accOut(set?.querySelector(".pa-bk-body"))) draw();
+          return;
+        }
+        foldSet("clean", "backup", true);
+        draw();
+        return accIn(box.querySelector(".pa-bk-body"));
       }
       const xb = e.target.closest("[data-x]");
       const x = xb?.dataset.x;

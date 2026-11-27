@@ -166,8 +166,19 @@ function buildRoot() {
   }
   rootEl2.querySelector(".pa-subnav").addEventListener("click", (e) => {
     const t = e.target.closest("[data-tab], [data-m]");
-    if (t) show(t.dataset.tab || t.dataset.m);
+    if (!t) return;
+    const was = current;
+    show(t.dataset.tab || t.dataset.m);
+    // 2.12.19 主动点页签换页：内容区轻轻浮入（160ms）；首屏、状态小刷新不播
+    if (current !== was) replay(rootEl2.querySelector(`.pa-page[data-page="${PAGE_EL[current] || current}"]`), "pa-subenter", 200);
   });
+  // 页签墨线：字号、宽度变化时跟着重新落位
+  if (typeof ResizeObserver === "function") {
+    const sn = rootEl2.querySelector(".pa-subnav");
+    const inkObs = new ResizeObserver(() => placeSubnavInk(sn, false));
+    inkObs.observe(sn);
+    cleanups.push(() => inkObs.disconnect());
+  }
   rootEl2.querySelector(".pa-shell").addEventListener("click", async (e) => {
     const g = e.target.closest(".pa-top [data-g], .pa-savebar [data-g]")?.dataset.g;
     if (!g) return;
@@ -310,7 +321,20 @@ function show(key, sub) {
   subnav.classList.toggle("pa-subnav-more", sec === "more");
   if (subs) {
     const attr = sec === "more" ? "data-m" : "data-tab";
-    subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("");
+    // 2.12.19 同一栏目内换页签只换选中状态，底部墨线滑过去；换栏目才重画页签
+    const sig = subs.map(([sk]) => sk).join(",");
+    if (subnav.dataset.sig !== sig) {
+      subnav.dataset.sig = sig;
+      subnav.innerHTML = subs.map(([sk, l]) => `<button type="button" role="tab" ${attr}="${sk}" aria-selected="${sk === k}" class="${sk === k ? "on" : ""}">${l}</button>`).join("") + '<i class="subnav-ink" aria-hidden="true"></i>';
+      subnav._inkPlaced = false;
+    } else {
+      subnav.querySelectorAll("[role=tab]").forEach((b) => {
+        const on = (b.dataset.tab || b.dataset.m) === k;
+        b.classList.toggle("on", on);
+        b.setAttribute("aria-selected", String(on));
+      });
+    }
+    placeSubnavInk(subnav);
   }
   // token 合计只在条目页、世界书页，由页面填数字时再显示
   rootEl2.querySelector(".pa-tkbar").hidden = true;
@@ -328,6 +352,19 @@ function show(key, sub) {
     toast("出错：" + e.message, "error");
   }
   updateSavebar();
+}
+// 2.12.19 二级页签底部 2px 墨线：挂载首帧直接落位，之后换页签时滑过去（transform + width）
+function placeSubnavInk(sn, animate = true) {
+  const ink = sn?.querySelector(".subnav-ink");
+  const on = sn?.querySelector("[role=tab].on");
+  if (!ink || !on || sn.hidden || !on.offsetWidth) return;
+  const pad = 12;
+  const first = !sn._inkPlaced || !animate;
+  if (first) ink.style.transition = "none";
+  ink.style.width = Math.max(0, on.offsetWidth - pad * 2) + "px";
+  ink.style.transform = `translateX(${on.offsetLeft + pad}px)`;
+  if (first) { void ink.offsetWidth; ink.style.transition = ""; }
+  sn._inkPlaced = true;
 }
 // 2.8.0 缝合页顶栏的布局按钮：分栏 ⇄ 切换。图标画的是点下去之后的样子
 const LAYOUT_ICON = {

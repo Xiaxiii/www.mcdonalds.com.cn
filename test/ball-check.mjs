@@ -54,9 +54,8 @@ ok("点一下打开面板");
 
 await page.evaluate(() => window.__mcdonalds.open("more", "look")); await page.waitForTimeout(300);
 const seg = (label) => page.locator("[data-page=look] [data-entry]", { hasText: label });
-// 2.12.17 设置页第一组「通用与备份」，入口是这一组的第一行，在配色上面
-assert.equal(await page.$eval("[data-page=look] .pa-scroll", (x) => x.firstElementChild.textContent), "通用与备份");
-assert.equal(await page.$eval("[data-page=look] .pa-setcard .pa-setk", (x) => x.textContent), "入口", "入口在配色上面");
+// 2.12.19 设置页第一节是「入口」，在配色上面
+assert.equal(await page.$eval("[data-page=look] .pa-scroll", (x) => x.firstElementChild.querySelector(".pa-set-group").textContent), "入口", "入口在配色上面");
 assert.equal(await page.locator("[data-page=look] [data-entry].on").innerText(), "悬浮球");
 await seg("两个都要").click(); await page.waitForTimeout(100);
 assert.equal(await wandShown(), true, "两个都要：魔棒菜单里也有");

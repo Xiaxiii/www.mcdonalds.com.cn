@@ -260,7 +260,7 @@ function mountSchemes(page, { after } = {}) {
   const VIEWS = [["char", "角色卡"], ["preset", "预设"], ["persona", "人设"]];
   page.innerHTML = `
         <div class="pa-scheme-now" aria-live="polite"></div>
-        <div class="pa-scheme-bar"><span class="pa-dim pa-sview">分组</span><button class="pa-namebtn pa-namebtn-s pa-sview" data-s="view" type="button" aria-label="方案分组方式"><span></span><i aria-hidden="true">▾</i></button><span class="pa-scheme-pick"></span><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">＋ 保存方案</button>${tip("方案保存预设和条目开关，可选记下人设、API 和模型。<br>「切换」：恢复方案保存时的全部状态。<br>「自动套用」：绑定聊天或角色后，进入该聊天时切换一次。之后手动修改的内容保持不变。<br>换预设时 API 不变；切换方案时，方案记了 API 的才换 API。")}</div>
+        <div class="pa-scheme-bar"><div class="pa-seg pa-seg-s pa-sview" role="tablist" aria-label="方案按什么分组">${VIEWS.map(([k, l]) => `<button type="button" role="tab" data-s="view" data-v="${k}">${l}</button>`).join("")}</div>${tip("方案保存预设和条目开关，可选记下人设、API 和模型。<br>「切换」：恢复方案保存时的全部状态。<br>「自动套用」：绑定聊天或角色后，进入该聊天时切换一次。之后手动修改的内容保持不变。<br>换预设时 API 不变；切换方案时，方案记了 API 的才换 API。", "")}<span class="pa-scheme-pick"></span><button class="pa-btn pa-btn-primary pa-btn-s pa-head-btn" data-s="new">＋ 保存方案</button></div>
         <div class="pa-scheme-nudge"></div>
         <div class="pa-schemes"></div>`;
   const box = page.querySelector(".pa-schemes");
@@ -319,10 +319,11 @@ function mountSchemes(page, { after } = {}) {
     const apiLine = conn ? `<small class="pa-srow-api">API：${esc(connLabel(conn))}</small>` : '<small class="pa-srow-api pa-srow-noapi">API：不切换</small>';
     if (picking) return `<label class="pa-srow pa-srow-pick" data-id="${esc(s.id)}"><input type="checkbox" data-a="pick" ${picked.has(s.id) ? "checked" : ""}>
         <div class="pa-srow-main"><b>${esc(s.name)}</b>${bound ? `<span class="pa-chip pa-chip-cot pa-chip-ico">${ICON.link}${BIND_LABEL[bound]}</span>` : ""}<small>${meta}</small>${apiLine}</div></label>`;
-    return `<div class="pa-srow${on ? " pa-srow-on" : ""}" data-id="${esc(s.id)}">
-        <div class="pa-srow-main"><b>${esc(s.name)}</b>${on ? '<span class="pa-chip">使用中</span>' : switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? `<span class="pa-chip pa-chip-cot pa-chip-ico" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">${ICON.link}${BIND_LABEL[bound]}</span>` : ""}
+    // 2.12.19 使用中的方案铺一层极淡的绿底，右边写「使用中」代替「切换」
+    return `<div class="pa-srow${on ? " pa-srow-on pa-row-wash" : ""}" data-id="${esc(s.id)}">
+        <div class="pa-srow-main"><b>${esc(s.name)}</b>${!on && switchesOk ? '<span class="pa-chip pa-chip-dim" title="条目开关和方案一致，但预设、人设或 API 站点不是方案记录的">开关一致</span>' : ""}${bound ? `<span class="pa-chip pa-chip-cot pa-chip-ico" title="进入${bound === "chat" ? "这个聊天" : "这个角色的聊天"}时自动切换到它">${ICON.link}${BIND_LABEL[bound]}</span>` : ""}
         <small>${meta}</small>${apiLine}</div>
-        <button class="pa-swpill${on ? " pa-edit-pill" : ""}" type="button" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换</button>
+        ${on ? '<button class="pa-chip pa-scheme-onchip" type="button" data-a="apply" title="再切换一次：把预设、开关、人设、API 换回方案记的样子">使用中</button>' : '<button class="pa-swpill" type="button" data-a="apply" title="把预设、开关、人设、API 一次换成方案记的样子">切换</button>'}
         <button class="pa-icon-btn" data-a="edit" aria-label="编辑方案" title="编辑">${ICON.pencil}</button></div>`;
   }
   function render() {
@@ -331,7 +332,12 @@ function mountSchemes(page, { after } = {}) {
       d = getDraft(currentPresetName());
     } catch {
     }
-    page.querySelector('[data-s="view"] span').textContent = VIEWS.find(([k]) => k === view())[1];
+    // 2.12.19 分组方式：就地三段滑动槽（角色卡 | 预设 | 人设），不再弹窗选
+    page.querySelectorAll('[data-s="view"]').forEach((b) => {
+      const on = b.dataset.v === view();
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", String(on));
+    });
     page.querySelectorAll(".pa-sview").forEach((x) => { x.hidden = !all().length; });
     renderNow(d);
     for (const id of [...picked]) if (!all().some((x) => x.id === id)) picked.delete(id);
@@ -371,7 +377,7 @@ function mountSchemes(page, { after } = {}) {
       const list = groups.get(k).sort((a, b) => t(b) - t(a));
       const isOpen = isOpenK(k);
       return `<section class="pa-sgroup${isOpen ? " open" : ""}" data-k="${esc(k)}">
-          <header class="pa-sghead" data-a="fold" tabindex="0"><span class="pa-sgcaret" aria-hidden="true">${isOpen ? "▾" : "▸"}</span>${picking ? `<input type="checkbox" data-a="pickgroup" aria-label="选中这一组" ${list.every((s) => picked.has(s.id)) ? "checked" : ""}>` : ""}<span class="pa-sgtitle"><b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></span></header>
+          <header class="pa-sghead" data-a="fold" tabindex="0" role="button" aria-expanded="${isOpen}"><span class="pa-sgcaret pa-acc-caret" aria-hidden="true">▸</span>${picking ? `<input type="checkbox" data-a="pickgroup" aria-label="选中这一组" ${list.every((s) => picked.has(s.id)) ? "checked" : ""}>` : ""}<span class="pa-sgtitle"><b>${esc(groupName(k))}</b>${k === mineKey && k ? '<span class="pa-chip pa-chip-dim">当前</span>' : ""}<small>${list.length} 个方案</small></span></header>
           ${isOpen ? `<div class="pa-sgbody">${list.map((s) => row(s, d)).join("")}</div>` : ""}</section>`;
     }).join("");
     after?.();
@@ -567,7 +573,7 @@ function mountSchemes(page, { after } = {}) {
       return render();
     }
     if (sv === "view") {
-      const v = await pickName({ title: "方案按什么分组", current: view(), search: false, items: VIEWS.map(([k, l]) => ({ value: k, label: l })) });
+      const v = e.target.closest("[data-s]").dataset.v;
       if (!v) return;
       settings().schemeView = v;
       saveSettings();
@@ -587,10 +593,19 @@ function mountSchemes(page, { after } = {}) {
       return render();
     }
     if (picking && e.target.closest(".pa-srow")) return;
+    // 2.12.19 分组呼吸展开、收起，箭头跟着转
     if (a === "fold") {
       const sec = e.target.closest(".pa-sgroup");
-      foldSet("schemes", view() + "|" + sec.dataset.k, !sec.classList.contains("open"));
-      return render();
+      const k = sec.dataset.k;
+      if (sec.classList.contains("open")) {
+        sec.classList.remove("open");
+        foldSet("schemes", view() + "|" + k, false);
+        if (await accOut(sec.querySelector(".pa-sgbody"))) render();
+        return;
+      }
+      foldSet("schemes", view() + "|" + k, true);
+      render();
+      return accIn([...box.querySelectorAll(".pa-sgroup")].find((x) => x.dataset.k === k)?.querySelector(".pa-sgbody"));
     }
     const rowEl = e.target.closest(".pa-srow");
     const s = rowEl && all().find((x) => x.id === rowEl.dataset.id);

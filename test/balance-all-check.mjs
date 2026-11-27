@@ -1,4 +1,4 @@
-// 2.11.12 一键查询全部站点的余额：站点标题右边点小猪图标，每个站点（多密钥站点的每个分组）用自己的密钥查，不切换当前连接。
+// 2.11.12 一键查询全部站点的余额：站点标题右边点钱包圆钮（2.12.19 前是小猪），每个站点（多密钥站点的每个分组）用自己的密钥查，不切换当前连接。
 // 先构建并在仓库根目录运行 8765 静态服务。用法：PW_CHROME=/usr/bin/chromium node test/balance-all-check.mjs
 import assert from 'node:assert/strict';
 import { chromium } from 'playwright';
@@ -64,10 +64,17 @@ try {
   assert.equal(await btn.getAttribute('aria-label'), '查询全部站点的余额');
   assert.equal((await btn.innerText()).trim(), '', '与铅笔、＋ 同款，只有图标');
   assert.match(await row('月栖').innerText(), /余额未知/);
-  ok('站点标题右边有小猪图标按钮');
+  ok('站点标题右边有钱包圆钮');
 
   await btn.click();
+  // 2.12.19 钱包圆钮查询时横向舒展露出进度，查完写「已更新」，停一会儿再收回成 32px
+  const prog = await page.evaluate(() => { const b = document.querySelector('.pa-plan-sites [data-a=balall]'); return { open: b.classList.contains('is-open'), label: b.querySelector('.wallet-lbl').textContent }; });
+  assert.ok(prog.open && /^\d+\/\d+$|^已更新$/.test(prog.label), '查询时钱包展开露出进度：' + JSON.stringify(prog));
   await page.waitForFunction(() => !document.querySelector('.pa-plan-sites [data-a=balall]')?.disabled && /查询失败/.test(document.querySelector('.pa-plan-sites')?.textContent || ''));
+  assert.equal(await page.locator('.pa-plan-sites [data-a=balall] .wallet-lbl').textContent(), '已更新');
+  await page.waitForTimeout(1500);
+  assert.equal((await btn.boundingBox()).width, 32, '查完收回成 32px 圆钮');
+  assert.equal((await btn.innerText()).trim(), '');
   assert.match(await row('月栖').innerText(), /余额 \$40\.00/);
   assert.match(await row('深海').innerText(), /余额 ¥12\.50/);
   assert.match(await row('空站').innerText(), /查询失败：没有保存密钥，点站点名填写/);
@@ -105,7 +112,7 @@ try {
   // 关掉「显示余额」后按钮不出现
   await page.locator('[data-o=balshow]').click();
   await page.waitForFunction(() => !document.querySelector('.pa-plan-sites [data-a=balall]'));
-  ok('关掉「显示余额」后不显示小猪按钮');
+  ok('关掉「显示余额」后不显示钱包圆钮');
   assert.deepEqual(errors, []);
   console.log('一键查询全部余额检查通过');
 } finally {

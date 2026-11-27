@@ -165,12 +165,17 @@ function mountCleanup(sec) {
     })();
     const max = all[0] ? Math.max(...all.map((r) => r.size)) : 1;
     const since = settings().presetUseSince;
-    const tagChip = (t) => `<span class="pa-chip pa-ctag-${t.k}" title="${esc(t.t)}">${esc(t.t)}</span>`;
-    const row = (r, role = "") => `<label class="pa-crow${r.current ? " pa-locked" : ""}${st.sel.has(r.name) ? " on" : ""}">
+    // 2.12.19 标签只写短的一个（「与「X」」这类说明放进悬停提示），谁在用、多久没用放第二行灰字
+    const tagChip = (t) => `<span class="pa-chip pa-ctag-${t.k}" title="${esc(t.t)}">${esc(t.t.replace(/^与「[^」]*」\s*/, "") || t.t)}</span>`;
+    const row = (r, role = "") => {
+      const chip = role || (r.current ? '<span class="pa-chip pa-chip-cot">当前使用</span>' : r.tags[0] ? tagChip(r.tags[0]) : "");
+      const sub = [...r.inUse.map((w) => `${w}在用`), r.lastUse ? relDay(r.lastUse) : since && Date.now() - since > 7 * 864e5 ? "开始记录后未用过" : ""].filter(Boolean).join(" · ");
+      return `<label class="pa-crow${r.current ? " pa-locked" : ""}${st.sel.has(r.name) ? " on" : ""}">
         <input type="checkbox" data-c="pick" data-n="${esc(r.name)}" ${r.current ? "disabled" : ""} ${st.sel.has(r.name) ? "checked" : ""}>
-        <span class="pa-crow-main"><b>${esc(r.name)}</b><span class="pa-crow-tags">${role}${r.current ? '<span class="pa-chip pa-chip-cot">当前使用</span>' : ""}${role ? "" : r.tags.map(tagChip).join("")}${r.inUse.map((w) => `<span class="pa-chip pa-ctag-use" title="${esc(w)}在用">${esc(w)}在用</span>`).join("")}${r.lastUse ? `<span class="pa-chip pa-chip-dim">${relDay(r.lastUse)}</span>` : since && Date.now() - since > 7 * 864e5 ? '<span class="pa-chip pa-chip-dim">开始记录后未用过</span>' : ""}</span></span>
+        <span class="pa-crow-main"><b>${esc(r.name)}</b>${chip ? `<span class="pa-crow-tags">${chip}</span>` : ""}${sub ? `<small class="pa-crow-sub">${esc(sub)}</small>` : ""}</span>
         <span class="pa-crow-size"><i class="pa-bar"><b style="width:${Math.max(2, Math.round(r.size / max * 100))}%"></b></i><em>${fmtSize(r.size)}</em></span>
       </label>`;
+    };
     const archRow = (a, i) => `<div class="pa-crow pa-crow-arch">
         <span class="pa-crow-main"><b>${esc(a.name)}</b><span class="pa-crow-tags"><span class="pa-chip pa-chip-dim">${dateStr(a.at)} 归档</span></span></span>
         <span class="pa-crow-size"><em>${fmtSize(a.size || 0)}</em></span>
@@ -222,11 +227,7 @@ function mountCleanup(sec) {
           <p>归档：移出预设文件夹、存入服务器，打开酒馆时不再读取，可随时恢复。标签仅作提示；正在使用的预设不能勾选。</p>`)}
       </div>
       <div class="pa-clean-bar">
-        <div class="pa-seg pa-seg-s" role="tablist">
-          <button data-f="suggest" class="${st.filter === "suggest" ? "on" : ""}">可清理 ${sugg.length}</button>
-          <button data-f="all" class="${st.filter === "all" ? "on" : ""}">全部 ${all.length}</button>
-          <button data-f="arch" class="${st.filter === "arch" ? "on" : ""}">已归档 ${arch.length}</button>
-        </div>
+        <div class="soft-tabs" role="tablist" aria-label="显示哪些预设">${[["suggest", `可清理 ${sugg.length}`], ["all", `全部 ${all.length}`], ["arch", `已归档 ${arch.length}`]].map(([f, l]) => `<button type="button" role="tab" data-f="${f}" class="${st.filter === f ? "on" : ""}" aria-selected="${st.filter === f}">${l}</button>`).join("")}</div>
         ${st.filter !== "arch" ? `<button type="button" class="pa-sortbtn" data-c="sort" aria-label="排序方式">↕ ${{ size: "大小", used: "最近使用", name: "名称" }[st.sort] || "大小"}</button>` : ""}
       </div>
       ${st.filter === "arch" ? arch.length ? `<div class="pa-clist">${arch.map(archRow).join("")}</div>` : '<p class="pa-empty">还没有归档的预设。</p>'

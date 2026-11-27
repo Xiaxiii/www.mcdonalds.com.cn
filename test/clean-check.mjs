@@ -57,7 +57,7 @@ const heads = await page.$$eval(".pa-cpair > summary", (xs) => xs.map((x) => x.t
 assert.ok(heads.some((h) => h.includes("双人成行 V6.0(1)") && h.includes("↔") && h.includes("完全相同")), "组标题同时列出两份");
 for (const sum of await page.$$(".pa-cpair > summary")) await sum.click();
 await page.waitForTimeout(150);
-const all2 = await page.$$eval(".pa-cpair .pa-crow", (xs) => xs.map((x) => x.querySelector("b").textContent + " | " + [...x.querySelectorAll(".pa-chip")].map((c) => c.textContent).join(",")));
+const all2 = await page.$$eval(".pa-cpair .pa-crow", (xs) => xs.map((x) => x.querySelector("b").textContent + " | " + [...x.querySelectorAll(".pa-chip, .pa-crow-sub")].map((c) => c.textContent).join(",")));
 console.log(all2.join("\n"));
 assert.equal(all2.length, 4, "两份都列出来：建议保留 + 可清理");
 assert.equal(all2.filter((r) => r.includes("建议保留")).length, 2);

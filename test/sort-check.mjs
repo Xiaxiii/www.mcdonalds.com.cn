@@ -45,8 +45,8 @@ try {
   ok('站点编辑窗口：密钥可触屏拖动、方向键调整顺序，保存后生效');
 
   assert.equal(await page.locator('.pa-plan-sites .pa-site-grip').count(), 0, '平时不显示把手');
-  await page.click('[data-a="sitesmenu"]'); await page.waitForTimeout(200);
-  await page.click('.pa-sheet-mask:not(.pa-out) .pa-pick-item >> text=排序与删除'); await page.waitForTimeout(200);
+  await page.click('[data-a="sitesmore"]'); await page.waitForTimeout(200);
+  await page.click('.pa-sheet-mask:not(.pa-out) [data-a="sitesedit"]'); await page.waitForTimeout(300);
   const t0 = (await page.locator('.pa-plan-sites .pa-site').first().boundingBox()).y;
   await touchDrag(page.locator('.pa-plan-sites .pa-site-grip').nth(3), t0 + 4);
   assert.equal((await settingsNow()).sites.map((s) => s.name).join(','), '站点3,多组,站点1,站点2');

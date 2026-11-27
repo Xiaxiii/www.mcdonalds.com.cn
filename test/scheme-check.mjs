@@ -74,8 +74,7 @@ await editOpen("旧方案");
 await page.selectOption(`${top} [data-f=char]`, "lin.png");
 await editSave();
 await page.evaluate(() => { const st = window.SillyTavern.getContext().extensionSettings.mcdonalds; st.sites = [{ id: "s1", name: "tree", source: "custom", url: "https://t/v1" }]; st.schemes.find((x) => x.id === "old").siteId = "s1"; });
-await page.click("[data-s=view]"); await page.waitForTimeout(200);
-await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
+await page.click("[data-s=view][data-v=char]"); await page.waitForTimeout(300);
 const lin = page.locator(".pa-sgroup", { hasText: "林栖" });
 if (!(await lin.evaluate((x) => x.classList.contains("open")))) { await lin.locator(".pa-sghead").click(); await page.waitForTimeout(150); }
 assert.equal(await page.locator(".pa-srow", { hasText: "旧方案" }).locator(".pa-srow-api").innerText(), "API：tree");
@@ -94,15 +93,14 @@ assert.equal(await page.evaluate(() => window.__mock.live.preset_settings_openai
 ok("同一聊天里不重复自动套用");
 
 // 5) 按预设看：同一批方案按预设分组
-await page.click("[data-s=view]"); await page.waitForTimeout(200);
-await page.click(".pa-npick-item >> text=预设"); await page.waitForTimeout(300);
+await page.click("[data-s=view][data-v=preset]"); await page.waitForTimeout(300);
+assert.equal(await page.getAttribute("[data-s=view][data-v=preset]", "aria-selected"), "true", "滑动分段槽就地切换");
 const ph = await page.$$eval(".pa-sghead b", (x) => x.map((y) => y.textContent));
 assert.ok(ph.length >= 1 && ph.every((x) => !/沈砚|林栖/.test(x)));
 ok("可以改成按预设分组");
 
 // 6) 🗑️ 勾选删除：整组勾选 + 单个勾选，删完绑定一起清掉
-await page.click("[data-s=view]"); await page.waitForTimeout(200);
-await page.click(".pa-npick-item >> text=角色卡"); await page.waitForTimeout(300);
+await page.click("[data-s=view][data-v=char]"); await page.waitForTimeout(300);
 assert.ok(!/API/.test(await page.locator(".pa-srow small").first().innerText()), "预设那一行不混进 API");
 await page.click("[data-s=pickon]"); await page.waitForTimeout(150);
 assert.equal(await page.locator("[data-s=delpicked]").isDisabled(), true);

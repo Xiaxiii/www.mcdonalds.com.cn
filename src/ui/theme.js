@@ -337,7 +337,7 @@ function trimBorders(bmp) {
 }
 function themeCards() {
   const { theme: cur, followSystem } = themePrefs();
-  const head = `<div class="pa-hrow"><h3 class="pa-h">配色</h3>
+  const head = `<div class="pa-hrow"><h3 class="pa-h pa-set-group">配色</h3>
       <label class="pa-hswitch"><span>跟随系统</span><span class="pa-switch"><input type="checkbox" data-follow-system ${followSystem ? "checked" : ""}><i></i></span></label></div>
     ${followSystem ? '<small class="pa-dim pa-look-note">系统为深色时用夜雾</small>' : ""}`;
   return `${head}<div class="pa-themes">${THEMES.map((t) => {
