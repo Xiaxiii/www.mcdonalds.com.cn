@@ -231,9 +231,26 @@ function sheet(opt) {
       if (asking) return;
       if (opt.guardDirty && snap0 !== null && snap() !== snap0) {
         asking = true;
-        const ok = await confirmBox("放弃未保存的修改", "这个窗口里填写的内容尚未保存。", "放弃修改", true, "继续编辑");
-        asking = false;
-        if (!ok) return;
+        const saveBtn = acts.querySelector(".pa-btn-primary");
+        if (saveBtn && !saveBtn.disabled) {
+          const choice = await sheet({
+            place: "center",
+            title: "有未保存的修改",
+            body: '<p class="pa-p">这个窗口里填写的内容尚未保存。</p>',
+            actions: [
+              { label: "继续编辑", value: "stay" },
+              { label: "放弃", kind: "danger-soft", value: "drop" },
+              { label: saveBtn.textContent.trim() || "保存", kind: "primary", value: "save" }
+            ]
+          });
+          asking = false;
+          if (choice === "save") { saveBtn.click(); return; }
+          if (choice !== "drop") return;
+        } else {
+          const ok = await confirmBox("放弃未保存的修改", "这个窗口里填写的内容尚未保存。", "放弃修改", true, "继续编辑");
+          asking = false;
+          if (!ok) return;
+        }
       }
       done(null);
     };

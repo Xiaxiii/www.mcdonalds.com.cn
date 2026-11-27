@@ -66,10 +66,10 @@ async function pickName({ title, items, current = null, search, extra = null, ma
   };
   onSearchInput(q, () => paint(), items.length > 150 ? 120 : 0);
   paint();
-  // 2.5.0 几个固定选项（不带搜索）贴着按钮弹出；其余统一使用居中轻浮卡片，超长列表内部滚动
+  // 2.12.24 统一像副 API 一样贴着触发按钮下拉展开、与按钮等宽，不再跳出居中大弹窗
   const anchor = recentAnchor();
-  const pop = !useSearch && !manage && items.length <= 9 && !!anchor;
-  await sheet({ title, body, noFocus: true, actions: [], place: pop ? "pop" : "center", anchor, cls: !pop ? `pa-sheet-picker${items.length > 10 ? " pa-sheet-tall" : ""}` : "", onMount: (w) => {
+  const pop = !!anchor;
+  await sheet({ title, body, noFocus: true, actions: [], place: pop ? "pop" : "center", anchor, popWidth: pop, cls: pop ? "pa-pop-picker" : `pa-sheet-picker${items.length > 10 ? " pa-sheet-tall" : ""}`, onMount: (w) => {
     wrapEl = w;
     const headTitle = w.querySelector(".pa-sheet-head b");
     const setMode = (on) => {

@@ -1063,7 +1063,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
           ks.push(blankKey());
           paintKeys();
           setModel(w, readModel(w));
-          keysBox.querySelector(".pa-keyrow:last-of-type [data-f=key]")?.focus();
+          if (typeof matchMedia !== "function" || matchMedia("(pointer: fine)").matches) keysBox.querySelector(".pa-keyrow:last-of-type [data-f=key]")?.focus();
         });
         // 眼睛：显示、隐藏密钥。刚填的直接看；已保存的，用本浏览器留的那份，没有再问酒馆
         keysBox.addEventListener("click", async (e) => {

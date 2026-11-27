@@ -2569,7 +2569,7 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
    - 删除类选项红字，前面隔一条线；从按钮那一角浮出 0.18 秒 */
 #mcd-root .pa-sheet-mask.pa-mask-pop { background: rgba(18, 18, 22, .16) !important; }
 #mcd-root.pa-dark .pa-sheet-mask.pa-mask-pop { background: rgba(0, 0, 0, .36) !important; }
-#mcd-root .pa-sheet.pa-sheet-pop { width: max-content; min-width: 208px; max-width: min(296px, calc(100% - 16px)); border: 0; border-radius: 14px; overflow: hidden;
+#mcd-root .pa-sheet.pa-sheet-pop { width: max-content; min-width: 208px; max-width: min(296px, calc(100% - 16px)); border: 1px solid var(--pa-line); border-radius: 14px; overflow: hidden;
     box-shadow: 0 0 0 1px rgba(0, 0, 0, .06), 0 4px 10px rgba(0, 0, 0, .06), 0 20px 44px -12px rgba(0, 0, 0, .3);
     animation: pa-menu-in .18s cubic-bezier(.16, 1, .3, 1); }
 #mcd-root.pa-dark .pa-sheet.pa-sheet-pop { box-shadow: 0 0 0 1px rgba(255, 255, 255, .1), 0 22px 50px -12px rgba(0, 0, 0, .7); }
@@ -3416,3 +3416,48 @@ html.mcd-open #mcd-ball, #mcd-ball[hidden] { display: none !important; }
 #mcd-root .pa-nobr { white-space: nowrap; }
 /* 2.12.23 隔离酒馆与美化主题对 <code> 的深底药丸样式，避免模型名、变量名糊成黑条 */
 #mcd-root code { background: transparent !important; border: 0 !important; padding: 0 !important; border-radius: 0 !important; box-shadow: none !important; }
+
+/* =====================================================================
+   2.12.24 真机打磨：锚定下拉、思维链结论头、变量收起、回复标签字号与平滑切换
+   ===================================================================== */
+/* 预设/缝合/世界书锚定下拉：与副 API 统一，内部滚动不跳出居中大弹窗 */
+#mcd-root .pa-sheet-pop.pa-pop-picker { min-width: 220px; }
+#mcd-root .pa-sheet-pop.pa-pop-picker .pa-npick { display: flex; flex-direction: column; gap: 6px; }
+#mcd-root .pa-sheet-pop.pa-pop-picker .pa-npick-list { max-height: min(46vh, 340px); overflow-y: auto; overscroll-behavior: contain; }
+#mcd-root .pa-sheet-pop.pa-pop-picker .pa-npick-q { margin: 2px 2px 2px; width: calc(100% - 4px); }
+
+/* 思维链结论头：左标题 + 内联 ⓘ + 副标题，右紧凑「一键修复」按钮，不再孤零零悬空占一整行 */
+#mcd-root .pa-verdict-head .pa-verdict-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+#mcd-root .pa-verdict-head .pa-verdict-copy { flex: 1 1 auto; min-width: 0; margin: 0; display: grid; gap: 2px; }
+#mcd-root .pa-verdict-head .pa-verdict-t { display: inline-flex; align-items: center; gap: 4px; flex-wrap: wrap; }
+#mcd-root .pa-verdict-head .pa-verdict-btn { flex: none; min-height: 34px; padding: 0 14px; border-radius: 999px; font-weight: 600; }
+
+/* 变量页：实时聊天变量读完可收起、展开 */
+#mcd-root .pa-var-atrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; min-height: 34px; }
+#mcd-root .pa-var-atrow > .pa-var-at { margin: 0; min-width: 0; }
+#mcd-root .pa-var-fold { flex: none; display: inline-flex; align-items: center; gap: 4px; padding: 4px 2px; font-size: max(12px, .84em); color: var(--pa-em); text-decoration: none; }
+#mcd-root .pa-var-fold > svg.pa-acc-caret { transition: transform 220ms var(--pa-ease-out, ease-out); }
+
+/* 回复页「匹配标签」：标签与 ⓘ 紧贴左侧、字号与右侧输入值协调，不再黑字比灰字小 */
+#mcd-root .pa-replypage .pa-rt-in { flex-wrap: nowrap; gap: 10px; }
+#mcd-root .pa-replypage .pa-rt-lbl { flex: none; display: inline-flex; align-items: center; gap: 4px; font-size: 1em; line-height: 1.35; color: var(--pa-text); white-space: nowrap; }
+#mcd-root .pa-replypage .pa-rt-lbl label { display: inline; margin: 0; font-size: inherit; color: inherit; cursor: pointer; }
+#mcd-root .pa-replypage .pa-rt-lbl b { font-weight: 550; font-size: 1em; color: var(--pa-text); }
+#mcd-root .pa-replypage .pa-rtable .pa-rt-in > input.pa-rt-v { flex: 1 1 8em; min-width: 5em; font-size: 1em; color: var(--pa-em); }
+#mcd-root .pa-replypage .pa-rtable .pa-rt-in > input.pa-rt-v::placeholder { font-size: .92em; color: var(--pa-dim); opacity: .85; }
+@supports (-webkit-touch-callout: none) {
+    #mcd-root .pa-replypage .pa-rt-lbl { font-size: max(15px, 1em); }
+}
+
+/* 主栏目切换与弹窗平滑过渡：不再生硬硬切 */
+#mcd-root .pa-tabs [data-nav] { transition: background-color 180ms var(--pa-ease-out), color 180ms ease-out, transform 120ms ease-out; }
+#mcd-root .pa-tabs [data-nav]:active { transform: scale(.95); }
+#mcd-root .pa-page.pa-subenter > * { animation: pa-subin 190ms var(--pa-ease-out); }
+#mcd-root .pa-sheet-center { animation: pa-pop-enter 180ms cubic-bezier(0.16, 1, 0.3, 1); }
+#mcd-root .pa-sheet-mask.pa-out .pa-sheet:not(.pa-sheet-pop):not(.pa-sheet-center) { transform: translateY(16px); opacity: 0; transition: transform 150ms ease-out, opacity 150ms ease-out; }
+@media (prefers-reduced-motion: reduce) {
+    #mcd-root .pa-tabs [data-nav], #mcd-root .pa-var-fold > svg.pa-acc-caret { transition: none !important; }
+    #mcd-root .pa-tabs [data-nav]:active { transform: none !important; }
+    #mcd-root .pa-sheet-center { animation: none !important; }
+    #mcd-root .pa-sheet-mask.pa-out .pa-sheet:not(.pa-sheet-pop):not(.pa-sheet-center) { transform: none !important; transition: none !important; }
+}

@@ -364,9 +364,8 @@ function mountCot(page, app) {
     // 2.5.0 标题和各项分开：标题一行不加框，每一项各自一个框
     let html = dead.length
       ? `<div class="pa-verdict-head">
-            <div class="pa-verdict-top"><p><b>${dead.length} 项变量读取待核对</b><small class="pa-verdict-sub">${styleLine}</small></p>${info}</div>
+            <div class="pa-verdict-top"><p class="pa-verdict-copy"><span class="pa-verdict-t"><b>${dead.length} 项变量读取待核对</b>${info}</span><small class="pa-verdict-sub">${styleLine}</small></p><button class="pa-btn pa-btn-primary pa-btn-s pa-verdict-btn" data-repair-all type="button" aria-label="一键修复变量读取">一键修复</button></div>
             ${legendNote}
-            <div class="pa-card-act pa-verdict-act"><button class="pa-btn pa-btn-primary pa-btn-s" data-repair-all type="button">一键修复变量读取</button></div>
         </div>
         <div class="pa-cards pa-dead-list">${deadHtml}</div>`
       : `<div class="pa-verdict-line${a.cotIds.length ? " pa-good" : ""}"><div class="pa-verdict-top"><p>${a.cotIds.length ? "没有读取问题 · " : ""}${styleLine}</p>${info}</div>${legendNote}</div>`;

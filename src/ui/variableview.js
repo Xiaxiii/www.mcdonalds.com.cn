@@ -3,7 +3,7 @@ var VAR_STEP = { set: "赋值", clear: "清空", delete: "删除", get: "读取"
 var VAR_KIND = { cleared: "清空后读取", "read-before-write": "先读后写", overwritten: "未读即覆盖" };
 // 2.12.20 左栏顺序诊断、右栏实时聊天变量；宽于 900px 时并排。进入页面、换预设时已自动检查，不再有「刷新顺序检查」
 function variableForm(d) {
-  let snapshot = null;
+  let snapshot = null, liveOpen = true;
   const body = el(`<div class="pa-form pa-varform"><div class="pa-vargrid" data-vf="result" aria-live="polite"></div></div>`);
   const result = body.querySelector('[data-vf="result"]');
   let fixes = [];
@@ -37,12 +37,14 @@ function variableForm(d) {
     else if (snapshot) {
       const keys = new Map(report.events.map((e) => [variableIdentity(e.scope, e.name), e]));
       for (const [key, row] of snapshot.rows) if (!keys.has(key)) keys.set(key, row);
-      rows = `<p class="pa-hint pa-var-at">${esc(new Date(snapshot.at).toLocaleTimeString())} 读取 · 先读后写可能有意读取上一轮的值</p><ul class="pa-var-rows">${[...keys].map(([key, e]) => {
+      const listHtml = `<ul class="pa-var-rows">${[...keys].map(([key, e]) => {
         const row = snapshot.rows.get(key);
         const status = !snapshot.available[e.scope] ? "接口不可读取" : !row ? "不存在" : row.empty ? "空值" : `有值${row.size == null ? "" : ` · ${row.size} 字`}`;
         const cls = row && !row.empty ? "is-on" : "";
         return `<li><span class="pa-var-rk"><code>${esc(e.name)}</code><small>${e.scope === "global" ? "全局" : "聊天"}${row?.type ? ` · ${esc(row.type)}` : ""}</small></span><span class="pa-var-rv ${cls}">${esc(status)}</span></li>`;
       }).join("") || "<li><span class=\"pa-var-rk\">没有可显示的变量</span></li>"}</ul>`;
+      const lid = accId("varlive");
+      rows = `<div class="pa-var-atrow"><p class="pa-hint pa-var-at">${esc(new Date(snapshot.at).toLocaleTimeString())} 读取 · 共 ${keys.size} 项</p><button type="button" class="pa-link pa-var-fold" data-vf="fold" aria-expanded="${liveOpen}" aria-controls="${lid}">${liveOpen ? "收起" : "展开"}${CARET_SVG}</button></div>${accBox(listHtml, liveOpen, lid)}`;
     } else rows = `<p class="pa-hint pa-var-empty">${notCur ? "读取变量状态只对酒馆正在用的预设有效。点上方「切换」改用这个预设后再读。" : "点「读取当前值」查看本聊天里这些变量现在有没有值。"}</p>`;
     const record = variableObservations.get(variableContextKey());
     const rec = record && d.name === currentPresetName() ? `<details class="pa-card pa-breathe"><summary>最近一次生成前后变化（${record.changes?.length || 0}，${esc(record.phase)}）</summary><div class="pa-details-body"><ul class="pa-notes">${(record.changes || []).map((x) => `<li>${x.scope === "global" ? "全局" : "聊天"}变量「${esc(x.name)}」：${esc(x.kind)}${x.empty === true ? "，当前为空" : ""}</li>`).join("") || "<li>未发现状态变化</li>"}</ul></div></details>` : "";
@@ -63,9 +65,19 @@ function variableForm(d) {
       toast(`已${f.label}，可撤销`, "success");
       return render();
     }
+    const foldBtn = e.target.closest('[data-vf="fold"]');
+    if (foldBtn) {
+      liveOpen = !liveOpen;
+      const acc = body.querySelector(".pa-var-live .pa-acc[data-acc]");
+      accSet(acc, liveOpen, foldBtn);
+      const t = foldBtn.firstChild;
+      if (t && t.nodeType === 3) t.nodeValue = liveOpen ? "收起" : "展开";
+      return;
+    }
     if (!e.target.closest('[data-vf="snapshot"]')) return;
     if (d.name !== currentPresetName()) return toast("只能读取酒馆当前使用中预设的聊天变量，请先切换预设", "warning");
     snapshot = captureVariableSnapshot();
+    liveOpen = true;
     render();
   });
   body.addEventListener("change", (e) => {

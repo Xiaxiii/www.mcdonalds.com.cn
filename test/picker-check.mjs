@@ -19,7 +19,8 @@ const first = await page.$eval(".pa-npick-item span", (x) => x.textContent);
 await page.fill(".pa-npick-q", first);
 const after = await page.$$eval(".pa-npick-item", (x) => x.length);
 assert.ok(after >= 1 && after <= before, "搜索能筛选");
-await page.click(".pa-sheet-x"); await page.waitForTimeout(250);
+// 2.12.24 预设列表也改为贴着按钮展开的浮层，没有 ✕，按 Esc 关
+await page.keyboard.press("Escape"); await page.waitForTimeout(250);
 // 来源类型这种几个固定选项的，不带搜索
 await page.click('[data-st="srctype"]'); await page.waitForSelector(".pa-npick-item");
 assert.equal(await page.$(".pa-npick-q"), null, "来源类型不带搜索");

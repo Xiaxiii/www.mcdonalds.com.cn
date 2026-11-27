@@ -222,7 +222,6 @@ try {
   // 整理态：⋯ → 排序与删除；完成钉在原位；方向键排序；删除
   const moreR = (await ap.locator(".pa-aux [data-a=chmore]").boundingBox());
   await ap.click(".pa-aux [data-a=chmore]");
-  await ap.locator(`${top} .pa-pick-item`, { hasText: "排序与删除" }).click();
   await ap.waitForTimeout(350);
   const doneR = await ap.locator(".pa-aux [data-a=chdone]").boundingBox();
   assert.ok(Math.abs(doneR.x + doneR.width - moreR.x - moreR.width) <= 1, "「完成」钉在 ⋯ 原位");
