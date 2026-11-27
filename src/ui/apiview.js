@@ -839,7 +839,7 @@ function mountApi(liveBox, sitesBox, optsBox = sitesBox) {
       : `${balAllBtn}${addBtn}<button class="pa-head-ico pa-head-more" data-a="sitesmore" type="button" aria-haspopup="menu" aria-label="站点：排序与删除、导入、导出" title="排序与删除、导入、导出">${ICON.more}</button>`;
     const html = `
         <div class="pa-row-head"><h3 class="pa-h">站点${n ? whyBtn("sites") : ""}</h3><div class="pa-head-btns">${headBtns}</div></div>
-        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。" : `点站点名修改详情、填余额。${balAll ? "点钱包查询全部站点的余额。" : ""}点 ⋯ 排序、删除站点，或导入、导出站点文件。导出的文件可在重装、换设备后导入。`)}<div class="pa-site-list">${sites().map(siteRow).join("")}</div>` : '<p class="pa-empty">暂无站点。可点 ＋ 添加、<button class="pa-link" data-a="importsites" type="button">从文件导入</button>，或保存上方的当前连接。</p>'}
+        ${n ? `${whyNote("sites", sitesEditing ? "按住左侧把手拖动调整顺序，点垃圾桶删除站点。" : `点站点名修改详情、填余额。${balAll ? "点钱包查询全部站点的余额。" : ""}点 ⋯ 排序、删除站点，或导入、导出站点文件。导出的文件可在重装、换设备后导入。`)}<div class="pa-site-list">${sites().map(siteRow).join("")}</div>` : '<p class="pa-empty">暂无站点。可点 ＋ 添加、<span class="pa-nobr"><button class="pa-link" data-a="importsites" type="button">从文件导入</button>，</span>或保存上方的当前连接。</p>'}
         <input type="file" accept=".json,application/json,text/plain" data-import-sites hidden>`;
     // 站点顺序、个数不变时原地补丁；增删、导入、排序后整块重画
     const sig = `${sites().map((x) => x.id).join(",")}|${n}`;
